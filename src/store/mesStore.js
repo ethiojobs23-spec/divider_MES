@@ -1,6 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
+import { ledgerAPI, downtimeAPI, payrollAPI } from '@/services/api.js'
+import { 
+  formatProductionPayload, 
+  formatFinancialPayload, 
+  formatDowntimeStartPayload,
+  formatDowntimeResolvePayload
+} from '@/utils/payloadContracts.js'
+
+
 // Helper: Amharic abbreviation → English label
 const PLACEMENT_LABELS = { 'ብተና': 'Bitena', 'ውስጥ': 'Wist', 'የተለየ': 'Yetelayi' }
 
@@ -58,6 +67,7 @@ export const useMesStore = defineStore('mes', () => {
   const ledgerEntries = ref([])
 
   function saveProductionEntry(entry) {
+    // Keep local legacy method intact for immediate UI reactivity
     ledgerEntries.value.push({
       id: Date.now(),
       timestamp: new Date().toISOString(),
@@ -65,6 +75,34 @@ export const useMesStore = defineStore('mes', () => {
       operator: activeOperator.value?.name ?? 'Unknown',
       ...entry,
     })
+  }
+
+  /**
+   * API-connected Production Logger
+   * Formats payload, fires API request (which auto-queues if offline),
+   * and updates local reactive state instantly.
+   */
+  async function submitProductionLog(data) {
+    try {
+      const payload = formatProductionPayload(data, activeOperator.value?.name ?? 'Unknown')
+      
+      // Fire API request (api.js interceptor handles offline queueing implicitly)
+      await ledgerAPI.saveEntry(payload)
+      
+      // Update local reactive state instantly for the UI
+      saveProductionEntry({
+        dividerType: payload.divider_type,
+        placement: payload.placement_style,
+        size: payload.size_cm + 'cm',
+        goodProduction: payload.qty_produced,
+        wasteMaterial: payload.qty_waste
+      })
+      
+      return true
+    } catch (err) {
+      console.error('[Store] Production log failed:', err)
+      return false
+    }
   }
 
   // Weekly aggregation for payroll
@@ -111,6 +149,28 @@ export const useMesStore = defineStore('mes', () => {
       operator: activeOperator.value?.name ?? 'Unknown',
       ...entry,
     })
+  }
+
+  /**
+   * API-connected Financial Disbursement
+   */
+  async function disburseFunds(data) {
+    try {
+      const payload = formatFinancialPayload(data, activeOperator.value?.name ?? 'Unknown')
+      
+      await payrollAPI.saveCashEntry(payload)
+      
+      addCashEntry({
+        type: payload.transaction_type,
+        amount: payload.amount,
+        reason: payload.notes
+      })
+      
+      return true
+    } catch (err) {
+      console.error('[Store] Fund disbursement failed:', err)
+      return false
+    }
   }
 
   const totalAdvances = computed(() =>
@@ -229,26 +289,58 @@ export const useMesStore = defineStore('mes', () => {
   const downtimeSessions = ref([])
   const activeDowntime = ref(null)
 
-  function startDowntime(reason) {
+  async function startDowntime(reason) {
     if (activeDowntime.value) return
-    activeDowntime.value = {
-      id: Date.now(),
-      reason,
-      startTime: new Date().toISOString(),
-      operator: activeOperator.value?.name ?? 'Unknown',
+    
+    try {
+      const payload = formatDowntimeStartPayload({ reason }, activeOperator.value?.name ?? 'Unknown')
+      
+      // Get the real server ID if online, else use a temporary client ID
+      const res = await downtimeAPI.create(payload)
+      const serverId = res?.data?.id ?? Date.now()
+
+      activeDowntime.value = {
+        id: serverId,
+        reason: payload.issue_category,
+        startTime: payload.start_time,
+        operator: payload.operator_name,
+      }
+    } catch (err) {
+      console.error('[Store] Start downtime failed:', err)
     }
   }
 
-  function resolveDowntime(notes = '') {
+  async function resolveDowntime(notes = '') {
     if (!activeDowntime.value) return
-    const session = {
-      ...activeDowntime.value,
-      endTime: new Date().toISOString(),
-      notes,
-      duration: Date.now() - new Date(activeDowntime.value.startTime).getTime(),
+    
+    try {
+      const payload = formatDowntimeResolvePayload(notes)
+      
+      await downtimeAPI.resolve(activeDowntime.value.id, payload)
+      
+      const session = {
+        ...activeDowntime.value,
+        endTime: new Date().toISOString(),
+        notes: payload.notes,
+        duration: Date.now() - new Date(activeDowntime.value.startTime).getTime(),
+      }
+      downtimeSessions.value.push(session)
+      activeDowntime.value = null
+    } catch (err) {
+      console.error('[Store] Resolve downtime failed:', err)
     }
-    downtimeSessions.value.push(session)
-    activeDowntime.value = null
+  }
+
+  /**
+   * API-connected Unified Downtime Logger
+   * Maps UI data to start/resolve actions depending on active state.
+   */
+  async function logDowntime(data) {
+    if (data.action === 'start') {
+      return await startDowntime(data.reason)
+    } else if (data.action === 'resolve') {
+      return await resolveDowntime(data.notes)
+    }
   }
 
   // ─── PIN / Admin Auth ──────────────────────────────────────────────────────
@@ -296,13 +388,13 @@ export const useMesStore = defineStore('mes', () => {
     // Week
     currentProductionWeek, setProductionWeek,
     // Ledger
-    ledgerEntries, saveProductionEntry, weeklyAggregation,
+    ledgerEntries, saveProductionEntry, submitProductionLog, weeklyAggregation,
     // Inventory
     inventory, adjustInventory,
     // Cash
-    cashEntries, addCashEntry, totalAdvances, totalExpenses,
+    cashEntries, addCashEntry, disburseFunds, totalAdvances, totalExpenses,
     // Downtime
-    downtimeSessions, activeDowntime, startDowntime, resolveDowntime,
+    downtimeSessions, activeDowntime, startDowntime, resolveDowntime, logDowntime,
     // Dispatch
     dispatchLogs, clients, addDispatch, totalDispatched,
     // Admin Config
