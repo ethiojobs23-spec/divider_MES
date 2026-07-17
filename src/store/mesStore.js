@@ -251,6 +251,44 @@ export const useMesStore = defineStore('mes', () => {
     activeDowntime.value = null
   }
 
+  // ─── PIN / Admin Auth ──────────────────────────────────────────────────────
+  // PIN stored in localStorage (plain in dev; SHA-256 in production).
+  const adminPin       = ref(localStorage.getItem('mes_admin_pin') ?? '1234')
+  const hasAdminAccess = ref(false)
+
+  // JWT auth token for API calls
+  const authToken = ref(localStorage.getItem('mes_auth_token') ?? null)
+
+  function grantAdminAccess() {
+    hasAdminAccess.value = true
+    // Auto-revoke after 30 minutes of inactivity
+    setTimeout(() => { hasAdminAccess.value = false }, 30 * 60 * 1000)
+  }
+
+  function revokeAdminAccess() {
+    hasAdminAccess.value = false
+  }
+
+  function setAdminPin(newPin) {
+    if (!/^\d{4}$/.test(newPin)) {
+      console.error('[Store] PIN must be exactly 4 digits')
+      return
+    }
+    adminPin.value = newPin
+    localStorage.setItem('mes_admin_pin', newPin)
+  }
+
+  function setAuthToken(token) {
+    authToken.value = token
+    localStorage.setItem('mes_auth_token', token)
+  }
+
+  function clearAuthToken() {
+    authToken.value = null
+    localStorage.removeItem('mes_auth_token')
+    hasAdminAccess.value = false
+  }
+
   return {
     // Operators
     operators, activeOperator, clockedInOperators,
@@ -273,6 +311,10 @@ export const useMesStore = defineStore('mes', () => {
     // Analytics
     operatorEfficiency, sevenDayTrend,
     totalGoodAllTime, totalWasteAllTime, overallWastePct,
+    // PIN / Admin Auth
+    adminPin, hasAdminAccess, grantAdminAccess, revokeAdminAccess, setAdminPin,
+    // Auth token
+    authToken, setAuthToken, clearAuthToken,
   }
 },
 { persist: false } // set to true with pinia-plugin-persistedstate if needed

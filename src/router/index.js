@@ -1,14 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import KioskLogin       from '@/views/KioskLogin.vue'
-import ProductionLogger from '@/views/ProductionLogger.vue'
-import DowntimeTracker  from '@/views/DowntimeTracker.vue'
-import InventoryManager from '@/views/InventoryManager.vue'
-import CashAdvanceHub   from '@/views/CashAdvanceHub.vue'
-import PayrollDashboard from '@/views/PayrollDashboard.vue'
+import { getActivePinia } from 'pinia'
+import { useMesStore } from '@/store/mesStore.js'
+import KioskLogin        from '@/views/KioskLogin.vue'
+import ProductionLogger  from '@/views/ProductionLogger.vue'
+import DowntimeTracker   from '@/views/DowntimeTracker.vue'
+import InventoryManager  from '@/views/InventoryManager.vue'
+import CashAdvanceHub    from '@/views/CashAdvanceHub.vue'
+import PayrollDashboard  from '@/views/PayrollDashboard.vue'
 import QualityControl    from '@/views/QualityControl.vue'
 import DispatchLogistics from '@/views/DispatchLogistics.vue'
 import ExecutiveAnalytics from '@/views/ExecutiveAnalytics.vue'
-import AdminSettings      from '@/views/AdminSettings.vue'
+import AdminSettings     from '@/views/AdminSettings.vue'
+import PinAuth           from '@/views/PinAuth.vue'
 
 const routes = [
   {
@@ -37,7 +40,7 @@ const routes = [
     path: '/inventory',
     name: 'InventoryManager',
     component: InventoryManager,
-    meta: { title: 'Inventory', icon: 'inventory_2', nav: true },
+    meta: { title: 'Inventory', icon: 'inventory_2', nav: true, requiresAdmin: true },
   },
   {
     path: '/cash',
@@ -49,7 +52,7 @@ const routes = [
     path: '/payroll',
     name: 'PayrollDashboard',
     component: PayrollDashboard,
-    meta: { title: 'Payroll', icon: 'account_balance_wallet', nav: true },
+    meta: { title: 'Payroll', icon: 'account_balance_wallet', nav: true, requiresAdmin: true },
   },
   {
     path: '/quality',
@@ -67,13 +70,19 @@ const routes = [
     path: '/analytics',
     name: 'ExecutiveAnalytics',
     component: ExecutiveAnalytics,
-    meta: { title: 'Analytics', icon: 'analytics', nav: true },
+    meta: { title: 'Analytics', icon: 'analytics', nav: true, requiresAdmin: true },
   },
   {
     path: '/settings',
     name: 'AdminSettings',
     component: AdminSettings,
-    meta: { title: 'Settings', icon: 'settings', nav: true },
+    meta: { title: 'Settings', icon: 'settings', nav: true, requiresAdmin: true },
+  },
+  {
+    path: '/pin-auth',
+    name: 'PinAuth',
+    component: PinAuth,
+    meta: { title: 'Manager PIN', icon: 'lock', nav: false },
   },
 ]
 
@@ -82,9 +91,26 @@ const router = createRouter({
   routes,
 })
 
-// Navigation guard – set document title
-router.beforeEach((to) => {
+// ─── Navigation Guards ────────────────────────────────────────────────────
+router.beforeEach((to, from) => {
+  // 1. Set document title
   document.title = `${to.meta.title ?? 'MES'} | Divider MES`
+
+  // 2. Admin PIN guard — protect requiresAdmin routes
+  if (to.meta.requiresAdmin) {
+    // Pinia may not be mounted yet during the very first navigation
+    if (!getActivePinia()) return true
+    const store = useMesStore()
+
+    if (!store.hasAdminAccess) {
+      return {
+        name: 'PinAuth',
+        query: { returnTo: to.fullPath },
+      }
+    }
+  }
+
+  return true
 })
 
 export default router

@@ -1,5 +1,8 @@
 <template>
   <div class="tablet-layout">
+    <!-- ─── Global Network Status Banner ─────────────────────────────── -->
+    <NetworkBanner />
+
     <!-- ─── Sidebar ───────────────────────────────────────────────── -->
     <aside class="sidebar">
       <!-- Logo / Brand -->
@@ -68,6 +71,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { routes } from '@/router/index.js'
 import { useMesStore } from '@/store/mesStore.js'
+import NetworkBanner from '@/components/ui/NetworkBanner.vue'
 
 const store = useMesStore()
 
