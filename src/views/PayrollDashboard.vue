@@ -6,7 +6,7 @@
         <span class="material-symbols-rounded header-icon">account_balance_wallet</span>
         <div>
           <h1 class="header-title">Weekly Payroll Dashboard</h1>
-          <p class="header-sub">{{ store.currentProductionWeek }} &bull; Auto-aggregated from production ledger</p>
+          <p class="header-sub">{{ store.currentProductionWeek }} &bull; Auto-aggregated from production & HR ledger</p>
         </div>
       </div>
       <div class="header-stats">
@@ -15,8 +15,8 @@
           <strong>{{ store.weeklyAggregation.TOTAL }} pcs</strong>
         </div>
         <div class="stat-chip">
-          <span>Advances Paid</span>
-          <strong class="stat-warn">{{ store.totalAdvances }} ETB</strong>
+          <span>Total Deductions</span>
+          <strong class="stat-warn">{{ totalAllDeductions.toFixed(2) }} ETB</strong>
         </div>
       </div>
     </div>
@@ -29,15 +29,18 @@
             <th class="col-op">Operator</th>
             <!-- Production Blocks -->
             <th colspan="4" class="group-header group-header--prod">Production Blocks (pcs)</th>
-            <!-- Financial Payouts -->
-            <th colspan="5" class="group-header group-header--pay">Financial Payouts (ETB)</th>
+            <!-- HR & Financial Payouts -->
+            <th colspan="4" class="group-header group-header--pay">Financial Payouts (ETB)</th>
           </tr>
           <tr>
             <th class="col-op"></th>
             <!-- Prod sub-headers -->
             <th v-for="ph in prodHeaders" :key="ph" class="subhead subhead--prod">{{ ph }}</th>
             <!-- Pay sub-headers -->
-            <th v-for="fh in finHeaders" :key="fh" class="subhead subhead--pay">{{ fh }}</th>
+            <th class="subhead subhead--pay">Days Attended</th>
+            <th class="subhead subhead--pay">Gross Earnings</th>
+            <th class="subhead subhead--pay">Loan Deductions</th>
+            <th class="subhead subhead--pay">Net Final Payout</th>
           </tr>
         </thead>
         <tbody>
@@ -62,12 +65,18 @@
             </td>
             <td class="cell-num cell-total">{{ getOpTotal(op.id) }}</td>
 
-            <!-- Financial data (stub – derived from advances) -->
-            <td class="cell-num cell-pay">{{ getAdvance(op.id, 'now') }}</td>
-            <td class="cell-num cell-pay">{{ getAdvance(op.id, 'withdr') }}</td>
-            <td class="cell-num cell-bonus">{{ getBonus(op.id) }}</td>
-            <td class="cell-num cell-pay">{{ getPrevious(op.id) }}</td>
-            <td class="cell-num cell-total cell-grand">{{ getGrandTotal(op.id) }}</td>
+            <!-- HR & Financial data -->
+            <td class="cell-num cell-attendance">
+              {{ getDays(op.id) }}/6
+            </td>
+            <td class="cell-num cell-gross">{{ getGross(op.id).toFixed(2) }}</td>
+            <td class="cell-num cell-deduction">{{ getDeductions(op.id).toFixed(2) }}</td>
+            <td class="cell-num cell-net">
+              <div class="net-payout-wrapper">
+                <span v-if="getDays(op.id) === 0" class="material-symbols-rounded lock-icon">lock</span>
+                <span :class="{ 'frozen': getDays(op.id) === 0 }">{{ getNet(op.id).toFixed(2) }}</span>
+              </div>
+            </td>
           </tr>
         </tbody>
         <tfoot>
@@ -77,8 +86,8 @@
             <td class="cell-num footer-num">{{ store.weeklyAggregation['W&T'] }}</td>
             <td class="cell-num footer-num">{{ store.weeklyAggregation['F&S'] }}</td>
             <td class="cell-num footer-num footer-grand">{{ store.weeklyAggregation.TOTAL }}</td>
-            <td colspan="5" class="cell-num footer-num footer-pay">
-              Total Payouts: {{ store.totalAdvances + store.totalExpenses }} ETB
+            <td colspan="4" class="cell-num footer-num footer-pay">
+              Total Net Payouts: {{ totalNetPayouts.toFixed(2) }} ETB
             </td>
           </tr>
         </tfoot>
@@ -90,11 +99,12 @@
 <script setup>
 import { computed } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
+import { usePayrollStore } from '@/store/payrollStore.js'
 
 const store = useMesStore()
+const payrollStore = usePayrollStore()
 
 const prodHeaders = ['M&T', 'W&T', 'F&S', 'TOTAL']
-const finHeaders  = ['NOW', 'WITHDR', 'BONUS', 'PREVIOUS', 'TOTAL']
 
 // Production per operator
 function getOpProduction(opId, period) {
@@ -114,36 +124,33 @@ function getOpTotal(opId) {
     .reduce((s, e) => s + (Number(e.goodProduction) || 0), 0)
 }
 
-// Financial helpers – derive from cashEntries
-function getAdvance(opId, type) {
-  const op = store.operators.find(o => o.id === opId)
-  if (!op) return 0
-  if (type === 'now') {
-    return store.cashEntries
-      .filter(e => e.operator === op.name && e.type === 'advance')
-      .slice(-1)[0]?.amount ?? 0
-  }
-  if (type === 'withdr') {
-    return store.cashEntries
-      .filter(e => e.operator === op.name && e.type === 'advance' && e.note === 'Weekly Advance')
-      .reduce((s, e) => s + Number(e.amount), 0)
-  }
-  return 0
+// Financial functions from payrollStore
+const currentWeek = computed(() => store.currentProductionWeek)
+
+function getDays(opId) {
+  return payrollStore.getDaysAttended(opId, currentWeek.value)
 }
 
-function getBonus(opId) {
-  const op = store.operators.find(o => o.id === opId)
-  if (!op) return 0
-  return store.cashEntries
-    .filter(e => e.operator === op.name && e.note === 'Bonus')
-    .reduce((s, e) => s + Number(e.amount), 0)
+function getGross(opId) {
+  return payrollStore.getGrossEarnings(opId, currentWeek.value)
 }
 
-function getPrevious(opId) { return 0 } // placeholder for carry-over logic
-
-function getGrandTotal(opId) {
-  return getAdvance(opId, 'now') + getAdvance(opId, 'withdr') + getBonus(opId) + getPrevious(opId)
+function getDeductions(opId) {
+  return payrollStore.getLoanDeductions(opId, currentWeek.value).totalDeduction
 }
+
+function getNet(opId) {
+  return payrollStore.calculateFinalPayout(opId, currentWeek.value)
+}
+
+const totalAllDeductions = computed(() => {
+  return store.operators.reduce((sum, op) => sum + getDeductions(op.id), 0)
+})
+
+const totalNetPayouts = computed(() => {
+  return store.operators.reduce((sum, op) => sum + getNet(op.id), 0)
+})
+
 </script>
 
 <style scoped>
@@ -154,6 +161,7 @@ function getGrandTotal(opId) {
   height: 100vh;
   background: #0f172a;
   overflow: hidden;
+  font-family: 'Inter', sans-serif;
 }
 
 /* Header */
@@ -167,9 +175,9 @@ function getGrandTotal(opId) {
   flex-shrink: 0;
 }
 .header-left   { display: flex; align-items: center; gap: 1rem; }
-.header-icon   { font-size: 2rem; color: #a5b4fc; }
-.header-title  { font-size: 1.2rem; font-weight: 800; color: #f1f5f9; }
-.header-sub    { font-size: .75rem; color: #64748b; margin-top: .15rem; }
+.header-icon   { font-size: 2.5rem; color: #a5b4fc; }
+.header-title  { font-size: 1.4rem; font-weight: 800; color: #f1f5f9; margin:0; }
+.header-sub    { font-size: .85rem; color: #64748b; margin-top: .15rem; }
 .header-stats  { display: flex; gap: 1rem; }
 .stat-chip {
   background: rgba(255,255,255,.05);
@@ -193,59 +201,83 @@ function getGrandTotal(opId) {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: .85rem;
+  font-size: .9rem;
 }
 
 /* Group headers */
 .group-header {
-  padding: .6rem 1rem;
+  padding: .8rem 1rem;
   text-align: center;
-  font-size: .7rem;
+  font-size: .8rem;
   font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;
 }
 .group-header--prod { background: rgba(99,102,241,.15); color: #a5b4fc; border-bottom: 2px solid rgba(99,102,241,.4); }
-.group-header--pay  { background: rgba(245,158,11,.1); color: #fbbf24; border-bottom: 2px solid rgba(245,158,11,.3); }
+.group-header--pay  { background: rgba(16,185,129,.1); color: #34d399; border-bottom: 2px solid rgba(16,185,129,.3); }
 
 .subhead {
-  padding: .55rem .75rem;
-  font-size: .65rem;
+  padding: .75rem .75rem;
+  font-size: .75rem;
   font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
 }
-.subhead--prod { color: #6366f1; background: rgba(99,102,241,.08); }
-.subhead--pay  { color: #d97706; background: rgba(245,158,11,.07); }
+.subhead--prod { color: #818cf8; background: rgba(99,102,241,.08); }
+.subhead--pay  { color: #10b981; background: rgba(16,185,129,.07); }
 
-.col-op { width: 14rem; }
+.col-op { width: 16rem; }
 
 /* Rows */
 .data-row td { border-bottom: 1px solid rgba(255,255,255,.05); }
 .data-row:hover td { background: rgba(255,255,255,.03); }
 
-.cell-op { padding: .75rem 1rem; }
-.op-cell { display: flex; align-items: center; gap: .65rem; }
+.cell-op { padding: 1rem; }
+.op-cell { display: flex; align-items: center; gap: .8rem; }
 .op-avatar-sm {
-  width: 2rem; height: 2rem;
-  border-radius: .4rem;
+  width: 2.5rem; height: 2.5rem;
+  border-radius: .5rem;
   display: flex; align-items: center; justify-content: center;
-  font-size: .8rem; font-weight: 800; color: #fff;
+  font-size: 1rem; font-weight: 800; color: #fff;
   flex-shrink: 0;
 }
-.op-cell-name { font-size: .85rem; font-weight: 700; color: #e2e8f0; }
-.op-cell-role { font-size: .65rem; color: #64748b; }
+.op-cell-name { font-size: .95rem; font-weight: 700; color: #e2e8f0; margin:0; }
+.op-cell-role { font-size: .75rem; color: #64748b; margin:0; }
 
-.cell-num { padding: .75rem .9rem; text-align: right; font-weight: 700; font-size: .9rem; color: #94a3b8; font-variant-numeric: tabular-nums; }
+.cell-num { padding: 1rem; text-align: right; font-weight: 700; font-size: 1rem; color: #94a3b8; font-variant-numeric: tabular-nums; }
 .cell-total { color: #e2e8f0; background: rgba(255,255,255,.03); }
-.cell-pay   { color: #fbbf24; }
-.cell-bonus { color: #34d399; }
-.cell-grand { background: rgba(245,158,11,.08); color: #fbbf24; }
+
+.cell-attendance { color: #38bdf8; }
+.cell-gross { color: #f1f5f9; }
+.cell-deduction { color: #fbbf24; }
+.cell-net { 
+  background: rgba(16,185,129,.08); 
+  color: #10b981;
+  font-size: 1.1rem;
+}
+
+.net-payout-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.lock-icon {
+  font-size: 1.2rem;
+  color: #ef4444;
+}
+
+.frozen {
+  color: #64748b;
+  text-decoration: line-through;
+}
 
 /* Footer */
-.footer-row td { background: rgba(255,255,255,.04); }
-.footer-label  { padding: .75rem 1rem; font-size: .75rem; font-weight: 800; color: #64748b; letter-spacing: .08em; text-transform: uppercase; }
-.footer-num    { color: #a5b4fc; font-size: .9rem; font-weight: 800; padding: .75rem .9rem; text-align: right; }
+.footer-row td { background: rgba(255,255,255,.04); border-top: 2px solid rgba(255,255,255,0.1); }
+.footer-label  { padding: 1rem; font-size: .85rem; font-weight: 800; color: #64748b; letter-spacing: .08em; text-transform: uppercase; }
+.footer-num    { color: #a5b4fc; font-size: 1.1rem; font-weight: 800; padding: 1rem; text-align: right; }
 .footer-grand  { color: #c7d2fe; }
-.footer-pay    { text-align: right; color: #fbbf24; font-size: .82rem; }
+.footer-pay    { text-align: right; color: #10b981; font-size: 1rem; }
 </style>
+
