@@ -1,4 +1,5 @@
 {
+  "name": "divider-mes",
   "rewrites": [
     {
       "source": "/(.*)",
