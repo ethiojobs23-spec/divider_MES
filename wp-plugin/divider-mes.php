@@ -28,8 +28,9 @@ define( 'MES_PLUGIN_FILE', __FILE__ );
 // REST API namespace — all endpoints live under /wp-json/factory/v1/
 define( 'MES_API_NAMESPACE', 'factory/v1' );
 
-// ─── Includes ─────────────────────────────────────────────────────────────
+// ─── Includes ──────────────────────────────────────────────────────────[...]
 require_once MES_PLUGIN_DIR . 'includes/class-mes-activator.php';
+require_once MES_PLUGIN_DIR . 'includes/class-mes-rest.php';
 
 // ─── Activation / Deactivation Hooks ─────────────────────────────────────
 register_activation_hook( MES_PLUGIN_FILE, [ 'MES_Activator', 'activate' ] );
@@ -37,3 +38,6 @@ register_deactivation_hook( MES_PLUGIN_FILE, [ 'MES_Activator', 'deactivate' ] )
 
 // ─── Schema upgrade on every load (handles update without re-activation) ──
 add_action( 'plugins_loaded', [ 'MES_Activator', 'maybe_upgrade' ] );
+
+// Initialize REST routes after REST API is ready.
+add_action( 'rest_api_init', [ 'MES_REST', 'register_routes' ] );
