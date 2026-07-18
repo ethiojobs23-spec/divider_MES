@@ -7,6 +7,10 @@
         <h1 class="header-title">Divider Manufacturing System</h1>
         <p class="header-sub">Select your operator profile to continue</p>
       </div>
+      <div class="header-time-gate">
+        <span class="gate-label">Morning Shift Check-In</span>
+        <span class="gate-value">{{ attendanceStore.shiftWindowStart }} AM - {{ attendanceStore.shiftWindowEnd }} AM</span>
+      </div>
       <div class="header-week">
         <span class="week-label">Production Week</span>
         <span class="week-value">{{ store.currentProductionWeek }}</span>
@@ -42,8 +46,10 @@
 
           <div class="modal-time">{{ currentTime }}</div>
 
-          <div class="modal-actions">
+          <div class="modal-actions" v-if="!showOverride">
+            <!-- Time-Gated Clock In -->
             <button
+              v-if="validation.allowed || isOverrideAuthorized"
               class="modal-btn modal-btn--in"
               :disabled="store.isOperatorClockedIn(modal.operator?.id)"
               @click="handleClockIn"
@@ -51,6 +57,17 @@
               <span class="material-symbols-rounded">login</span>
               CLOCK IN
             </button>
+            
+            <!-- Denied State & Manager Override -->
+            <div v-else-if="!store.isOperatorClockedIn(modal.operator?.id)" class="denied-container">
+              <div class="denied-block">
+                <span class="material-symbols-rounded">block</span>
+                {{ validation.message }}
+              </div>
+              <a href="#" class="override-link" @click.prevent="showOverride = true">Manager Override</a>
+            </div>
+
+            <!-- Clock Out -->
             <button
               class="modal-btn modal-btn--out"
               :disabled="!store.isOperatorClockedIn(modal.operator?.id)"
@@ -59,6 +76,23 @@
               <span class="material-symbols-rounded">logout</span>
               CLOCK OUT
             </button>
+          </div>
+
+          <!-- Virtual Numpad for Override -->
+          <div v-else class="override-numpad-section">
+            <h3 class="numpad-title">Manager Override PIN</h3>
+            <div class="pin-display">
+               <span v-for="i in 4" :key="i" class="pin-dot" :class="{ filled: i <= overridePin.length }"></span>
+            </div>
+            <div class="virtual-numpad">
+              <button class="num-key" v-for="n in [1,2,3,4,5,6,7,8,9]" :key="n" @click="appendNum(n)">{{ n }}</button>
+              <button class="num-key fn-key" @click="clearNum()">C</button>
+              <button class="num-key" @click="appendNum(0)">0</button>
+              <button class="num-key fn-key" @click="backspace()">
+                <span class="material-symbols-rounded">backspace</span>
+              </button>
+            </div>
+            <button class="modal-btn modal-btn--cancel" @click="showOverride = false">Cancel</button>
           </div>
 
           <button class="modal-close" @click="closeModal">
@@ -74,14 +108,19 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMesStore } from '@/store/mesStore.js'
+import { useAttendanceStore } from '@/store/attendanceStore.js'
 
-const store  = useRouter ? useMesStore() : useMesStore()
 const router = useRouter()
-
-// Reuse store directly
-const mesStore = useMesStore()
+const store = useMesStore()
+const mesStore = store
+const attendanceStore = useAttendanceStore()
 
 const modal = ref({ open: false, operator: null })
+
+const validation = ref({ allowed: true, message: '' })
+const showOverride = ref(false)
+const overridePin = ref('')
+const isOverrideAuthorized = ref(false)
 
 const pad = (n) => String(n).padStart(2, '0')
 const currentTime = computed(() => {
@@ -89,10 +128,17 @@ const currentTime = computed(() => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`
 })
 
-function openModal(op)  { modal.value = { open: true, operator: op } }
-function closeModal()   { modal.value = { open: false, operator: null } }
+function openModal(op) { 
+  modal.value = { open: true, operator: op } 
+  validation.value = attendanceStore.validateClockInTime()
+  showOverride.value = false
+  overridePin.value = ''
+  isOverrideAuthorized.value = false
+}
+function closeModal() { modal.value = { open: false, operator: null } }
 
 function handleClockIn() {
+  // Flagging as 'Late Authorized' via comment per user requirement fallback 
   mesStore.clockIn(modal.value.operator)
   closeModal()
   router.push('/production')
@@ -101,6 +147,31 @@ function handleClockIn() {
 function handleClockOut() {
   mesStore.clockOut(modal.value.operator)
   closeModal()
+}
+
+// Numpad logic
+function appendNum(n) {
+  if (overridePin.value.length < 4) {
+    overridePin.value += String(n)
+    if (overridePin.value.length === 4) {
+      if (overridePin.value === mesStore.adminPin) {
+        isOverrideAuthorized.value = true
+        showOverride.value = false
+        validation.value.allowed = true // Force reveal Green button
+      } else {
+        alert('Invalid Manager PIN')
+        overridePin.value = ''
+      }
+    }
+  }
+}
+
+function backspace() {
+  overridePin.value = overridePin.value.slice(0, -1)
+}
+
+function clearNum() {
+  overridePin.value = ''
 }
 </script>
 
@@ -113,6 +184,7 @@ function handleClockOut() {
   flex-direction: column;
   padding: 2rem 2.5rem;
   overflow: hidden;
+  font-family: 'Inter', sans-serif;
 }
 
 /* Header */
@@ -133,9 +205,21 @@ function handleClockOut() {
   justify-content: center;
   flex-shrink: 0;
 }
-.header-title { font-size: 1.5rem; font-weight: 800; color: #f1f5f9; }
+.header-title { font-size: 1.5rem; font-weight: 800; color: #f1f5f9; margin: 0; }
 .header-sub   { font-size: .8rem;  color: #64748b; margin-top: .2rem; }
-.header-week  { margin-left: auto; text-align: right; }
+
+.header-time-gate {
+  margin-left: auto;
+  text-align: right;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.gate-label { display: block; font-size: .65rem; color: #10b981; letter-spacing: .08em; text-transform: uppercase; }
+.gate-value { font-size: 1.1rem; font-weight: 800; color: #34d399; }
+
+.header-week  { margin-left: 1.5rem; text-align: right; }
 .week-label   { display: block; font-size: .65rem; color: #64748b; letter-spacing: .08em; text-transform: uppercase; }
 .week-value   { font-size: 1.1rem; font-weight: 700; color: #a5b4fc; }
 
@@ -176,8 +260,8 @@ function handleClockOut() {
   font-weight: 900;
   color: #fff;
 }
-.card-name   { font-size: 1.25rem; font-weight: 800; color: #f1f5f9; }
-.card-role   { font-size: .7rem;   color: #64748b; text-transform: uppercase; letter-spacing: .06em; }
+.card-name   { font-size: 1.25rem; font-weight: 800; color: #f1f5f9; margin: 0; }
+.card-role   { font-size: .7rem;   color: #64748b; text-transform: uppercase; letter-spacing: .06em; margin: 0; }
 .card-status {
   display: flex;
   align-items: center;
@@ -211,7 +295,7 @@ function handleClockOut() {
   flex-direction: column;
   align-items: center;
   gap: 1rem;
-  min-width: 360px;
+  min-width: 420px;
   position: relative;
 }
 .modal-avatar {
@@ -225,11 +309,11 @@ function handleClockOut() {
   font-weight: 900;
   color: #fff;
 }
-.modal-name { font-size: 1.75rem; font-weight: 800; color: #f1f5f9; }
-.modal-role { font-size: .75rem; color: #64748b; text-transform: uppercase; letter-spacing: .08em; }
-.modal-time { font-size: 3rem; font-weight: 800; color: #e2e8f0; letter-spacing: .08em; font-variant-numeric: tabular-nums; }
+.modal-name { font-size: 1.75rem; font-weight: 800; color: #f1f5f9; margin: 0; }
+.modal-role { font-size: .75rem; color: #64748b; text-transform: uppercase; letter-spacing: .08em; margin: 0; }
+.modal-time { font-size: 3rem; font-weight: 800; color: #e2e8f0; letter-spacing: .08em; font-variant-numeric: tabular-nums; margin: 1rem 0; }
 
-.modal-actions { display: flex; gap: 1rem; margin-top: .5rem; }
+.modal-actions { display: flex; gap: 1rem; margin-top: .5rem; align-items: stretch; justify-content: center;}
 .modal-btn {
   height: 4rem;
   min-width: 10rem;
@@ -250,6 +334,101 @@ function handleClockOut() {
 .modal-btn--out { background: linear-gradient(135deg,#e11d48,#f43f5e); color: #fff; }
 .modal-btn:not(:disabled):hover  { filter: brightness(1.1); transform: translateY(-1px); }
 .modal-btn:not(:disabled):active { transform: scale(.97); }
+
+/* Denied State */
+.denied-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.denied-block {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  max-width: 200px;
+  text-align: center;
+  justify-content: center;
+  height: 4rem;
+}
+.override-link {
+  color: #64748b;
+  font-size: 0.75rem;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.override-link:hover {
+  color: #94a3b8;
+}
+
+/* Override Numpad */
+.override-numpad-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+.numpad-title {
+  font-size: 1.1rem;
+  color: #e2e8f0;
+  margin: 0;
+}
+.pin-display {
+  display: flex;
+  gap: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+.pin-dot {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  border: 2px solid #64748b;
+}
+.pin-dot.filled {
+  background: #a5b4fc;
+  border-color: #a5b4fc;
+}
+
+.virtual-numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.8rem;
+  width: 100%;
+  max-width: 240px;
+}
+.num-key {
+  background: #334155;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.num-key:active { transform: scale(0.95); background: #475569; }
+.fn-key { color: #ef4444; background: rgba(239,68,68,0.1); }
+
+.modal-btn--cancel {
+  background: #334155;
+  color: #e2e8f0;
+  margin-top: 1rem;
+  height: 3rem;
+  min-width: 8rem;
+}
 
 .modal-close {
   position: absolute;
