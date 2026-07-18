@@ -48,7 +48,7 @@
           <span class="nav-label">{{ route.meta.title }}</span>
         </router-link>
 
-        <!-- Login always at bottom -->
+        <!-- Login always at bottom of nav items -->
         <router-link
           to="/login"
           class="nav-item nav-item--login"
@@ -58,6 +58,12 @@
           <span class="nav-label">Operators</span>
         </router-link>
       </nav>
+
+      <!-- ── Back to Hub ──────────────────────────────────────────── -->
+      <button class="back-to-hub" @click="router.push('/hub')">
+        <span class="material-symbols-rounded back-hub-icon">arrow_back</span>
+        <span class="back-hub-label">Back to Hub</span>
+      </button>
     </aside>
 
     <!-- ─── Main Content ──────────────────────────────────────────── -->
@@ -69,9 +75,12 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { routes } from '@/router/index.js'
 import { useMesStore } from '@/store/mesStore.js'
 import NetworkBanner from '@/components/ui/NetworkBanner.vue'
+
+const router = useRouter()
 
 const store = useMesStore()
 
@@ -195,7 +204,7 @@ const navRoutes = computed(() => routes.filter(r => r.meta?.nav))
   display: flex;
   flex-direction: column;
   gap: .3rem;
-  flex: 1;
+  /* flex: 1 removed — hub button now owns margin-top: auto */
 }
 .nav-item {
   display: flex;
@@ -212,8 +221,34 @@ const navRoutes = computed(() => routes.filter(r => r.meta?.nav))
 }
 .nav-item:hover { background: rgba(255,255,255,.06); color: #cbd5e1; }
 .nav-item--active { background: rgba(99,102,241,.2); color: #a5b4fc; }
-.nav-item--login { margin-top: auto; border-top: 1px solid rgba(255,255,255,.06); padding-top: .85rem; }
+.nav-item--login { border-top: 1px solid rgba(255,255,255,.06); padding-top: .85rem; }
 .nav-icon { font-size: 1.25rem; }
+
+/* ── Back to Hub button ────────────────────────────────────────────────── */
+.back-to-hub {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .65rem;
+  width: 100%;
+  min-height: 4.5rem;
+  background: rgba(99,102,241,.12);
+  border: 1px solid rgba(99,102,241,.3);
+  border-radius: .85rem;
+  color: #a5b4fc;
+  font-size: .95rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .08s ease;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+  margin-top: auto;
+}
+.back-to-hub:hover  { background: rgba(99,102,241,.22); border-color: rgba(99,102,241,.5); color: #c4b5fd; }
+.back-to-hub:active { transform: scale(.97); background: rgba(99,102,241,.32); }
+.back-hub-icon  { font-size: 1.4rem; }
+.back-hub-label { font-size: .92rem; font-weight: 800; }
 .nav-label { font-size: .82rem; }
 
 /* ── Main Content ──────────────────────────────────────────────────────── */
