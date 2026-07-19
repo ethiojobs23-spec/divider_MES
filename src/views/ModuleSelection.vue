@@ -93,6 +93,20 @@
         <span class="material-symbols-rounded card-arrow">arrow_forward</span>
       </button>
 
+      <!-- 6. Payroll & Payment Approval ← PROMINENT -->
+      <button class="module-card card--gold" @click="go('/payroll')">
+        <div class="card-glow" />
+        <!-- Badge: signals action required -->
+        <div class="card-action-badge">APPROVAL REQUIRED</div>
+        <span class="material-symbols-rounded card-icon">payments</span>
+        <div class="card-body">
+          <p class="card-eyebrow">PAYROLL & PAYMENT</p>
+          <h2 class="card-title">Approval</h2>
+          <p class="card-sub">Review & Authorize Weekly Payouts</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
+
     </main>
 
     <!-- ── Footer ─────────────────────────────────────────────────── -->
@@ -247,7 +261,8 @@ onUnmounted(() => clearInterval(clockTimer))
 /* ── Module grid ─────────────────────────────────────────────────────────── */
 .hub-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
   gap: 1.1rem;
   flex: 1;
   z-index: 1;
@@ -390,6 +405,45 @@ onUnmounted(() => clearInterval(clockTimer))
 .card--slate .card-eyebrow,
 .card--slate .card-arrow { color: #94a3b8; }
 .card--slate:hover { border-color: rgba(100,116,139,.55); box-shadow: 0 8px 32px rgba(100,116,139,.15); }
+
+/* ── Gold/Purple — Payroll Approval (prominent) ───────────────────────────── */
+.card--gold {
+  border-color: rgba(234,179,8,.3);
+  background: linear-gradient(145deg, #1e293b 0%, rgba(139,92,246,.1) 40%, rgba(234,179,8,.08) 100%);
+}
+.card--gold .card-glow {
+  background: radial-gradient(ellipse at 80% 20%,
+    rgba(234,179,8,.14) 0%,
+    rgba(139,92,246,.1) 50%,
+    transparent 70%);
+}
+.card--gold .card-icon   { color: #fbbf24; }
+.card--gold .card-eyebrow { color: #c084fc; }
+.card--gold .card-arrow  { color: #fbbf24; }
+.card--gold:hover {
+  border-color: rgba(234,179,8,.55);
+  box-shadow: 0 8px 40px rgba(234,179,8,.18), 0 4px 16px rgba(139,92,246,.12);
+}
+
+/* Action badge on the gold card */
+.card-action-badge {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: linear-gradient(135deg, #7c3aed, #d97706);
+  color: #fff;
+  font-size: .52rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  padding: .2rem .6rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  animation: pulse-badge 2.4s ease-in-out infinite;
+}
+@keyframes pulse-badge {
+  0%,100% { opacity: 1; }
+  50%      { opacity: .55; }
+}
 
 /* ── Footer ──────────────────────────────────────────────────────────────── */
 .hub-footer {
