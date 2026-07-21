@@ -17,7 +17,7 @@ import DispatchLogistics from '@/views/DispatchLogistics.vue'
 import ExecutiveAnalytics from '@/views/ExecutiveAnalytics.vue'
 import AdminSettings    from '@/views/AdminSettings.vue'
 import PinAuth          from '@/views/PinAuth.vue'
-
+import EmployeeProfileView from '@/views/EmployeeProfileView.vue'
 // ─── Route Definitions ─────────────────────────────────────────────────────
 const routes = [
   // ── Public boot screen (no auth required) ──────────────────────────────
@@ -104,6 +104,12 @@ const routes = [
     name: 'PinAuth',
     component: PinAuth,
     meta: { title: 'Manager PIN', icon: 'lock', requiresSystemAuth: true, nav: false },
+  },
+  {
+    path: '/profile',
+    name: 'EmployeeProfileView',
+    component: EmployeeProfileView,
+    meta: { title: 'Employee Profile', icon: 'person', requiresSystemAuth: true, nav: true },
   },
 ]
 
