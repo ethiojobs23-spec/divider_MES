@@ -124,23 +124,23 @@ function getOpTotal(opId) {
     .reduce((s, e) => s + (Number(e.goodProduction) || 0), 0)
 }
 
-// Financial functions from payrollStore
+// Financial functions from payrollStore (Action 2 wiring)
 const currentWeek = computed(() => store.currentProductionWeek)
 
 function getDays(opId) {
-  return payrollStore.getDaysAttended(opId, currentWeek.value)
+  return payrollStore.calculateFinalPayout(opId, currentWeek.value).daysAttended
 }
 
 function getGross(opId) {
-  return payrollStore.getGrossEarnings(opId, currentWeek.value)
+  return payrollStore.calculateFinalPayout(opId, currentWeek.value).grossEarnings
 }
 
 function getDeductions(opId) {
-  return payrollStore.getLoanDeductions(opId, currentWeek.value).totalDeduction
+  return payrollStore.calculateFinalPayout(opId, currentWeek.value).totalDeduction
 }
 
 function getNet(opId) {
-  return payrollStore.calculateFinalPayout(opId, currentWeek.value)
+  return payrollStore.calculateFinalPayout(opId, currentWeek.value).netPayout
 }
 
 const totalAllDeductions = computed(() => {
@@ -280,4 +280,3 @@ const totalNetPayouts = computed(() => {
 .footer-grand  { color: #c7d2fe; }
 .footer-pay    { text-align: right; color: #10b981; font-size: 1rem; }
 </style>
-

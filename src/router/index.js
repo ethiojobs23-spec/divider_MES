@@ -25,7 +25,7 @@ import CompanyExpenses       from '@/views/CompanyExpenses.vue'
 
 // ─── Route Definitions ─────────────────────────────────────────────────────
 const routes = [
-  // ── Public boot screen (no auth required) ──────────────────────────────
+  // ── Public boot screen ─────────────────────────────────────────────────
   {
     path: '/',
     name: 'WelcomeAuth',
@@ -33,7 +33,7 @@ const routes = [
     meta: { title: 'System Boot', requiresSystemAuth: false, nav: false },
   },
 
-  // ── Module hub (requires system unlock) ────────────────────────────────
+  // ── Module hub ─────────────────────────────────────────────────────────
   {
     path: '/hub',
     name: 'ModuleSelection',
@@ -41,83 +41,21 @@ const routes = [
     meta: { title: 'Module Hub', requiresSystemAuth: true, nav: false },
   },
 
-  // ── Operator Kiosk ─────────────────────────────────────────────────────
+  // ── Operator Kiosk / Attendance ────────────────────────────────────────
   {
     path: '/login',
     name: 'KioskLogin',
     component: KioskLogin,
-    meta: { title: 'Operator Login', icon: 'person', requiresSystemAuth: true, nav: false },
+    meta: { title: 'Attendance', icon: 'how_to_reg', requiresSystemAuth: true, nav: true },
   },
 
-  // ── Core Modules ───────────────────────────────────────────────────────
+  // ── Core Production Modules ────────────────────────────────────────────
   {
     path: '/production',
     name: 'ProductionLogger',
     component: ProductionLogger,
-    meta: { title: 'Production Logger', icon: 'factory', requiresSystemAuth: true, nav: true },
+    meta: { title: 'Production', icon: 'factory', requiresSystemAuth: true, nav: true },
   },
-  {
-    path: '/downtime',
-    name: 'DowntimeTracker',
-    component: DowntimeTracker,
-    meta: { title: 'Downtime Tracker', icon: 'timer_off', requiresSystemAuth: true, nav: true },
-  },
-  {
-    path: '/inventory',
-    name: 'InventoryManager',
-    component: InventoryManager,
-    meta: { title: 'Inventory', icon: 'inventory_2', requiresSystemAuth: true, requiresAdmin: true, nav: true },
-  },
-  {
-    path: '/cash',
-    name: 'CashAdvanceHub',
-    component: CashAdvanceHub,
-    meta: { title: 'Cash & Advances', icon: 'payments', requiresSystemAuth: true, nav: true },
-  },
-  {
-    path: '/payroll',
-    name: 'PayrollDashboard',
-    component: PayrollDashboard,
-    meta: { title: 'Payroll', icon: 'account_balance_wallet', requiresSystemAuth: true, requiresAdmin: true, nav: true },
-  },
-  {
-    path: '/quality',
-    name: 'QualityControl',
-    component: QualityControl,
-    meta: { title: 'Quality Control', icon: 'verified_user', requiresSystemAuth: true, nav: true },
-  },
-  {
-    path: '/dispatch',
-    name: 'DispatchLogistics',
-    component: DispatchLogistics,
-    meta: { title: 'Dispatch', icon: 'local_shipping', requiresSystemAuth: true, nav: true },
-  },
-  {
-    path: '/analytics',
-    name: 'ExecutiveAnalytics',
-    component: ExecutiveAnalytics,
-    meta: { title: 'Analytics', icon: 'analytics', requiresSystemAuth: true, requiresAdmin: true, nav: true },
-  },
-  {
-    path: '/settings',
-    name: 'AdminSettings',
-    component: AdminSettings,
-    meta: { title: 'Settings', icon: 'settings', requiresSystemAuth: true, requiresAdmin: true, nav: true },
-  },
-  {
-    path: '/pin-auth',
-    name: 'PinAuth',
-    component: PinAuth,
-    meta: { title: 'Manager PIN', icon: 'lock', requiresSystemAuth: true, nav: false },
-  },
-  {
-    path: '/profile',
-    name: 'EmployeeProfileView',
-    component: EmployeeProfileView,
-    meta: { title: 'Employee Profile', icon: 'person', requiresSystemAuth: true, nav: true },
-  },
-
-  // ── Ledger Matrix Views ────────────────────────────────────────────────
   {
     path: '/daily-log',
     name: 'DailyProductionLog',
@@ -131,6 +69,34 @@ const routes = [
     meta: { title: 'Block Matrix', icon: 'grid_view', requiresSystemAuth: true, requiresAdmin: true, nav: true },
   },
   {
+    path: '/downtime',
+    name: 'DowntimeTracker',
+    component: DowntimeTracker,
+    meta: { title: 'Downtime', icon: 'timer_off', requiresSystemAuth: true, nav: true },
+  },
+
+  // ── Inventory ──────────────────────────────────────────────────────────
+  {
+    path: '/inventory',
+    name: 'InventoryManager',
+    component: InventoryManager,
+    meta: { title: 'Inventory', icon: 'inventory_2', requiresSystemAuth: true, requiresAdmin: true, nav: true },
+  },
+
+  // ── Financial ──────────────────────────────────────────────────────────
+  {
+    path: '/cash',
+    name: 'CashAdvanceHub',
+    component: CashAdvanceHub,
+    meta: { title: 'Cash & Loans', icon: 'payments', requiresSystemAuth: true, nav: true },
+  },
+  {
+    path: '/payroll',
+    name: 'PayrollDashboard',
+    component: PayrollDashboard,
+    meta: { title: 'Payroll', icon: 'account_balance_wallet', requiresSystemAuth: true, requiresAdmin: true, nav: true },
+  },
+  {
     path: '/hourly-wage',
     name: 'HourlyWageTracker',
     component: HourlyWageTracker,
@@ -142,8 +108,49 @@ const routes = [
     component: CompanyExpenses,
     meta: { title: 'Expenses', icon: 'receipt_long', requiresSystemAuth: true, requiresAdmin: true, nav: true },
   },
-]
 
+  // ── Operations ─────────────────────────────────────────────────────────
+  {
+    path: '/quality',
+    name: 'QualityControl',
+    component: QualityControl,
+    meta: { title: 'Quality', icon: 'verified_user', requiresSystemAuth: true, nav: true },
+  },
+  {
+    path: '/dispatch',
+    name: 'DispatchLogistics',
+    component: DispatchLogistics,
+    meta: { title: 'Dispatch', icon: 'local_shipping', requiresSystemAuth: true, nav: true },
+  },
+
+  // ── Analytics & Admin ──────────────────────────────────────────────────
+  {
+    path: '/analytics',
+    name: 'ExecutiveAnalytics',
+    component: ExecutiveAnalytics,
+    meta: { title: 'Analytics', icon: 'analytics', requiresSystemAuth: true, requiresAdmin: true, nav: true },
+  },
+  {
+    path: '/settings',
+    name: 'AdminSettings',
+    component: AdminSettings,
+    meta: { title: 'Settings', icon: 'settings', requiresSystemAuth: true, requiresAdmin: true, nav: true },
+  },
+  {
+    path: '/profile',
+    name: 'EmployeeProfileView',
+    component: EmployeeProfileView,
+    meta: { title: 'Profiles', icon: 'person', requiresSystemAuth: true, nav: true },
+  },
+
+  // ── Auth helpers ───────────────────────────────────────────────────────
+  {
+    path: '/pin-auth',
+    name: 'PinAuth',
+    component: PinAuth,
+    meta: { title: 'Manager PIN', icon: 'lock', requiresSystemAuth: true, nav: false },
+  },
+]
 
 // ─── Router Instance ───────────────────────────────────────────────────────
 const router = createRouter({
@@ -153,25 +160,23 @@ const router = createRouter({
 
 // ─── Global Navigation Guard ───────────────────────────────────────────────
 router.beforeEach((to) => {
-  // Set document title
   document.title = `${to.meta.title ?? 'MES'} | Divider MES`
 
-  // Pinia may not be mounted on the very first navigation — always allow boot screen
   if (!getActivePinia()) return true
 
   const sysAuth = useSystemAuthStore()
 
-  // 1. If system is locked and destination requires system auth → bounce to boot
+  // 1. System locked → boot screen
   if (to.meta.requiresSystemAuth && !sysAuth.isSystemUnlocked) {
     return { name: 'WelcomeAuth' }
   }
 
-  // 2. If system is already unlocked and user manually navigates back to boot → push to hub
+  // 2. Already unlocked + navigating to boot → hub
   if (to.name === 'WelcomeAuth' && sysAuth.isSystemUnlocked) {
     return { name: 'ModuleSelection' }
   }
 
-  // 3. Admin PIN guard — protect requiresAdmin routes
+  // 3. Admin-gated routes → PIN challenge (then return)
   if (to.meta.requiresAdmin && sysAuth.isSystemUnlocked) {
     const mesStore = useMesStore()
     if (!mesStore.hasAdminAccess) {

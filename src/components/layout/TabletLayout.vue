@@ -14,28 +14,48 @@
         </div>
       </div>
 
-      <!-- Live Clock -->
+      <!-- Live Clock + Shift Status -->
       <div class="clock-block">
         <p class="clock-time">{{ currentTime }}</p>
         <p class="clock-date">{{ currentDate }}</p>
-        <p class="clock-week">{{ store.currentProductionWeek }}</p>
+        <p class="clock-week">{{ mesStore.currentProductionWeek }}</p>
+      </div>
+
+      <!-- Global Auth Context Strip (Action 2 requirement) -->
+      <div class="auth-strip">
+        <!-- Online/Offline indicator -->
+        <div class="sync-pill" :class="syncState.isOnline ? 'sync-pill--online' : 'sync-pill--offline'">
+          <span class="sync-dot" />
+          <span>{{ syncState.isOnline ? 'ONLINE' : 'OFFLINE' }}</span>
+          <span v-if="syncState.pendingCount > 0" class="sync-count">{{ syncState.pendingCount }}</span>
+        </div>
+        <!-- Authorized manager name from systemAuthStore -->
+        <div class="manager-label" v-if="sysAuth.authorizedManager">
+          <span class="material-symbols-rounded manager-icon">admin_panel_settings</span>
+          <span>{{ sysAuth.authorizedManager }}</span>
+        </div>
+        <!-- Shift duration -->
+        <div class="shift-label" v-if="sysAuth.shiftStartedAt">
+          <span class="material-symbols-rounded">timer</span>
+          <span>{{ sysAuth.shiftDuration }}</span>
+        </div>
       </div>
 
       <!-- Active Operator Badge -->
-      <div v-if="store.activeOperator" class="operator-badge">
-        <div class="op-avatar" :class="store.activeOperator.color">
-          {{ store.activeOperator.avatar }}
+      <div v-if="mesStore.activeOperator" class="operator-badge">
+        <div class="op-avatar" :class="mesStore.activeOperator.color">
+          {{ mesStore.activeOperator.avatar }}
         </div>
         <div class="op-info">
-          <p class="op-name">{{ store.activeOperator.name }}</p>
-          <p class="op-role">{{ store.activeOperator.role }}</p>
+          <p class="op-name">{{ mesStore.activeOperator.name }}</p>
+          <p class="op-role">{{ mesStore.activeOperator.role }}</p>
         </div>
       </div>
       <div v-else class="operator-badge-empty">
         <span>No Operator Active</span>
       </div>
 
-      <!-- Navigation -->
+      <!-- Navigation — filtered to nav:true routes only -->
       <nav class="sidebar-nav">
         <router-link
           v-for="route in navRoutes"
@@ -46,16 +66,8 @@
         >
           <span class="nav-icon material-symbols-rounded">{{ route.meta.icon }}</span>
           <span class="nav-label">{{ route.meta.title }}</span>
-        </router-link>
-
-        <!-- Login always at bottom of nav items -->
-        <router-link
-          to="/login"
-          class="nav-item nav-item--login"
-          active-class="nav-item--active"
-        >
-          <span class="nav-icon material-symbols-rounded">person</span>
-          <span class="nav-label">Operators</span>
+          <!-- Admin lock badge -->
+          <span v-if="route.meta.requiresAdmin" class="nav-admin-badge material-symbols-rounded">lock</span>
         </router-link>
       </nav>
 
@@ -80,17 +92,19 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { routes } from '@/router/index.js'
-import { useMesStore } from '@/store/mesStore.js'
-import NetworkBanner from '@/components/ui/NetworkBanner.vue'
+import { useMesStore }        from '@/store/mesStore.js'
+import { useSystemAuthStore } from '@/store/systemAuthStore.js'
+import { syncState }          from '@/services/syncManager.js'
+import NetworkBanner          from '@/components/ui/NetworkBanner.vue'
 
-const router = useRouter()
-const route  = useRoute()
+const router   = useRouter()
+const mesStore = useMesStore()
+const sysAuth  = useSystemAuthStore()
 
-const store = useMesStore()
-
-// ─── Smart Back Navigation ───────────────────────────────────────────────
+// ─── Smart Back Navigation (never wipes Pinia state) ─────────────────────
+// router.back() / router.push() are in-SPA — Pinia state is never wiped.
 function goBack() {
   if (window.history.length > 2) {
     router.back()
@@ -110,18 +124,18 @@ const currentTime = computed(() => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 })
 
-const currentDate = computed(() => {
-  return now.value.toLocaleDateString('en-GB', {
+const currentDate = computed(() =>
+  now.value.toLocaleDateString('en-GB', {
     weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
   })
-})
+)
 
 onMounted(() => {
   clockInterval = setInterval(() => { now.value = new Date() }, 1000)
 })
 onUnmounted(() => clearInterval(clockInterval))
 
-// ─── Nav Routes ────────────────────────────────────────────────────────────
+// ─── Nav Routes — only routes with meta.nav = true ────────────────────────
 const navRoutes = computed(() => routes.filter(r => r.meta?.nav))
 </script>
 
@@ -142,7 +156,7 @@ const navRoutes = computed(() => routes.filter(r => r.meta?.nav))
   display: flex;
   flex-direction: column;
   padding: 1.25rem 1rem;
-  gap: 1rem;
+  gap: .75rem;
   border-right: 1px solid rgba(99,102,241,.25);
   overflow: hidden;
 }
@@ -179,6 +193,55 @@ const navRoutes = computed(() => routes.filter(r => r.meta?.nav))
 .clock-time  { font-size: 2.4rem; font-weight: 800; color: #e2e8f0; letter-spacing: .05em; line-height: 1; font-variant-numeric: tabular-nums; }
 .clock-date  { font-size: .7rem; color: #94a3b8; margin-top: .2rem; }
 .clock-week  { display: inline-block; margin-top: .35rem; background: rgba(99,102,241,.3); color: #a5b4fc; font-size: .65rem; font-weight: 700; border-radius: 999px; padding: .1rem .6rem; letter-spacing: .08em; }
+
+/* ── Auth / Sync Context Strip ────────────────────────────────────────── */
+.auth-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+  padding: .5rem .75rem;
+  background: rgba(0,0,0,.25);
+  border-radius: .6rem;
+  border: 1px solid rgba(255,255,255,.06);
+}
+
+.sync-pill {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  padding: .2rem .5rem;
+  border-radius: 999px;
+}
+.sync-pill--online  { background: rgba(16,185,129,.15); color: #34d399; }
+.sync-pill--offline { background: rgba(239,68,68,.15);  color: #fca5a5; }
+.sync-dot {
+  width: .45rem; height: .45rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.sync-count {
+  background: rgba(239,68,68,.3);
+  color: #fca5a5;
+  font-size: .6rem;
+  padding: 0 .35rem;
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.manager-label,
+.shift-label {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  font-size: .65rem;
+  color: #64748b;
+}
+.manager-label { color: #a5b4fc; }
+.manager-icon  { font-size: .9rem; }
 
 /* ── Operator Badge ────────────────────────────────────────────────────── */
 .operator-badge {
@@ -219,12 +282,15 @@ const navRoutes = computed(() => routes.filter(r => r.meta?.nav))
   display: flex;
   flex-direction: column;
   gap: .3rem;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 .nav-item {
   display: flex;
   align-items: center;
   gap: .65rem;
-  padding: .75rem .85rem;
+  padding: .65rem .85rem;
   border-radius: .6rem;
   color: #64748b;
   text-decoration: none;
@@ -232,17 +298,18 @@ const navRoutes = computed(() => routes.filter(r => r.meta?.nav))
   font-weight: 600;
   transition: all .15s ease;
   cursor: pointer;
+  position: relative;
 }
-.nav-item:hover { background: rgba(255,255,255,.06); color: #cbd5e1; }
-.nav-item--active { background: rgba(99,102,241,.2); color: #a5b4fc; }
-.nav-item--login { border-top: 1px solid rgba(255,255,255,.06); padding-top: .85rem; }
-.nav-icon { font-size: 1.25rem; }
+.nav-item:hover          { background: rgba(255,255,255,.06); color: #cbd5e1; }
+.nav-item--active        { background: rgba(99,102,241,.2); color: #a5b4fc; }
+.nav-icon                { font-size: 1.2rem; flex-shrink: 0; }
+.nav-label               { font-size: .82rem; flex: 1; }
+.nav-admin-badge         { font-size: .75rem; color: #f59e0b; opacity: .7; }
 
 /* ── Back Button Group ─────────────────────────────────────────────── */
 .back-btn-group {
   display: flex;
   gap: .5rem;
-  margin-top: auto;
   flex-shrink: 0;
 }
 .back-prev {
@@ -265,7 +332,6 @@ const navRoutes = computed(() => routes.filter(r => r.meta?.nav))
 .back-prev:active { transform: scale(.95); }
 .back-prev .material-symbols-rounded { font-size: 1.4rem; }
 
-/* ── Back to Hub button ────────────────────────────────────────────────── */
 .back-to-hub {
   display: flex;
   align-items: center;
@@ -284,13 +350,11 @@ const navRoutes = computed(() => routes.filter(r => r.meta?.nav))
   transition: background .15s ease, border-color .15s ease, transform .08s ease;
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
-  /* margin-top owned by .back-btn-group wrapper */
 }
 .back-to-hub:hover  { background: rgba(99,102,241,.22); border-color: rgba(99,102,241,.5); color: #c4b5fd; }
 .back-to-hub:active { transform: scale(.97); background: rgba(99,102,241,.32); }
 .back-hub-icon  { font-size: 1.4rem; }
 .back-hub-label { font-size: .92rem; font-weight: 800; }
-.nav-label { font-size: .82rem; }
 
 /* ── Main Content ──────────────────────────────────────────────────────── */
 .main-content {

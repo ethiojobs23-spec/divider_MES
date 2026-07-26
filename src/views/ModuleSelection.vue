@@ -56,8 +56,44 @@
         </div>
         <span class="material-symbols-rounded card-arrow">arrow_forward</span>
       </button>
+      
+      <!-- 3. Daily Production Log -->
+      <button class="module-card card--blue" @click="go('/daily-log')">
+        <div class="card-glow" />
+        <span class="material-symbols-rounded card-icon">edit_note</span>
+        <div class="card-body">
+          <p class="card-eyebrow">PRODUCTION</p>
+          <h2 class="card-title">Daily Log</h2>
+          <p class="card-sub">Daily Production Record</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
 
-      <!-- 3. Inventory & Procurement -->
+      <!-- 4. Production Block Matrix -->
+      <button class="module-card card--blue" @click="go('/block-matrix')">
+        <div class="card-glow" />
+        <span class="material-symbols-rounded card-icon">grid_view</span>
+        <div class="card-body">
+          <p class="card-eyebrow">PRODUCTION</p>
+          <h2 class="card-title">Block Matrix</h2>
+          <p class="card-sub">Aggregated Block Output</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
+
+      <!-- 5. Downtime Tracker -->
+      <button class="module-card card--slate" @click="go('/downtime')">
+        <div class="card-glow" />
+        <span class="material-symbols-rounded card-icon">timer_off</span>
+        <div class="card-body">
+          <p class="card-eyebrow">OPERATIONS</p>
+          <h2 class="card-title">Downtime</h2>
+          <p class="card-sub">Track Machine Stoppages</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
+
+      <!-- 6. Inventory & Procurement -->
       <button class="module-card card--amber" @click="go('/inventory')">
         <div class="card-glow" />
         <span class="material-symbols-rounded card-icon">inventory_2</span>
@@ -69,19 +105,91 @@
         <span class="material-symbols-rounded card-arrow">arrow_forward</span>
       </button>
 
-      <!-- 4. Financial & Payroll Hub -->
-      <button class="module-card card--purple" @click="go('/payroll')">
+      <!-- 7. Cash Advance Hub -->
+      <button class="module-card card--emerald" @click="go('/cash')">
         <div class="card-glow" />
-        <span class="material-symbols-rounded card-icon">account_balance_wallet</span>
+        <span class="material-symbols-rounded card-icon">payments</span>
         <div class="card-body">
-          <p class="card-eyebrow">FINANCIAL & PAYROLL</p>
-          <h2 class="card-title">Admin Hub</h2>
-          <p class="card-sub">Launch Admin Financials</p>
+          <p class="card-eyebrow">FINANCIAL</p>
+          <h2 class="card-title">Cash & Loans</h2>
+          <p class="card-sub">Manage Cash Advances</p>
         </div>
         <span class="material-symbols-rounded card-arrow">arrow_forward</span>
       </button>
 
-      <!-- 5. Executive Analytics -->
+      <!-- 8. Hourly Wage Tracker -->
+      <button class="module-card card--purple" @click="go('/hourly-wage')">
+        <div class="card-glow" />
+        <span class="material-symbols-rounded card-icon">schedule</span>
+        <div class="card-body">
+          <p class="card-eyebrow">FINANCIAL</p>
+          <h2 class="card-title">Hourly Wage</h2>
+          <p class="card-sub">Track Hourly Compensation</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
+      
+      <!-- 9. Company Expenses -->
+      <button class="module-card card--purple" @click="go('/expenses')">
+        <div class="card-glow" />
+        <span class="material-symbols-rounded card-icon">receipt_long</span>
+        <div class="card-body">
+          <p class="card-eyebrow">FINANCIAL</p>
+          <h2 class="card-title">Expenses</h2>
+          <p class="card-sub">Log Company Expenses</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
+
+      <!-- 10. Quality Control -->
+      <button class="module-card card--amber" @click="go('/quality')">
+        <div class="card-glow" />
+        <span class="material-symbols-rounded card-icon">verified_user</span>
+        <div class="card-body">
+          <p class="card-eyebrow">OPERATIONS</p>
+          <h2 class="card-title">Quality</h2>
+          <p class="card-sub">Quality Control Checks</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
+
+      <!-- 11. Dispatch Logistics -->
+      <button class="module-card card--amber" @click="go('/dispatch')">
+        <div class="card-glow" />
+        <span class="material-symbols-rounded card-icon">local_shipping</span>
+        <div class="card-body">
+          <p class="card-eyebrow">OPERATIONS</p>
+          <h2 class="card-title">Dispatch</h2>
+          <p class="card-sub">Manage Outbound Shipping</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
+      
+      <!-- 12. Employee Profiles -->
+      <button class="module-card card--slate" @click="go('/profile')">
+        <div class="card-glow" />
+        <span class="material-symbols-rounded card-icon">person</span>
+        <div class="card-body">
+          <p class="card-eyebrow">ADMIN</p>
+          <h2 class="card-title">Profiles</h2>
+          <p class="card-sub">Employee Directory</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
+
+      <!-- 13. Settings -->
+      <button class="module-card card--slate" @click="go('/settings')">
+        <div class="card-glow" />
+        <span class="material-symbols-rounded card-icon">settings</span>
+        <div class="card-body">
+          <p class="card-eyebrow">ADMIN</p>
+          <h2 class="card-title">Settings</h2>
+          <p class="card-sub">System Configuration</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
+
+      <!-- 14. Executive Analytics -->
       <button class="module-card card--slate" @click="go('/analytics')">
         <div class="card-glow" />
         <span class="material-symbols-rounded card-icon">analytics</span>
@@ -93,7 +201,7 @@
         <span class="material-symbols-rounded card-arrow">arrow_forward</span>
       </button>
 
-      <!-- 6. Payroll & Payment Approval ← PROMINENT -->
+      <!-- 15. Payroll & Payment Approval ← PROMINENT -->
       <button class="module-card card--gold" @click="go('/payroll')">
         <div class="card-glow" />
         <!-- Badge: signals action required -->
@@ -261,12 +369,13 @@ onUnmounted(() => clearInterval(clockTimer))
 /* ── Module grid ─────────────────────────────────────────────────────────── */
 .hub-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 1fr;
   gap: 1.1rem;
   flex: 1;
   z-index: 1;
-  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 2rem;
 }
 
 /* ── Base card ───────────────────────────────────────────────────────────── */
@@ -286,6 +395,7 @@ onUnmounted(() => clearInterval(clockTimer))
   -webkit-tap-highlight-color: transparent;
   text-align: left;
   gap: 0;
+  min-height: 160px;
 }
 .module-card:hover  { transform: translateY(-4px); }
 .module-card:active { transform: scale(.97); }
@@ -322,7 +432,7 @@ onUnmounted(() => clearInterval(clockTimer))
   text-transform: uppercase;
 }
 .card-title {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 900;
   color: #f1f5f9;
   margin: 0;
@@ -351,7 +461,7 @@ onUnmounted(() => clearInterval(clockTimer))
   transform: translateX(0);
 }
 
-/* ── Emerald — Attendance ────────────────────────────────────────────────── */
+/* ── Emerald — Attendance / Financial ────────────────────────────────────── */
 .card--emerald {
   border-color: rgba(16,185,129,.2);
   background: linear-gradient(145deg, #1e293b 0%, rgba(16,185,129,.08) 100%);
@@ -373,7 +483,7 @@ onUnmounted(() => clearInterval(clockTimer))
 .card--blue .card-arrow { color: #60a5fa; }
 .card--blue:hover { border-color: rgba(59,130,246,.45); box-shadow: 0 8px 32px rgba(59,130,246,.15); }
 
-/* ── Amber — Inventory ───────────────────────────────────────────────────── */
+/* ── Amber — Inventory / Quality / Dispatch ──────────────────────────────── */
 .card--amber {
   border-color: rgba(245,158,11,.2);
   background: linear-gradient(145deg, #1e293b 0%, rgba(245,158,11,.08) 100%);
@@ -384,7 +494,7 @@ onUnmounted(() => clearInterval(clockTimer))
 .card--amber .card-arrow { color: #fbbf24; }
 .card--amber:hover { border-color: rgba(245,158,11,.45); box-shadow: 0 8px 32px rgba(245,158,11,.15); }
 
-/* ── Purple — Payroll ────────────────────────────────────────────────────── */
+/* ── Purple — Payroll / Expenses ─────────────────────────────────────────── */
 .card--purple {
   border-color: rgba(139,92,246,.2);
   background: linear-gradient(145deg, #1e293b 0%, rgba(139,92,246,.08) 100%);
@@ -395,7 +505,7 @@ onUnmounted(() => clearInterval(clockTimer))
 .card--purple .card-arrow { color: #a78bfa; }
 .card--purple:hover { border-color: rgba(139,92,246,.45); box-shadow: 0 8px 32px rgba(139,92,246,.15); }
 
-/* ── Slate — Analytics ───────────────────────────────────────────────────── */
+/* ── Slate — Analytics / Admin / Downtime ────────────────────────────────── */
 .card--slate {
   border-color: rgba(100,116,139,.3);
   background: linear-gradient(145deg, #1e293b 0%, rgba(100,116,139,.1) 100%);
