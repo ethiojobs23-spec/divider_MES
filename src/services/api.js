@@ -105,10 +105,15 @@ api.interceptors.response.use(
       })
     }
 
-    // ── 401 Unauthorized — token expired, redirect to login ───────────
+    // ── 401 Unauthorized — token expired ──────────────────────────────
+    // Do NOT use window.location (breaks SPA history). Clear the token
+    // and let the router guard send the operator back to the boot screen.
     if (response?.status === 401) {
       localStorage.removeItem('mes_auth_token')
-      window.location.href = '/login'
+      // Import lazily to avoid circular dependency at module load time
+      import('@/store/mesStore.js').then(({ useMesStore }) => {
+        try { useMesStore().clearAuthToken() } catch { /* store not yet mounted */ }
+      })
     }
 
     // ── 403 Forbidden ─────────────────────────────────────────────────

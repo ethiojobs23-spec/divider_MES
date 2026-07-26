@@ -2,69 +2,113 @@
  * syncManager.js — Offline Sync Queue for the Divider MES
  *
  * Architecture:
- *   - Failed POST/PUT/PATCH payloads are stored in localStorage under
- *     the key 'mes_sync_queue' as a JSON array.
- *   - When the browser goes online, processQueue() fires automatically
- *     and re-submits each item sequentially via the native Fetch API
- *     (not axios, to avoid circular import with api.js).
- *   - Each item carries its full URL, method, headers, and JSON data so
- *     it can be replayed identically.
- *   - Reactive state (pendingCount, isOnline, lastSyncAt, syncErrors) is
- *     exposed as a plain reactive object so any Vue component can import
- *     and watch it without a Pinia dependency.
+ *  - Failed POST/PUT/PATCH payloads are serialised to localStorage under
+ *    the key 'mes_sync_queue' as a JSON array of QueueItem objects.
+ *  - When the browser goes online, processQueue() fires automatically
+ *    and re-submits each item SEQUENTIALLY via the native Fetch API.
+ *    Sequential (not concurrent) flushing is intentional — it prevents
+ *    race conditions in the WordPress REST API and avoids flooding a
+ *    factory Wi-Fi AP with a burst of simultaneous requests.
+ *  - Each QueueItem carries its full URL, method, headers, and body so
+ *    it can be replayed identically without re-involving api.js.
+ *  - Reactive state (pendingCount, isOnline, …) is a plain Vue reactive
+ *    object — no Pinia dependency so syncManager can be tree-shaken
+ *    independently of the full store.
+ *
+ * Hardening vs original:
+ *  - processQueue() is guarded by an AbortController-based timeout (12s)
+ *    per item — not just the AbortSignal.timeout shorthand which isn't
+ *    available on all Android WebViews shipped with factory tablets.
+ *  - isSyncing is reset in a finally block so a crash mid-flush can't
+ *    permanently lock out future sync attempts.
+ *  - Batch atomicity: the new persistent queue (remaining[]) is written
+ *    to localStorage ONLY once, after the entire loop — never per-item.
+ *    This prevents a storage write partially completing during a crash
+ *    from corrupting the queue.
+ *  - Deduplication uses a content hash (method + url + JSON body) rather
+ *    than url-only, so two genuinely different payloads to the same
+ *    endpoint are both kept.
+ *  - 'online' listener is registered with { once: false } (default) and
+ *    the handler is debounced with a 1200ms timeout to let the AP
+ *    stabilise before hammering the API.
  */
 
 import { reactive } from 'vue'
 
 // ─── Constants ────────────────────────────────────────────────────────────
 const STORAGE_KEY   = 'mes_sync_queue'
-const RETRY_DELAY   = 1500          // ms between consecutive retry requests
-const MAX_RETRIES   = 3             // per item, across separate online events
-const BASE_URL      = import.meta.env.VITE_API_BASE_URL ?? '/wp-json/factory/v1/'
+const RETRY_DELAY   = 1_500     // ms between consecutive queue item retries
+const MAX_RETRIES   = 3         // per item — after this it's logged and discarded
+const ONLINE_GRACE  = 1_200     // ms to wait after 'online' event before flushing
+const REQUEST_TIMEOUT_MS = 12_000
 
-// ─── Reactive public state (usable in Vue templates directly) ─────────────
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/wp-json/factory/v1/'
+
+// ─── Public reactive state ────────────────────────────────────────────────
 export const syncState = reactive({
   isOnline:     navigator.onLine,
   pendingCount: 0,
   isSyncing:    false,
-  lastSyncAt:   null,   // ISO timestamp of the last successful full sync
-  syncErrors:   [],     // [{ url, error, timestamp }]
+  lastSyncAt:   null,   // ISO timestamp of most recent successful full flush
+  syncErrors:   [],     // [{ id, url, method, error, timestamp }]
 })
 
-// ─── Internal helpers ─────────────────────────────────────────────────────
+// ─── Internal: localStorage access ───────────────────────────────────────
 
-/** Read the queue safely from localStorage */
 function readQueue() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed : []
-  } catch (err) {
-    console.error('[SyncManager] Failed to parse queue from storage:', err)
+  } catch {
+    // JSON.parse failure: storage is corrupt — nuke it and start fresh
+    console.error('[SyncManager] Queue storage corrupt — resetting')
+    localStorage.removeItem(STORAGE_KEY)
     return []
   }
 }
 
-/** Write the queue back to localStorage and keep syncState.pendingCount in sync */
+/**
+ * Write queue atomically: serialise the entire array in one call.
+ * Never write per-item — a mid-loop crash would leave a truncated array.
+ */
 function writeQueue(queue) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(queue))
     syncState.pendingCount = queue.length
   } catch (err) {
-    // localStorage quota exceeded (very unlikely but handle gracefully)
-    console.error('[SyncManager] Failed to persist queue to storage:', err)
+    // Quota exceeded — keep the in-memory count correct even if storage fails
+    console.error('[SyncManager] localStorage write failed (quota?):', err.message)
+    syncState.pendingCount = queue.length
   }
 }
 
-/** Refresh pendingCount from storage (called on module init) */
 function refreshCount() {
   syncState.pendingCount = readQueue().length
 }
 
+// ─── Internal: item identity ──────────────────────────────────────────────
+
 /**
- * Send a single queued item using the native Fetch API.
- * Returns true on HTTP 2xx, false otherwise.
+ * Content-hash for deduplication.
+ * Uses method + url + JSON-serialised body (order-stable via sort).
+ */
+function itemHash(item) {
+  const bodyStr = typeof item.data === 'string'
+    ? item.data
+    : JSON.stringify(item.data, Object.keys(item.data ?? {}).sort())
+  return `${item.method.toUpperCase()}|${item.url}|${bodyStr}`
+}
+
+// ─── Internal: HTTP send ──────────────────────────────────────────────────
+
+/**
+ * Send a single queued item.
+ * Uses a manual AbortController timeout for maximum WebView compatibility.
+ *
+ * @param {Object} item
+ * @returns {Promise<void>} resolves on 2xx, rejects otherwise
  */
 async function sendItem(item) {
   const url = item.url.startsWith('http')
@@ -73,164 +117,161 @@ async function sendItem(item) {
 
   const token = localStorage.getItem('mes_auth_token')
 
-  const response = await fetch(url, {
-    method:  item.method.toUpperCase(),
-    headers: {
-      'Content-Type': 'application/json',
-      Accept:         'application/json',
-      Authorization:  token ? `Bearer ${token}` : (item.headers?.Authorization ?? ''),
-    },
-    body: JSON.stringify(item.data),
-    // Native fetch has no built-in timeout — use AbortController
-    signal: AbortSignal.timeout(12_000),
-  })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status} ${response.statusText}`)
+  try {
+    const response = await fetch(url, {
+      method:  item.method.toUpperCase(),
+      headers: {
+        'Content-Type': 'application/json',
+        Accept:         'application/json',
+        Authorization:  token ? `Bearer ${token}` : (item.headers?.Authorization ?? ''),
+      },
+      body:   JSON.stringify(item.data),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`)
+    }
+  } finally {
+    clearTimeout(timer)
   }
-
-  return true
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────
+// ─── Debounce guard for 'online' handler ──────────────────────────────────
+let onlineDebounceTimer = null
 
+// ─── Public API ───────────────────────────────────────────────────────────
 export const syncManager = {
 
   /**
-   * Add a failed request payload to the persistent queue.
+   * Enqueue a failed request payload for later retry.
    *
-   * @param {{ url, method, data, headers, enqueuedAt }} item
+   * @param {{ url: string, method: string, data: Object, headers?: Object }} item
    */
   enqueue(item) {
     const queue = readQueue()
 
-    // Deduplicate: if an identical URL+data pair is already queued, skip
-    const duplicate = queue.some(
-      (q) =>
-        q.url === item.url &&
-        JSON.stringify(q.data) === JSON.stringify(item.data),
-    )
-    if (duplicate) {
+    // Content-hash deduplication — different endpoints or different bodies both allowed
+    const hash = itemHash(item)
+    if (queue.some((q) => itemHash(q) === hash)) {
       if (import.meta.env.DEV) {
-        console.info('[SyncManager] Skipped duplicate payload for:', item.url)
+        console.info('[SyncManager] Duplicate payload skipped:', item.url)
       }
       return
     }
 
-    const enriched = {
+    queue.push({
       ...item,
+      id:          `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       retryCount:  0,
-      enqueuedAt:  item.enqueuedAt ?? new Date().toISOString(),
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    }
+      enqueuedAt:  new Date().toISOString(),
+    })
 
-    queue.push(enriched)
+    // Atomic write of the updated queue
     writeQueue(queue)
 
     if (import.meta.env.DEV) {
-      console.warn(`[SyncManager] Queued (${queue.length} total):`, enriched.url)
+      console.warn(`[SyncManager] Queued (${queue.length} total): ${item.method?.toUpperCase()} ${item.url}`)
     }
   },
 
-  /**
-   * Remove a specific item from the queue by its generated id.
-   * @param {string} id
-   */
+  /** Remove a single item by id — used after manual admin resolution */
   dequeue(id) {
-    const queue = readQueue().filter((item) => item.id !== id)
-    writeQueue(queue)
+    writeQueue(readQueue().filter((item) => item.id !== id))
   },
 
   /**
-   * Process all pending items sequentially.
-   * Called automatically on 'online' event and can be called manually.
+   * Sequentially flush all pending items.
+   * Writes the new queue ONCE after the entire loop (batch-atomic).
+   *
+   * Safe to call manually from an admin panel or the network-restored handler.
    */
   async processQueue() {
     if (syncState.isSyncing) {
-      console.info('[SyncManager] processQueue() already running — skipping')
+      if (import.meta.env.DEV) console.info('[SyncManager] Already syncing — skipped')
       return
     }
 
     const queue = readQueue()
     if (queue.length === 0) {
-      if (import.meta.env.DEV) console.info('[SyncManager] Queue empty — nothing to sync')
+      if (import.meta.env.DEV) console.info('[SyncManager] Queue empty')
       return
     }
 
     syncState.isSyncing = true
-    console.info(`[SyncManager] Processing ${queue.length} queued item(s)…`)
-
-    // Work on a local copy; we'll rebuild the new persistent queue from failures
-    const remaining = []
-
-    for (const item of queue) {
-      // Add staggered delay to avoid hammering the server
-      if (remaining.length > 0 || queue.indexOf(item) > 0) {
-        await sleep(RETRY_DELAY)
-      }
-
-      try {
-        await sendItem(item)
-        console.info(`[SyncManager] ✓ Synced: ${item.method.toUpperCase()} ${item.url}`)
-        // Success — do NOT push back to remaining
-      } catch (err) {
-        const updatedItem = { ...item, retryCount: (item.retryCount ?? 0) + 1 }
-
-        if (updatedItem.retryCount >= MAX_RETRIES) {
-          // Permanently failed — log to syncErrors and discard
-          syncState.syncErrors.push({
-            url:       item.url,
-            error:     err.message,
-            data:      item.data,
-            timestamp: new Date().toISOString(),
-          })
-          console.error(
-            `[SyncManager] ✗ Permanently failed after ${MAX_RETRIES} retries:`,
-            item.url, err.message,
-          )
-        } else {
-          // Still has retries left — keep in queue
-          remaining.push(updatedItem)
-          console.warn(
-            `[SyncManager] Retry ${updatedItem.retryCount}/${MAX_RETRIES} queued:`,
-            item.url,
-          )
-        }
-      }
+    if (import.meta.env.DEV) {
+      console.info(`[SyncManager] Processing ${queue.length} item(s)…`)
     }
 
-    writeQueue(remaining)
+    const remaining = []
 
-    syncState.isSyncing = false
-    syncState.lastSyncAt = new Date().toISOString()
+    try {
+      for (let i = 0; i < queue.length; i++) {
+        // Staggered delay between items (skip delay before the very first)
+        if (i > 0) await sleep(RETRY_DELAY)
+
+        const item = queue[i]
+        try {
+          await sendItem(item)
+          if (import.meta.env.DEV) {
+            console.info(`[SyncManager] ✓ ${item.method?.toUpperCase()} ${item.url}`)
+          }
+          // SUCCESS — do not push back to remaining
+        } catch (err) {
+          const updated = { ...item, retryCount: (item.retryCount ?? 0) + 1 }
+
+          if (updated.retryCount >= MAX_RETRIES) {
+            // Permanently failed — record to syncErrors, discard from queue
+            syncState.syncErrors.push({
+              id:        item.id,
+              url:       item.url,
+              method:    item.method,
+              error:     err.message,
+              data:      item.data,
+              timestamp: new Date().toISOString(),
+            })
+            console.error(
+              `[SyncManager] ✗ Permanently failed (${MAX_RETRIES} retries): ${item.url}`,
+              err.message,
+            )
+          } else {
+            // Still has attempts left — keep in queue
+            remaining.push(updated)
+            console.warn(
+              `[SyncManager] Retry ${updated.retryCount}/${MAX_RETRIES}: ${item.url}`,
+            )
+          }
+        }
+      }
+    } finally {
+      // ── Batch-atomic write: happens exactly once, even on thrown error ──
+      writeQueue(remaining)
+      syncState.isSyncing = false
+      syncState.lastSyncAt = new Date().toISOString()
+    }
 
     if (remaining.length === 0) {
-      console.info('[SyncManager] ✅ All items synced successfully')
+      if (import.meta.env.DEV) console.info('[SyncManager] ✅ All items synced')
     } else {
       console.warn(`[SyncManager] ${remaining.length} item(s) still pending`)
     }
   },
 
-  /**
-   * Return a read-only snapshot of the current queue (for debugging/UI).
-   * @returns {Array}
-   */
+  /** Read-only snapshot for admin UI / debugging */
   getQueue() {
     return readQueue()
   },
 
-  /**
-   * Clear the entire queue (use with care — only for admin reset).
-   */
+  /** Admin-only: nuke the entire queue (shows a confirmation in the store) */
   clearQueue() {
     writeQueue([])
     syncState.syncErrors = []
-    console.warn('[SyncManager] Queue forcibly cleared by admin')
+    console.warn('[SyncManager] Queue forcibly cleared')
   },
 
-  /**
-   * Clear persisted sync errors log.
-   */
   clearErrors() {
     syncState.syncErrors = []
   },
@@ -241,30 +282,35 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-// ─── Wire to browser network events ──────────────────────────────────────
+// ─── Network event wiring ─────────────────────────────────────────────────
+
 window.addEventListener('online', () => {
   syncState.isOnline = true
-  console.info('[SyncManager] Network restored — starting queue processing')
-  // Small delay to let the connection stabilise before hammering the API
-  setTimeout(() => syncManager.processQueue(), 800)
+  if (import.meta.env.DEV) console.info('[SyncManager] Online — queuing flush')
+
+  // Debounced: cancel any previous timer and set a new one
+  clearTimeout(onlineDebounceTimer)
+  onlineDebounceTimer = setTimeout(() => {
+    syncManager.processQueue()
+  }, ONLINE_GRACE)
 })
 
 window.addEventListener('offline', () => {
   syncState.isOnline = false
-  console.warn('[SyncManager] Network lost — requests will be queued')
+  // Cancel any pending flush — no point hitting the API while offline
+  clearTimeout(onlineDebounceTimer)
+  console.warn('[SyncManager] Offline — requests will be queued')
 })
 
-// ─── Initialise ───────────────────────────────────────────────────────────
+// ─── Boot-time flush ──────────────────────────────────────────────────────
 refreshCount()
 
-// If we boot up already online and there are items left from a previous session,
-// process them after a short startup grace period.
 if (navigator.onLine) {
-  const startupQueue = readQueue()
-  if (startupQueue.length > 0) {
-    console.info(
-      `[SyncManager] Found ${startupQueue.length} leftover item(s) from previous session — syncing in 3s`,
-    )
+  const boot = readQueue()
+  if (boot.length > 0) {
+    if (import.meta.env.DEV) {
+      console.info(`[SyncManager] ${boot.length} leftover item(s) — flushing in 3s`)
+    }
     setTimeout(() => syncManager.processQueue(), 3_000)
   }
 }
