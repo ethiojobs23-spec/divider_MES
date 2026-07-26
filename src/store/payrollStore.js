@@ -282,12 +282,34 @@ export const usePayrollStore = defineStore('payroll', () => {
     }
   }
 
+  // ── Payout Statuses ────────────────────────────────────────────────────────
+  // { [week]: { [workerId]: { status: 'pending'|'approved'|'held', reason: string } } }
+  const payoutStatuses = ref({})
+
+  function getPayoutStatus(workerId, week) {
+    return payoutStatuses.value[week]?.[workerId] || { status: 'pending', reason: '' }
+  }
+
+  function approvePayout(workerId, week) {
+    if (!payoutStatuses.value[week]) payoutStatuses.value[week] = {}
+    payoutStatuses.value[week][workerId] = { status: 'approved', reason: '' }
+    
+    // Simulate queueing the transaction payload to API/syncManager
+    console.log(`[PayrollStore] Payment approved and queued for sync: Worker ${workerId}, Week ${week}`)
+  }
+
+  function holdPayout(workerId, week, reason) {
+    if (!payoutStatuses.value[week]) payoutStatuses.value[week] = {}
+    payoutStatuses.value[week][workerId] = { status: 'held', reason: reason || 'Disputed' }
+  }
+
   // ── All-operators weekly summary ──────────────────────────────────────────
   const weeklyPayrollSummary = computed(() => {
     const week = mesStore.currentProductionWeek
     return mesStore.operators.map((op) => ({
       ...op,
       ...calculateFinalPayout(op.id, week),
+      payoutStatus: getPayoutStatus(op.id, week),
     }))
   })
 
@@ -309,6 +331,11 @@ export const usePayrollStore = defineStore('payroll', () => {
     getHourlyEarnings,
     calculateFinalPayout,
     weeklyPayrollSummary,
+    // Payout Status
+    payoutStatuses,
+    getPayoutStatus,
+    approvePayout,
+    holdPayout,
     // Constants (re-exported for consumers)
     PLACEMENT_KEYS,
     HOURLY_MIN,

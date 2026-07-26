@@ -6,151 +6,203 @@
         <span class="material-symbols-rounded header-icon">account_balance_wallet</span>
         <div>
           <h1 class="header-title">Weekly Payroll Dashboard</h1>
-          <p class="header-sub">{{ store.currentProductionWeek }} &bull; Auto-aggregated from production & HR ledger</p>
+          <p class="header-sub">{{ currentWeek }} &bull; Auto-aggregated from production & HR ledger</p>
         </div>
       </div>
       <div class="header-stats">
         <div class="stat-chip">
           <span>Total Production</span>
-          <strong>{{ store.weeklyAggregation.TOTAL }} pcs</strong>
+          <strong>{{ mesStore.weeklyAggregation.TOTAL }} pcs</strong>
         </div>
         <div class="stat-chip">
           <span>Total Deductions</span>
           <strong class="stat-warn">{{ totalAllDeductions.toFixed(2) }} ETB</strong>
         </div>
+        <div class="stat-chip">
+          <span>Total Net Payouts</span>
+          <strong class="stat-success">{{ totalNetPayouts.toFixed(2) }} ETB</strong>
+        </div>
       </div>
     </div>
 
-    <!-- Table Scroll Area -->
-    <div class="table-wrapper">
-      <table class="payroll-table">
-        <thead>
-          <tr>
-            <th class="col-op">Operator</th>
-            <!-- Production Blocks -->
-            <th colspan="4" class="group-header group-header--prod">Production Blocks (pcs)</th>
-            <!-- HR & Financial Payouts -->
-            <th colspan="4" class="group-header group-header--pay">Financial Payouts (ETB)</th>
-          </tr>
-          <tr>
-            <th class="col-op"></th>
-            <!-- Prod sub-headers -->
-            <th v-for="ph in prodHeaders" :key="ph" class="subhead subhead--prod">{{ ph }}</th>
-            <!-- Pay sub-headers -->
-            <th class="subhead subhead--pay">Days Attended</th>
-            <th class="subhead subhead--pay">Gross Earnings</th>
-            <th class="subhead subhead--pay">Loan Deductions</th>
-            <th class="subhead subhead--pay">Net Final Payout</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="op in store.operators" :key="op.id" class="data-row">
-            <!-- Operator -->
-            <td class="cell-op">
-              <div class="op-cell">
-                <div class="op-avatar-sm" :class="op.color">{{ op.avatar }}</div>
-                <div>
-                  <p class="op-cell-name">{{ op.name }}</p>
-                  <p class="op-cell-role">{{ op.role }}</p>
-                </div>
-              </div>
-            </td>
-            <!-- Production data (from ledger) -->
-            <td
-              v-for="period in ['M&T','W&T','F&S']"
-              :key="period"
-              class="cell-num"
-            >
-              {{ getOpProduction(op.id, period) }}
-            </td>
-            <td class="cell-num cell-total">{{ getOpTotal(op.id) }}</td>
+    <div class="split-view">
+      <!-- Left: Worker List -->
+      <div class="worker-list">
+         <div 
+            v-for="worker in payrollStore.weeklyPayrollSummary" 
+            :key="worker.id" 
+            class="worker-card" 
+            :class="{ active: selectedWorkerId === worker.id }"
+            @click="selectedWorkerId = worker.id"
+         >
+            <div class="op-avatar-sm" :class="worker.color">{{ worker.avatar }}</div>
+            <div class="worker-info">
+              <p class="worker-name">{{ worker.name }}</p>
+              <p class="worker-role">{{ worker.role }}</p>
+            </div>
+            <div class="worker-status-amount">
+              <p class="worker-amount">{{ worker.netPayout.toFixed(2) }} ETB</p>
+              <span class="status-badge" :class="worker.payoutStatus.status">
+                {{ worker.payoutStatus.status.toUpperCase() }}
+              </span>
+            </div>
+         </div>
+      </div>
 
-            <!-- HR & Financial data -->
-            <td class="cell-num cell-attendance">
-              {{ getDays(op.id) }}/6
-            </td>
-            <td class="cell-num cell-gross">{{ getGross(op.id).toFixed(2) }}</td>
-            <td class="cell-num cell-deduction">{{ getDeductions(op.id).toFixed(2) }}</td>
-            <td class="cell-num cell-net">
-              <div class="net-payout-wrapper">
-                <span v-if="getDays(op.id) === 0" class="material-symbols-rounded lock-icon">lock</span>
-                <span :class="{ 'frozen': getDays(op.id) === 0 }">{{ getNet(op.id).toFixed(2) }}</span>
+      <!-- Right: Detailed Breakdown -->
+      <div class="detail-panel" v-if="selectedWorker">
+         <div class="detail-header">
+           <div>
+             <h2>{{ selectedWorker.name }} - Payroll Breakdown</h2>
+             <p v-if="selectedWorker.payoutStatus.reason" class="hold-reason-text">Reason: {{ selectedWorker.payoutStatus.reason }}</p>
+           </div>
+           <span class="status-stamp" :class="selectedWorker.payoutStatus.status">
+             {{ selectedWorker.payoutStatus.status === 'approved' ? 'PAID ✓' : (selectedWorker.payoutStatus.status === 'held' ? 'HELD ✋' : 'PENDING ⏳') }}
+           </span>
+         </div>
+         
+         <div class="breakdown-content" :class="{ 'is-locked': selectedWorker.payoutStatus.status === 'approved' }">
+            <div class="calculation-card">
+              <h3>Earnings Calculation</h3>
+              <div class="calc-row">
+                 <span>Gross Piece-Rate</span>
+                 <span>{{ selectedWorker.grossPieceRate.toFixed(2) }} ETB</span>
               </div>
-            </td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <tr class="footer-row">
-            <td class="cell-op footer-label">WEEK TOTAL</td>
-            <td class="cell-num footer-num">{{ store.weeklyAggregation['M&T'] }}</td>
-            <td class="cell-num footer-num">{{ store.weeklyAggregation['W&T'] }}</td>
-            <td class="cell-num footer-num">{{ store.weeklyAggregation['F&S'] }}</td>
-            <td class="cell-num footer-num footer-grand">{{ store.weeklyAggregation.TOTAL }}</td>
-            <td colspan="4" class="cell-num footer-num footer-pay">
-              Total Net Payouts: {{ totalNetPayouts.toFixed(2) }} ETB
-            </td>
-          </tr>
-        </tfoot>
-      </table>
+              <div class="calc-row">
+                 <span>Gross Hourly</span>
+                 <span>{{ selectedWorker.grossHourly.toFixed(2) }} ETB</span>
+              </div>
+              <div class="calc-row math-op">
+                 <span>Subtotal</span>
+                 <span>{{ (selectedWorker.grossPieceRate + selectedWorker.grossHourly).toFixed(2) }} ETB</span>
+              </div>
+              <div class="calc-row">
+                 <span>Attendance Factor ({{ selectedWorker.daysAttended }}/6 days)</span>
+                 <span>x {{ selectedWorker.attendanceFactor.toFixed(2) }}</span>
+              </div>
+              <div class="calc-row math-result">
+                 <span>Adjusted Gross Earnings</span>
+                 <span>{{ selectedWorker.grossEarnings.toFixed(2) }} ETB</span>
+              </div>
+            </div>
+
+            <div class="calculation-card deductions">
+              <h3>Deductions</h3>
+              <div class="calc-row">
+                 <span>Advances + Interest</span>
+                 <span class="deduction-val">- {{ selectedWorker.totalDeduction.toFixed(2) }} ETB</span>
+              </div>
+            </div>
+
+            <div class="calculation-card net-payout">
+              <h3>Net Payout</h3>
+              <div class="net-amount">{{ selectedWorker.netPayout.toFixed(2) }} ETB</div>
+            </div>
+         </div>
+
+         <!-- Actions -->
+         <div class="action-buttons">
+            <button 
+              class="btn-massive btn-approve"
+              :disabled="selectedWorker.payoutStatus.status === 'approved'"
+              @click="confirmApprove(selectedWorker)"
+            >
+              {{ selectedWorker.payoutStatus.status === 'approved' ? 'PAID ✓' : 'APPROVE & LOG PAYMENT' }}
+            </button>
+            <button 
+              class="btn-massive btn-hold"
+              :disabled="selectedWorker.payoutStatus.status === 'approved'"
+              @click="openHoldMenu(selectedWorker)"
+            >
+              HOLD / DISPUTE
+            </button>
+         </div>
+      </div>
+      <div v-else class="empty-state">
+         <span class="material-symbols-rounded empty-icon">touch_app</span>
+         <p>Select a worker to view breakdown</p>
+      </div>
+    </div>
+
+    <!-- Modals -->
+    <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
+      <div class="modal-content confirm-modal">
+        <h3>Confirm Payment</h3>
+        <p>Are you sure you want to approve the payment of <strong>{{ selectedWorker.netPayout.toFixed(2) }} ETB</strong> for <strong>{{ selectedWorker.name }}</strong>?</p>
+        <div class="modal-actions">
+          <button class="btn-cancel" @click="showConfirmModal = false">CANCEL</button>
+          <button class="btn-confirm" @click="executeApprove">YES, APPROVE</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showHoldModal" class="modal-overlay" @click.self="showHoldModal = false">
+      <div class="modal-content hold-modal">
+        <h3>Hold / Dispute Payment</h3>
+        <p>Select reason for holding payment for <strong>{{ selectedWorker.name }}</strong>:</p>
+        <div class="hold-reasons">
+          <button v-for="reason in holdReasons" :key="reason" class="reason-btn" @click="executeHold(reason)">
+            {{ reason }}
+          </button>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-cancel" @click="showHoldModal = false">CANCEL</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore.js'
 
-const store = useMesStore()
+const mesStore = useMesStore()
 const payrollStore = usePayrollStore()
 
-const prodHeaders = ['M&T', 'W&T', 'F&S', 'TOTAL']
+const currentWeek = computed(() => mesStore.currentProductionWeek)
 
-// Production per operator
-function getOpProduction(opId, period) {
-  const op = store.operators.find(o => o.id === opId)
-  if (!op) return 0
-  const dayMap = { 'M&T': [1,2], 'W&T': [3,4], 'F&S': [5,6] }
-  return store.ledgerEntries
-    .filter(e => e.operator === op.name && dayMap[period].includes(new Date(e.timestamp).getDay()))
-    .reduce((s, e) => s + (Number(e.goodProduction) || 0), 0)
-}
-
-function getOpTotal(opId) {
-  const op = store.operators.find(o => o.id === opId)
-  if (!op) return 0
-  return store.ledgerEntries
-    .filter(e => e.operator === op.name)
-    .reduce((s, e) => s + (Number(e.goodProduction) || 0), 0)
-}
-
-// Financial functions from payrollStore (Action 2 wiring)
-const currentWeek = computed(() => store.currentProductionWeek)
-
-function getDays(opId) {
-  return payrollStore.calculateFinalPayout(opId, currentWeek.value).daysAttended
-}
-
-function getGross(opId) {
-  return payrollStore.calculateFinalPayout(opId, currentWeek.value).grossEarnings
-}
-
-function getDeductions(opId) {
-  return payrollStore.calculateFinalPayout(opId, currentWeek.value).totalDeduction
-}
-
-function getNet(opId) {
-  return payrollStore.calculateFinalPayout(opId, currentWeek.value).netPayout
-}
+const selectedWorkerId = ref(null)
+const selectedWorker = computed(() => {
+  return payrollStore.weeklyPayrollSummary.find(w => w.id === selectedWorkerId.value)
+})
 
 const totalAllDeductions = computed(() => {
-  return store.operators.reduce((sum, op) => sum + getDeductions(op.id), 0)
+  return payrollStore.weeklyPayrollSummary.reduce((sum, w) => sum + w.totalDeduction, 0)
 })
-
 const totalNetPayouts = computed(() => {
-  return store.operators.reduce((sum, op) => sum + getNet(op.id), 0)
+  return payrollStore.weeklyPayrollSummary.reduce((sum, w) => sum + w.netPayout, 0)
 })
 
+// Modals
+const showConfirmModal = ref(false)
+const showHoldModal = ref(false)
+const holdReasons = ['Missing Tools', 'Attendance Dispute', 'Loan Discrepancy', 'Quality Penalty']
+
+function confirmApprove(worker) {
+  if (worker.payoutStatus.status === 'approved') return
+  showConfirmModal.value = true
+}
+
+function executeApprove() {
+  if (selectedWorker.value) {
+    payrollStore.approvePayout(selectedWorker.value.id, currentWeek.value)
+  }
+  showConfirmModal.value = false
+}
+
+function openHoldMenu(worker) {
+  if (worker.payoutStatus.status === 'approved') return
+  showHoldModal.value = true
+}
+
+function executeHold(reason) {
+  if (selectedWorker.value) {
+    payrollStore.holdPayout(selectedWorker.value.id, currentWeek.value, reason)
+  }
+  showHoldModal.value = false
+}
 </script>
 
 <style scoped>
@@ -189,94 +241,304 @@ const totalNetPayouts = computed(() => {
 .stat-chip span    { display: block; font-size: .65rem; color: #64748b; letter-spacing: .06em; text-transform: uppercase; }
 .stat-chip strong  { font-size: 1.1rem; font-weight: 800; color: #34d399; }
 .stat-warn         { color: #fbbf24 !important; }
+.stat-success      { color: #10b981 !important; }
 
-/* Table */
-.table-wrapper {
+/* Split View Layout */
+.split-view {
+  display: flex;
   flex: 1;
-  overflow: auto;
-  padding: 1.5rem 2rem;
+  overflow: hidden;
 }
 
-.payroll-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: .9rem;
+/* Left: Worker List */
+.worker-list {
+  width: 35%;
+  max-width: 450px;
+  background: #1e293b;
+  border-right: 1px solid rgba(99,102,241,.1);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Group headers */
-.group-header {
-  padding: .8rem 1rem;
-  text-align: center;
-  font-size: .8rem;
-  font-weight: 700;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-}
-.group-header--prod { background: rgba(99,102,241,.15); color: #a5b4fc; border-bottom: 2px solid rgba(99,102,241,.4); }
-.group-header--pay  { background: rgba(16,185,129,.1); color: #34d399; border-bottom: 2px solid rgba(16,185,129,.3); }
-
-.subhead {
-  padding: .75rem .75rem;
-  font-size: .75rem;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-.subhead--prod { color: #818cf8; background: rgba(99,102,241,.08); }
-.subhead--pay  { color: #10b981; background: rgba(16,185,129,.07); }
-
-.col-op { width: 16rem; }
-
-/* Rows */
-.data-row td { border-bottom: 1px solid rgba(255,255,255,.05); }
-.data-row:hover td { background: rgba(255,255,255,.03); }
-
-.cell-op { padding: 1rem; }
-.op-cell { display: flex; align-items: center; gap: .8rem; }
-.op-avatar-sm {
-  width: 2.5rem; height: 2.5rem;
-  border-radius: .5rem;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1rem; font-weight: 800; color: #fff;
-  flex-shrink: 0;
-}
-.op-cell-name { font-size: .95rem; font-weight: 700; color: #e2e8f0; margin:0; }
-.op-cell-role { font-size: .75rem; color: #64748b; margin:0; }
-
-.cell-num { padding: 1rem; text-align: right; font-weight: 700; font-size: 1rem; color: #94a3b8; font-variant-numeric: tabular-nums; }
-.cell-total { color: #e2e8f0; background: rgba(255,255,255,.03); }
-
-.cell-attendance { color: #38bdf8; }
-.cell-gross { color: #f1f5f9; }
-.cell-deduction { color: #fbbf24; }
-.cell-net { 
-  background: rgba(16,185,129,.08); 
-  color: #10b981;
-  font-size: 1.1rem;
-}
-
-.net-payout-wrapper {
+.worker-card {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
+  gap: 1rem;
+  padding: 1.2rem;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.worker-card:hover {
+  background: rgba(255,255,255,.03);
+}
+.worker-card.active {
+  background: rgba(99,102,241,.1);
+  border-left: 4px solid #818cf8;
 }
 
-.lock-icon {
+.op-avatar-sm {
+  width: 3rem; height: 3rem;
+  border-radius: .75rem;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; font-weight: 800; color: #fff;
+  flex-shrink: 0;
+}
+
+.worker-info {
+  flex: 1;
+}
+.worker-name { font-size: 1.1rem; font-weight: 700; color: #e2e8f0; margin:0; }
+.worker-role { font-size: .85rem; color: #64748b; margin:0; }
+
+.worker-status-amount {
+  text-align: right;
+}
+.worker-amount {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #10b981;
+  margin: 0 0 0.4rem 0;
+}
+.status-badge {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+.status-badge.pending { background: rgba(251,191,36,0.2); color: #fbbf24; }
+.status-badge.approved { background: rgba(16,185,129,0.2); color: #34d399; }
+.status-badge.held { background: rgba(239,68,68,0.2); color: #f87171; }
+
+/* Right: Detail Panel */
+.detail-panel {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+.detail-header h2 {
+  font-size: 1.8rem;
+  color: #f8fafc;
+  margin: 0 0 0.5rem 0;
+}
+.hold-reason-text {
+  color: #f87171;
+  font-size: 0.9rem;
+  margin: 0;
+  font-weight: 600;
+}
+.status-stamp {
+  font-size: 1.5rem;
+  font-weight: 900;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 2px solid transparent;
+}
+.status-stamp.pending { color: #fbbf24; border-color: #fbbf24; }
+.status-stamp.approved { color: #10b981; border-color: #10b981; }
+.status-stamp.held { color: #ef4444; border-color: #ef4444; }
+
+.breakdown-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+  transition: opacity 0.3s;
+}
+.breakdown-content.is-locked {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.calculation-card {
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
+.calculation-card h3 {
+  color: #94a3b8;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 1.5rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding-bottom: 0.75rem;
+}
+
+.calc-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  font-size: 1.1rem;
+  color: #e2e8f0;
+}
+.calc-row.math-op {
+  border-top: 1px dashed rgba(255,255,255,0.1);
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  font-weight: 600;
+}
+.calc-row.math-result {
+  border-top: 2px solid rgba(255,255,255,0.1);
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  font-weight: 800;
   font-size: 1.2rem;
-  color: #ef4444;
+  color: #f8fafc;
 }
 
-.frozen {
+.deduction-val {
+  color: #f87171;
+}
+
+.net-payout .net-amount {
+  font-size: 3rem;
+  font-weight: 900;
+  color: #10b981;
+  text-align: right;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: auto;
+}
+.btn-massive {
+  flex: 1;
+  padding: 1.5rem;
+  font-size: 1.3rem;
+  font-weight: 800;
+  border-radius: 1rem;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.btn-massive:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.btn-massive:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.btn-approve {
+  background: #10b981;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(16,185,129,0.3);
+}
+.btn-hold {
+  background: #ef4444;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(239,68,68,0.3);
+}
+
+/* Empty State */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   color: #64748b;
-  text-decoration: line-through;
+}
+.empty-icon {
+  font-size: 5rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+.empty-state p {
+  font-size: 1.2rem;
+  font-weight: 600;
 }
 
-/* Footer */
-.footer-row td { background: rgba(255,255,255,.04); border-top: 2px solid rgba(255,255,255,0.1); }
-.footer-label  { padding: 1rem; font-size: .85rem; font-weight: 800; color: #64748b; letter-spacing: .08em; text-transform: uppercase; }
-.footer-num    { color: #a5b4fc; font-size: 1.1rem; font-weight: 800; padding: 1rem; text-align: right; }
-.footer-grand  { color: #c7d2fe; }
-.footer-pay    { text-align: right; color: #10b981; font-size: 1rem; }
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal-content {
+  background: #1e293b;
+  border-radius: 1rem;
+  padding: 2rem;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.modal-content h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  color: #f8fafc;
+}
+.modal-content p {
+  color: #cbd5e1;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  margin-bottom: 2rem;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+.modal-actions button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  border: none;
+}
+.btn-cancel {
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid #475569 !important;
+}
+.btn-confirm {
+  background: #10b981;
+  color: #fff;
+}
+
+.hold-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+.reason-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  color: #e2e8f0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.reason-btn:hover {
+  background: rgba(239,68,68,0.2);
+  border-color: #ef4444;
+}
 </style>
