@@ -22,6 +22,7 @@ import DailyProductionLog    from '@/views/DailyProductionLog.vue'
 import ProductionBlockMatrix from '@/views/ProductionBlockMatrix.vue'
 import HourlyWageTracker     from '@/views/HourlyWageTracker.vue'
 import CompanyExpenses       from '@/views/CompanyExpenses.vue'
+import EmployeeDashboard     from '@/views/employee/EmployeeDashboard.vue'
 
 // ─── Route Definitions ─────────────────────────────────────────────────────
 const routes = [
@@ -39,6 +40,14 @@ const routes = [
     name: 'ModuleSelection',
     component: ModuleSelection,
     meta: { title: 'Module Hub', requiresSystemAuth: true, nav: false },
+  },
+
+  // ── Employee Portal ────────────────────────────────────────────────────
+  {
+    path: '/my-portal',
+    name: 'EmployeeDashboard',
+    component: EmployeeDashboard,
+    meta: { title: 'My Dashboard', requiresSystemAuth: true, nav: false },
   },
 
   // ── Operator Kiosk / Attendance ────────────────────────────────────────
@@ -173,10 +182,21 @@ router.beforeEach((to) => {
 
   // 2. Already unlocked + navigating to boot → hub
   if (to.name === 'WelcomeAuth' && sysAuth.isSystemUnlocked) {
+    if (sysAuth.currentRole === 'employee') {
+      return { name: 'EmployeeDashboard' }
+    }
     return { name: 'ModuleSelection' }
   }
 
-  // 3. Admin-gated routes → PIN challenge (then return)
+  // 3. Employee role restrictions
+  if (sysAuth.currentRole === 'employee') {
+    const allowedRoutes = ['EmployeeDashboard', 'CashAdvanceHub']
+    if (!allowedRoutes.includes(to.name)) {
+      return { name: 'EmployeeDashboard' }
+    }
+  }
+
+  // 4. Admin-gated routes → PIN challenge (then return)
   if (to.meta.requiresAdmin && sysAuth.isSystemUnlocked) {
     const mesStore = useMesStore()
     if (!mesStore.hasAdminAccess) {

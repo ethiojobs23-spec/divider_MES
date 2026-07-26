@@ -25,9 +25,27 @@
         <p class="brand-sub">Authorized Personnel Only</p>
       </div>
 
+      <!-- Toggle -->
+      <div class="mode-toggle">
+        <button 
+          class="toggle-btn" 
+          :class="{ active: authMode === 'admin' }" 
+          @click="authMode = 'admin'; errorMsg = ''; pin = ''"
+        >
+          MANAGER MODE
+        </button>
+        <button 
+          class="toggle-btn" 
+          :class="{ active: authMode === 'employee' }" 
+          @click="authMode = 'employee'; errorMsg = ''; pin = ''"
+        >
+          EMPLOYEE PORTAL
+        </button>
+      </div>
+
       <!-- PIN dots -->
       <div class="pin-section" :class="{ shake: shaking }" aria-label="PIN entry indicator">
-        <p class="pin-label">ENTER MASTER CODE</p>
+        <p class="pin-label">ENTER {{ authMode === 'admin' ? 'MASTER' : 'EMPLOYEE' }} CODE</p>
         <div class="pin-dots">
           <span
             v-for="i in PIN_LENGTH"
@@ -100,6 +118,7 @@ const router   = useRouter()
 const pin      = ref('')
 const errorMsg = ref('')
 const shaking  = ref(false)
+const authMode = ref('admin')
 
 // ── Live clock ───────────────────────────────────────────────────────────────
 const now = ref(new Date())
@@ -133,9 +152,13 @@ function onKey(key) {
 }
 
 function attemptUnlock() {
-  const result = sysAuth.unlockSystem(pin.value)
+  const result = sysAuth.unlockSystem(pin.value, authMode.value)
   if (result.success) {
-    router.push({ name: 'ModuleSelection' })
+    if (authMode.value === 'admin') {
+      router.push({ name: 'ModuleSelection' })
+    } else {
+      router.push({ name: 'EmployeeDashboard' })
+    }
   } else {
     errorMsg.value = result.message
     triggerShake()
@@ -234,6 +257,34 @@ function triggerShake() {
   font-size: .8rem;
   color: #475569;
   margin: 0;
+}
+
+/* Toggle Buttons */
+.mode-toggle {
+  display: flex;
+  gap: 0.5rem;
+  background: rgba(255,255,255,0.03);
+  padding: 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.toggle-btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  border-radius: 0.5rem;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.05em;
+}
+.toggle-btn.active {
+  background: #6366f1;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(99,102,241,0.3);
 }
 
 /* PIN dots section */
