@@ -144,16 +144,12 @@
             <div class="modal-fields">
               <div class="edit-field">
                 <label class="edit-label">$PP — Piece Price (Birr/pc)</label>
-                <div class="edit-numpad-row">
-                  <input
-                    class="edit-input"
-                    v-model="editValues.pp"
-                    placeholder="0.00"
-                    type="number"
-                    step="0.25"
-                    min="0"
-                  />
-                </div>
+                <VirtualNumpad
+                  label="Piece Price"
+                  v-model="editValues.pp"
+                  :maxLen="8"
+                  allowDecimal
+                />
               </div>
               <div class="edit-field">
                 <label class="edit-label">PL — Payout Line</label>

@@ -31,19 +31,26 @@
 import { ref, watch } from 'vue'
 
 const props = defineProps({
-  label:    { type: String,  default: 'Enter Value' },
-  maxLen:   { type: Number,  default: 8 },
-  modelValue: { type: String, default: '' },
+  label:        { type: String,  default: 'Enter Value' },
+  maxLen:       { type: Number,  default: 8 },
+  modelValue:   { type: String, default: '' },
+  allowDecimal: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue', 'submit'])
 
-const keys = ['7','8','9','4','5','6','1','2','3','CLR','0','DEL']
+import { computed } from 'vue'
+
+const keys = computed(() => {
+  return props.allowDecimal
+    ? ['7','8','9','4','5','6','1','2','3','.','0','DEL']
+    : ['7','8','9','4','5','6','1','2','3','CLR','0','DEL']
+})
 
 const displayValue = ref(props.modelValue || '')
 
 watch(() => props.modelValue, (v) => {
-  displayValue.value = v
+  displayValue.value = String(v || '')
 })
 
 function handleKey(key) {
@@ -51,6 +58,10 @@ function handleKey(key) {
     displayValue.value = ''
   } else if (key === 'DEL') {
     displayValue.value = displayValue.value.slice(0, -1)
+  } else if (key === '.') {
+    if (!displayValue.value.includes('.')) {
+      displayValue.value += displayValue.value === '' ? '0.' : '.'
+    }
   } else {
     if (displayValue.value.length >= props.maxLen) return
     displayValue.value += key

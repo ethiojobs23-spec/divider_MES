@@ -52,15 +52,12 @@
 
           <div class="form-group">
             <label>Base Interest Rate (%)</label>
-            <div class="input-with-icon">
-              <input 
-                type="number" 
-                step="0.1" 
-                v-model="formData.baseInterestRate" 
-                class="massive-input" 
-              />
-              <span class="icon">%</span>
-            </div>
+            <VirtualNumpad
+              label="Interest Rate (%)"
+              v-model="formData.baseInterestRate"
+              :maxLen="5"
+              allowDecimal
+            />
             <p class="hint">Applied automatically when requesting a loan.</p>
           </div>
 
@@ -81,6 +78,7 @@
 import { ref, watch } from 'vue'
 import { useMesStore } from '@/store/mesStore'
 import { usePayrollStore } from '@/store/payrollStore'
+import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 
 const mesStore = useMesStore()
 const payrollStore = usePayrollStore()
