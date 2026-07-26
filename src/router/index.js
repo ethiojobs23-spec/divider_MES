@@ -4,20 +4,25 @@ import { useMesStore } from '@/store/mesStore.js'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 
 // ─── Route Components ──────────────────────────────────────────────────────
-import WelcomeAuth      from '@/views/WelcomeAuth.vue'
-import ModuleSelection  from '@/views/ModuleSelection.vue'
-import KioskLogin       from '@/views/KioskLogin.vue'
-import ProductionLogger from '@/views/ProductionLogger.vue'
-import DowntimeTracker  from '@/views/DowntimeTracker.vue'
-import InventoryManager from '@/views/InventoryManager.vue'
-import CashAdvanceHub   from '@/views/CashAdvanceHub.vue'
-import PayrollDashboard from '@/views/PayrollDashboard.vue'
-import QualityControl   from '@/views/QualityControl.vue'
-import DispatchLogistics from '@/views/DispatchLogistics.vue'
-import ExecutiveAnalytics from '@/views/ExecutiveAnalytics.vue'
-import AdminSettings    from '@/views/AdminSettings.vue'
-import PinAuth          from '@/views/PinAuth.vue'
-import EmployeeProfileView from '@/views/EmployeeProfileView.vue'
+import WelcomeAuth           from '@/views/WelcomeAuth.vue'
+import ModuleSelection       from '@/views/ModuleSelection.vue'
+import KioskLogin            from '@/views/KioskLogin.vue'
+import ProductionLogger      from '@/views/ProductionLogger.vue'
+import DowntimeTracker       from '@/views/DowntimeTracker.vue'
+import InventoryManager      from '@/views/InventoryManager.vue'
+import CashAdvanceHub        from '@/views/CashAdvanceHub.vue'
+import PayrollDashboard      from '@/views/PayrollDashboard.vue'
+import QualityControl        from '@/views/QualityControl.vue'
+import DispatchLogistics     from '@/views/DispatchLogistics.vue'
+import ExecutiveAnalytics    from '@/views/ExecutiveAnalytics.vue'
+import AdminSettings         from '@/views/AdminSettings.vue'
+import PinAuth               from '@/views/PinAuth.vue'
+import EmployeeProfileView   from '@/views/EmployeeProfileView.vue'
+import DailyProductionLog    from '@/views/DailyProductionLog.vue'
+import ProductionBlockMatrix from '@/views/ProductionBlockMatrix.vue'
+import HourlyWageTracker     from '@/views/HourlyWageTracker.vue'
+import CompanyExpenses       from '@/views/CompanyExpenses.vue'
+
 // ─── Route Definitions ─────────────────────────────────────────────────────
 const routes = [
   // ── Public boot screen (no auth required) ──────────────────────────────
@@ -111,7 +116,34 @@ const routes = [
     component: EmployeeProfileView,
     meta: { title: 'Employee Profile', icon: 'person', requiresSystemAuth: true, nav: true },
   },
+
+  // ── Ledger Matrix Views ────────────────────────────────────────────────
+  {
+    path: '/daily-log',
+    name: 'DailyProductionLog',
+    component: DailyProductionLog,
+    meta: { title: 'Daily Log', icon: 'edit_note', requiresSystemAuth: true, nav: true },
+  },
+  {
+    path: '/block-matrix',
+    name: 'ProductionBlockMatrix',
+    component: ProductionBlockMatrix,
+    meta: { title: 'Block Matrix', icon: 'grid_view', requiresSystemAuth: true, requiresAdmin: true, nav: true },
+  },
+  {
+    path: '/hourly-wage',
+    name: 'HourlyWageTracker',
+    component: HourlyWageTracker,
+    meta: { title: 'Hourly Wage', icon: 'schedule', requiresSystemAuth: true, nav: true },
+  },
+  {
+    path: '/expenses',
+    name: 'CompanyExpenses',
+    component: CompanyExpenses,
+    meta: { title: 'Expenses', icon: 'receipt_long', requiresSystemAuth: true, requiresAdmin: true, nav: true },
+  },
 ]
+
 
 // ─── Router Instance ───────────────────────────────────────────────────────
 const router = createRouter({

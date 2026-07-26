@@ -59,11 +59,16 @@
         </router-link>
       </nav>
 
-      <!-- ── Back to Hub ──────────────────────────────────────────── -->
-      <button class="back-to-hub" @click="router.push('/hub')">
-        <span class="material-symbols-rounded back-hub-icon">arrow_back</span>
-        <span class="back-hub-label">Back to Hub</span>
-      </button>
+      <!-- ── Back Navigation ──────────────────────────────────── -->
+      <div class="back-btn-group">
+        <button class="back-prev" @click="goBack" title="Go back">
+          <span class="material-symbols-rounded">arrow_back</span>
+        </button>
+        <button class="back-to-hub" @click="router.push('/hub')">
+          <span class="material-symbols-rounded back-hub-icon">home</span>
+          <span class="back-hub-label">Back to Hub</span>
+        </button>
+      </div>
     </aside>
 
     <!-- ─── Main Content ──────────────────────────────────────────── -->
@@ -75,14 +80,24 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { routes } from '@/router/index.js'
 import { useMesStore } from '@/store/mesStore.js'
 import NetworkBanner from '@/components/ui/NetworkBanner.vue'
 
 const router = useRouter()
+const route  = useRoute()
 
 const store = useMesStore()
+
+// ─── Smart Back Navigation ───────────────────────────────────────────────
+function goBack() {
+  if (window.history.length > 2) {
+    router.back()
+  } else {
+    router.push('/hub')
+  }
+}
 
 // ─── Live Clock ────────────────────────────────────────────────────────────
 const now = ref(new Date())
@@ -204,7 +219,6 @@ const navRoutes = computed(() => routes.filter(r => r.meta?.nav))
   display: flex;
   flex-direction: column;
   gap: .3rem;
-  /* flex: 1 removed — hub button now owns margin-top: auto */
 }
 .nav-item {
   display: flex;
@@ -223,6 +237,33 @@ const navRoutes = computed(() => routes.filter(r => r.meta?.nav))
 .nav-item--active { background: rgba(99,102,241,.2); color: #a5b4fc; }
 .nav-item--login { border-top: 1px solid rgba(255,255,255,.06); padding-top: .85rem; }
 .nav-icon { font-size: 1.25rem; }
+
+/* ── Back Button Group ─────────────────────────────────────────────── */
+.back-btn-group {
+  display: flex;
+  gap: .5rem;
+  margin-top: auto;
+  flex-shrink: 0;
+}
+.back-prev {
+  width: 4rem;
+  min-height: 4.5rem;
+  background: rgba(99,102,241,.08);
+  border: 1px solid rgba(99,102,241,.2);
+  border-radius: .85rem;
+  color: #a5b4fc;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s ease, border-color .15s ease, transform .08s ease;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+.back-prev:hover  { background: rgba(99,102,241,.2); border-color: rgba(99,102,241,.45); }
+.back-prev:active { transform: scale(.95); }
+.back-prev .material-symbols-rounded { font-size: 1.4rem; }
 
 /* ── Back to Hub button ────────────────────────────────────────────────── */
 .back-to-hub {
@@ -243,7 +284,7 @@ const navRoutes = computed(() => routes.filter(r => r.meta?.nav))
   transition: background .15s ease, border-color .15s ease, transform .08s ease;
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
-  margin-top: auto;
+  /* margin-top owned by .back-btn-group wrapper */
 }
 .back-to-hub:hover  { background: rgba(99,102,241,.22); border-color: rgba(99,102,241,.5); color: #c4b5fd; }
 .back-to-hub:active { transform: scale(.97); background: rgba(99,102,241,.32); }
