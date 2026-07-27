@@ -185,9 +185,9 @@ function confirmApprove(worker) {
   showConfirmModal.value = true
 }
 
-function executeApprove() {
+async function executeApprove() {
   if (selectedWorker.value) {
-    payrollStore.approvePayout(selectedWorker.value.id, currentWeek.value)
+    await payrollStore.approvePayout(selectedWorker.value.id, currentWeek.value)
   }
   showConfirmModal.value = false
 }

@@ -162,13 +162,36 @@ export const usePayrollStore = defineStore('payroll', () => {
   function getPayoutStatus(workerId, week) {
     return payoutStatuses.value[week]?.[workerId] || { status: 'pending', reason: '' }
   }
-  function approvePayout(workerId, week) {
-    if (!payoutStatuses.value[week]) payoutStatuses.value[week] = {}
-    payoutStatuses.value[week][workerId] = { status: 'approved', reason: '' }
+  async function approvePayout(workerId, week) {
+    const currentStatuses = { ...payoutStatuses.value }
+    if (!currentStatuses[week]) currentStatuses[week] = {}
+    currentStatuses[week] = { 
+      ...currentStatuses[week], 
+      [workerId]: { status: 'approved', reason: '' } 
+    }
+    payoutStatuses.value = currentStatuses
+
+    // Log the payout to the database ledger natively
+    const payoutDetails = calculateFinalPayout(workerId, week)
+    if (payoutDetails.netPayout > 0) {
+      const worker = mesStore.operators.find(o => o.id === workerId)
+      await mesStore.addCashEntry({
+        operator: worker?.name || 'Unknown',
+        type: 'payout',
+        amount: payoutDetails.netPayout,
+        note: `Weekly Payroll Settlement for ${week}`
+      })
+    }
   }
+
   function holdPayout(workerId, week, reason) {
-    if (!payoutStatuses.value[week]) payoutStatuses.value[week] = {}
-    payoutStatuses.value[week][workerId] = { status: 'held', reason: reason || 'Disputed' }
+    const currentStatuses = { ...payoutStatuses.value }
+    if (!currentStatuses[week]) currentStatuses[week] = {}
+    currentStatuses[week] = { 
+      ...currentStatuses[week], 
+      [workerId]: { status: 'held', reason: reason || 'Disputed' } 
+    }
+    payoutStatuses.value = currentStatuses
   }
 
   const weeklyPayrollSummary = computed(() => {
