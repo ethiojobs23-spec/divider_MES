@@ -107,18 +107,24 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
+import { useMesStore } from '@/store/mesStore.js'
+import { useAttendanceStore } from '@/store/attendanceStore.js'
+import { usePayrollStore } from '@/store/payrollStore.js'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const PIN_LENGTH = 4
 const KEYS = ['7','8','9','4','5','6','1','2','3','CLR','0','⌫']
 
 // ── State ────────────────────────────────────────────────────────────────────
-const sysAuth  = useSystemAuthStore()
-const router   = useRouter()
-const pin      = ref('')
-const errorMsg = ref('')
-const shaking  = ref(false)
-const authMode = ref('admin')
+const sysAuth   = useSystemAuthStore()
+const mesStore  = useMesStore()
+const attStore  = useAttendanceStore()
+const payStore  = usePayrollStore()
+const router    = useRouter()
+const pin       = ref('')
+const errorMsg  = ref('')
+const shaking   = ref(false)
+const authMode  = ref('admin')
 
 // ── Live clock ───────────────────────────────────────────────────────────────
 const now = ref(new Date())
@@ -135,7 +141,12 @@ const today = computed(() =>
   })
 )
 
-onMounted(()  => { clockTimer = setInterval(() => { now.value = new Date() }, 1000) })
+onMounted(()  => { 
+  clockTimer = setInterval(() => { now.value = new Date() }, 1000)
+  mesStore.fetchInitialData()
+  attStore.fetchAttendance()
+  payStore.fetchLoans()
+})
 onUnmounted(() => clearInterval(clockTimer))
 
 // ── Numpad logic ─────────────────────────────────────────────────────────────
@@ -151,8 +162,8 @@ function onKey(key) {
   if (pin.value.length === PIN_LENGTH) attemptUnlock()
 }
 
-function attemptUnlock() {
-  const result = sysAuth.unlockSystem(pin.value, authMode.value)
+async function attemptUnlock() {
+  const result = await sysAuth.unlockSystem(pin.value, authMode.value)
   if (result.success) {
     if (authMode.value === 'admin') {
       router.push({ name: 'ModuleSelection' })

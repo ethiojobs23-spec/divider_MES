@@ -1,16 +1,13 @@
 /**
  * systemAuthStore.js
  *
- * Manages system-level authentication (master boot PIN & Employee PIN) and exposes the
- * global context.
+ * Manages system-level authentication (Admin PIN & Employee PIN) by querying
+ * the Supabase `mes_operators` table, and exposes the global context.
  */
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { useMesStore } from './mesStore'
-
-// Master boot PIN — override via VITE_MASTER_PIN in .env
-const MASTER_PIN = import.meta.env.VITE_MASTER_PIN ?? '8080'
+import { supabase } from '@/lib/supabaseClient'
 
 export const useSystemAuthStore = defineStore('systemAuth', () => {
   // ── State ────────────────────────────────────────────────────────────────
@@ -31,52 +28,39 @@ export const useSystemAuthStore = defineStore('systemAuth', () => {
 
   // ── Actions ──────────────────────────────────────────────────────────────
   /**
-   * Attempt to unlock the system.
+   * Attempt to unlock the system by querying Supabase.
    * @param {string} pin          - 4-digit string entered via VirtualNumpad
    * @param {string} mode         - 'admin' or 'employee'
    * @returns {{ success: boolean, message: string }}
    */
-  function unlockSystem(pin, mode = 'admin') {
-    if (mode === 'admin') {
-      if (String(pin).trim() === String(MASTER_PIN).trim()) {
-        isSystemUnlocked.value  = true
-        currentRole.value       = 'admin'
-        currentEmployeeId.value = null
-        authorizedManager.value = 'Manager'
-        shiftStartedAt.value    = new Date().toISOString()
-        return { success: true, message: '' }
-      }
-      return { success: false, message: 'Invalid manager PIN. Access denied.' }
-    } else {
-      // Employee Mode
-      // Mock logic: PIN is '11' + employeeId (e.g. employee 1 -> '1101', but since ids might be '1', let's just use a hardcoded mock map or dynamic)
-      // Let's create a deterministic mock PIN for any operator: PIN = '00' + ID padded to 2 digits.
-      // E.g., Operator 1 -> '0001'.
-      const mesStore = useMesStore()
-      
-      // Let's assume all operators have a PIN '0000' + their ID. Or just match by ID to find.
-      // To make it simple and testable: Operator ID 1 -> '1111', 2 -> '2222', 3 -> '3333'
-      const mockPins = {
-        '1111': 1, // e.g. Zelalem
-        '2222': 2, // e.g. Aben
-        '3333': 3, // e.g. Teme
-        '4444': 4,
-        '5555': 5,
-        '6666': 6,
-      }
+  async function unlockSystem(pin, mode = 'admin') {
+    try {
+      const { data: operator, error } = await supabase
+        .from('mes_operators')
+        .select('*')
+        .eq('pin_code', String(pin).trim())
+        .single()
 
-      const empId = mockPins[String(pin).trim()]
-      
-      if (empId !== undefined) {
-        const emp = mesStore.operators.find(o => o.id === empId)
-        isSystemUnlocked.value  = true
-        currentRole.value       = 'employee'
-        currentEmployeeId.value = empId
-        authorizedManager.value = emp ? emp.name : `Employee ${empId}`
-        shiftStartedAt.value    = new Date().toISOString()
-        return { success: true, message: '' }
+      if (error || !operator) {
+        return { success: false, message: 'Invalid PIN. Access denied.' }
       }
-      return { success: false, message: 'Invalid employee PIN. Access denied.' }
+      
+      // Verify role
+      if (mode === 'admin' && operator.role !== 'admin') {
+        return { success: false, message: 'Admin privileges required.' }
+      }
+      
+      isSystemUnlocked.value  = true
+      currentRole.value       = mode
+      currentEmployeeId.value = operator.id
+      authorizedManager.value = operator.name
+      shiftStartedAt.value    = new Date().toISOString()
+      
+      return { success: true, message: '' }
+      
+    } catch (err) {
+      console.error('[Auth Error]', err)
+      return { success: false, message: 'Connection error. Check network.' }
     }
   }
 
