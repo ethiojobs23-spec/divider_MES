@@ -109,6 +109,18 @@ export const usePayrollStore = defineStore('payroll', () => {
     }
   }
 
+  function getAdvanceDeductions(workerId, week) {
+    const worker = mesStore.operators.find(o => o.id === workerId)
+    if (!worker) return { totalDeduction: 0 }
+    
+    const workerAdvances = mesStore.cashEntries.filter(e => 
+      e.operator === worker.name && e.week === week && e.type === 'advance'
+    )
+    
+    const total = workerAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0)
+    return { totalDeduction: toDecimal2(total) }
+  }
+
   async function approveLoan(loanId) {
     try {
       const { error } = await supabase.from('mes_loans').update({ status: 'active' }).eq('id', loanId)
@@ -177,7 +189,9 @@ export const usePayrollStore = defineStore('payroll', () => {
     const grossPieceRate = getGrossEarnings(workerId, week)
     const grossHourly = getHourlyEarnings(workerId, week)
     const grossEarnings = toDecimal2((grossPieceRate + grossHourly) * attendanceFactor)
-    const { totalDeduction } = getLoanDeductions(workerId, week)
+    const { totalDeduction: loanDeductions } = getLoanDeductions(workerId, week)
+    const { totalDeduction: advanceDeductions } = getAdvanceDeductions(workerId, week)
+    const totalDeduction = toDecimal2(loanDeductions + advanceDeductions)
     const netPayout = toDecimal2(Math.max(0, grossEarnings - totalDeduction))
 
     return { grossPieceRate, grossHourly, attendanceFactor, grossEarnings, totalDeduction, netPayout, daysAttended }
@@ -232,7 +246,7 @@ export const usePayrollStore = defineStore('payroll', () => {
 
   return {
     fetchLoans, workerProfiles, getWorkerProfile, setWorkerProfile,
-    loans, requestLoan, getLoanDeductions, approveLoan, rejectLoan,
+    loans, requestLoan, getLoanDeductions, getAdvanceDeductions, approveLoan, rejectLoan,
     getDaysAttended,
     getGrossEarnings, getHourlyEarnings, calculateFinalPayout, weeklyPayrollSummary,
     payoutStatuses, getPayoutStatus, approvePayout, holdPayout,
