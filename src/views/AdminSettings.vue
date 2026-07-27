@@ -1,8 +1,26 @@
 <template>
   <TabletLayout>
-    <!-- ─── LEFT: Settings Nav Sidebar ─────────────────────────────── -->
-        <!-- ─── RIGHT: Settings Main Area ──────────────────────────────── -->
     <main class="admin-main">
+      <!-- ─── TOP: Settings Nav Bar ─────────────────────────────── -->
+      <nav class="settings-top-nav">
+        <button class="snav-item" :class="{'snav-item--active': activeTab === 'employees'}" @click="activeTab = 'employees'">
+          <span class="material-symbols-rounded snav-icon">group</span>
+          <span class="snav-label">Employees</span>
+        </button>
+        <button class="snav-item" :class="{'snav-item--active': activeTab === 'rates'}" @click="activeTab = 'rates'">
+          <span class="material-symbols-rounded snav-icon">price_change</span>
+          <span class="snav-label">Piece Rates</span>
+        </button>
+        <button class="snav-item" :class="{'snav-item--active': activeTab === 'thresholds'}" @click="activeTab = 'thresholds'">
+          <span class="material-symbols-rounded snav-icon">warning</span>
+          <span class="snav-label">Thresholds</span>
+        </button>
+        <button class="snav-item" :class="{'snav-item--active': activeTab === 'system'}" @click="activeTab = 'system'">
+          <span class="material-symbols-rounded snav-icon">tune</span>
+          <span class="snav-label">System</span>
+        </button>
+      </nav>
+
 
       <!-- ══════════════════════════════════════════════════════════════
            TAB 0: EMPLOYEES
@@ -257,6 +275,22 @@
             </div>
           </div>
 
+          <!-- Attendance Shift Window -->
+          <div class="config-item config-item--text">
+            <div class="config-info">
+              <span class="material-symbols-rounded config-icon" style="color:#f59e0b">schedule</span>
+              <div>
+                <p class="config-label">Shift Attendance Window</p>
+                <p class="config-desc">Employees can only clock in between these times without a manager override.</p>
+              </div>
+            </div>
+            <div class="time-inputs">
+              <input type="time" v-model="attStore.shiftWindowStart" class="time-input" />
+              <span class="time-to">to</span>
+              <input type="time" v-model="attStore.shiftWindowEnd" class="time-input" />
+            </div>
+          </div>
+
           <!-- Production Week Override -->
           <div class="config-item config-item--text">
             <div class="config-info">
@@ -287,9 +321,11 @@
 import TabletLayout from '@/components/layout/TabletLayout.vue'
 import { ref } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
+import { useAttendanceStore } from '@/store/attendanceStore.js'
 import EmployeeManager from '@/components/EmployeeManager.vue'
 
 const store = useMesStore()
+const attStore = useAttendanceStore()
 
 // ─── Nav state ──────────────────────────────────────────────────────────────
 const activeTab    = ref('employees')
@@ -350,27 +386,26 @@ function applyChanges() {
 .brand-title   { font-size: .95rem; font-weight: 800; color: #f1f5f9; }
 .brand-sub     { font-size: .62rem; color: #64748b; text-transform: uppercase; letter-spacing: .06em; }
 
-.settings-nav { display: flex; flex-direction: column; gap: .4rem; flex: 1; }
+.settings-top-nav {
+  display: flex; gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  background: #1e293b;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+}
 .snav-item {
-  display: flex; align-items: center; gap: .7rem;
-  padding: .85rem .9rem;
+  display: flex; align-items: center; gap: .5rem;
+  padding: .6rem 1rem;
   background: transparent;
   border: 1px solid rgba(255,255,255,.07);
-  border-radius: .7rem;
+  border-radius: .5rem;
   color: #64748b;
   cursor: pointer;
   transition: all .15s ease;
-  text-align: left;
-  -webkit-tap-highlight-color: transparent;
 }
 .snav-item:hover        { background: rgba(255,255,255,.05); color: #cbd5e1; }
 .snav-item--active      { background: rgba(16,185,129,.12); border-color: #10b981; color: #34d399; }
-.snav-icon              { font-size: 1.25rem !important; flex-shrink: 0; }
-.snav-text              { flex: 1; }
-.snav-label             { font-size: .85rem; font-weight: 700; display: block; }
-.snav-sub               { font-size: .62rem; color: #475569; display: block; margin-top: .05rem; }
-.snav-item--active .snav-sub { color: rgba(52,211,153,.6); }
-.snav-arrow             { font-size: 1rem !important; opacity: .4; }
+.snav-icon              { font-size: 1.1rem !important; }
+.snav-label             { font-size: .85rem; font-weight: 700; }
 
 .apply-btn {
   height: 4.5rem;
@@ -411,7 +446,7 @@ function applyChanges() {
   position: relative;
 }
 
-.tab-panel { display: flex; flex-direction: column; gap: 1.25rem; }
+.tab-panel { display: flex; flex-direction: column; gap: 1.25rem; padding: 1.5rem; }
 
 .panel-header {
   display: flex; align-items: center; gap: .85rem;
@@ -656,4 +691,17 @@ function applyChanges() {
 /* Week Steppers */
 .week-steppers { display: flex; align-items: center; gap: .5rem; }
 .week-display  { font-size: 1rem; font-weight: 800; color: #a5b4fc; min-width: 7rem; text-align: center; }
+
+/* Time Inputs */
+.time-inputs { display: flex; align-items: center; gap: 0.5rem; }
+.time-input {
+  background: #0f172a;
+  border: 1px solid rgba(255,255,255,0.09);
+  color: #f1f5f9;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  font-family: inherit;
+  font-size: 1rem;
+}
+.time-to { color: #64748b; font-size: 0.85rem; font-weight: 600; }
 </style>

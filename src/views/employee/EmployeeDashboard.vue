@@ -207,11 +207,13 @@ import { useRouter } from 'vue-router'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore.js'
+import { useAttendanceStore } from '@/store/attendanceStore.js'
 
 const router = useRouter()
 const sysAuth = useSystemAuthStore()
 const mesStore = useMesStore()
 const payrollStore = usePayrollStore()
+const attStore = useAttendanceStore()
 
 const currentWeek = computed(() => mesStore.currentProductionWeek)
 const activeTab = ref('overview')
@@ -297,12 +299,24 @@ const isClockedIn = computed(() => {
   return mesStore.isOperatorClockedIn(employee.value.id)
 })
 
-function clockIn() {
-  if (employee.value) mesStore.clockIn(employee.value)
+async function clockIn() {
+  if (employee.value) {
+    mesStore.clockIn(employee.value)
+    await attStore.recordClockIn(employee.value)
+  }
 }
 
-function clockOut() {
-  if (employee.value) mesStore.clockOut(employee.value)
+async function clockOut() {
+  if (employee.value) {
+    mesStore.clockOut(employee.value)
+    try {
+      const { supabase } = await import('@/lib/supabaseClient')
+      await supabase.from('mes_attendance')
+        .update({ clock_out: new Date().toISOString() })
+        .eq('operator_id', employee.value.id)
+        .is('clock_out', null)
+    } catch (e) { /* ignore */ }
+  }
 }
 
 // ── Production ──
