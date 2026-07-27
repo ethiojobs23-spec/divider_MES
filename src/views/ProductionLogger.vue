@@ -55,6 +55,10 @@
         <p class="summary-row"><span>Place</span><strong>{{ selections.placement || '—' }}</strong></p>
         <p class="summary-row"><span>Size</span><strong>{{ selections.size || '—' }}</strong></p>
         <p class="summary-row"><span>Operator</span><strong>{{ store.activeOperator?.name || '—' }}</strong></p>
+        <p class="summary-row"><span>Rate</span><strong class="rate-val">ETB {{ (store.pieceRates?.[selections.dividerType]?.[selections.size]?.[selections.placement] ?? 0).toFixed(2) }}/pc</strong></p>
+        <div class="summary-divider" />
+        <p class="summary-row"><span>Today's entries</span><strong class="count-val">{{ todayEntries.length }}</strong></p>
+        <p class="summary-row"><span>Earnings preview</span><strong class="earn-val">ETB {{ earningsPreview }}</strong></p>
       </div>
     </aside>
 
@@ -103,11 +107,13 @@
       <!-- Save Button -->
       <button
         class="save-btn"
-        :disabled="!canSave"
+        :class="{ 'save-btn--error': toast.isError }"
+        :disabled="!canSave || isSaving"
         @click="saveEntry"
       >
-        <span class="material-symbols-rounded">save</span>
-        SAVE TO LEDGER
+        <span class="material-symbols-rounded">{{ isSaving ? 'hourglass_top' : 'save' }}</span>
+        {{ isSaving ? 'SAVING…' : 'SAVE TO LEDGER' }}
+        <span v-if="values.good && !isSaving" class="earn-badge">ETB {{ earningsPreview }}</span>
       </button>
 
       <!-- Toast -->
@@ -136,35 +142,60 @@ const sizes        = ['9cm', '7cm']
 const selections = reactive({ dividerType: '50', placement: 'ብተና', size: '9cm' })
 const values     = reactive({ good: '', waste: '' })
 const activeField = ref('good')
+const isSaving   = ref(false)
 
 const canSave = computed(() =>
   (values.good !== '' || values.waste !== '') && store.activeOperator !== null
 )
 
-const toast = reactive({ visible: false, message: '' })
+// Today's entries from the store ledger
+const todayEntries = computed(() => {
+  const today = new Date().toDateString()
+  return store.ledgerEntries
+    .filter(e => new Date(e.timestamp).toDateString() === today)
+    .slice(-5)
+    .reverse()
+})
+
+// Piece-rate earnings preview
+const earningsPreview = computed(() => {
+  const rate = store.pieceRates?.[selections.dividerType]?.[selections.size]?.[selections.placement] ?? 0
+  const qty = Number(values.good) || 0
+  return (rate * qty).toFixed(2)
+})
+
+const toast = reactive({ visible: false, message: '', isError: false })
 let toastTimer = null
 
-function showToast(msg) {
+function showToast(msg, isError = false) {
   toast.message  = msg
   toast.visible  = true
+  toast.isError  = isError
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => { toast.visible = false }, 2500)
 }
 
-function saveEntry() {
-  if (!canSave.value) return
-  store.saveProductionEntry({
+async function saveEntry() {
+  if (!canSave.value || isSaving.value) return
+  isSaving.value = true
+  const ok = await store.submitProductionLog({
     dividerType:    selections.dividerType,
     placement:      selections.placement,
     size:           selections.size,
     goodProduction: Number(values.good)  || 0,
     wasteMaterial:  Number(values.waste) || 0,
   })
-  values.good  = ''
-  values.waste = ''
-  showToast('Entry saved to ledger ✓')
+  isSaving.value = false
+  if (ok) {
+    values.good  = ''
+    values.waste = ''
+    showToast(`✓ Saved — ETB ${earningsPreview.value} earned`)
+  } else {
+    showToast('⚠ Save failed. Check your connection.', true)
+  }
 }
 </script>
+
 
 <style scoped>
 .prod-layout {
@@ -236,6 +267,19 @@ function saveEntry() {
   color: #64748b;
 }
 .summary-row strong { color: #e2e8f0; }
+.rate-val   { color: #a5b4fc !important; }
+.earn-val   { color: #34d399 !important; font-size: .9rem; }
+.count-val  { color: #fbbf24 !important; }
+.summary-divider { height: 1px; background: rgba(255,255,255,.07); margin: .2rem 0; }
+.earn-badge {
+  background: rgba(16,185,129,.2);
+  color: #34d399;
+  font-size: .8rem;
+  font-weight: 900;
+  padding: .15rem .55rem;
+  border-radius: 999px;
+  margin-left: .25rem;
+}
 
 /* Main */
 .prod-main {
@@ -308,6 +352,7 @@ function saveEntry() {
 .save-btn:disabled { opacity: .35; cursor: not-allowed; }
 .save-btn:not(:disabled):hover  { filter: brightness(1.1); }
 .save-btn:not(:disabled):active { transform: scale(.98); }
+.save-btn--error { background: linear-gradient(135deg,#dc2626,#ef4444) !important; }
 
 .toast {
   position: absolute;

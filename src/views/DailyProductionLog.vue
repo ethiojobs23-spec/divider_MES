@@ -209,11 +209,29 @@ function cancelNumpad() {
   numpadValue.value = ''
 }
 
-function confirmEntry() {
+async function confirmEntry() {
   if (!activeCell.value) return
   const qty = parseInt(numpadValue.value, 10) || 0
+
+  // Save locally for immediate UI feedback
   setCellValue(activeCell.value.day, activeCell.value.col, activePlacement.value, activeSize.value, qty)
-  showToast(`Logged ${qty} pcs · ${activeCell.value.day} / Type ${activeCell.value.col}`)
+
+  // Also persist to Supabase
+  if (qty > 0) {
+    const ok = await store.submitProductionLog({
+      dividerType:    activeCell.value.col,
+      placement:      activePlacement.value,
+      size:           activeSize.value,
+      goodProduction: qty,
+      wasteMaterial:  0,
+    })
+    showToast(ok
+      ? `✓ Logged ${qty} pcs · ${activeCell.value.day} / Type ${activeCell.value.col}`
+      : `⚠ Saved locally but sync failed`
+    )
+  } else {
+    showToast(`Cleared ${activeCell.value.day} / Type ${activeCell.value.col}`)
+  }
   cancelNumpad()
 }
 
