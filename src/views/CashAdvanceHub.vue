@@ -163,17 +163,25 @@ function showToast(msg) {
   toastTimer = setTimeout(() => { toast.visible = false }, 2500)
 }
 
-function submitEntry() {
-  if (!canSubmit.value) return
-  store.addCashEntry({
+const isSaving = ref(false)
+
+async function submitEntry() {
+  if (!canSubmit.value || isSaving.value) return
+  isSaving.value = true
+  const ok = await store.addCashEntry({
     type:     entryType.value,
     amount:   Number(inputAmount.value),
     operator: entryType.value === 'advance' ? (selectedOp.value?.name ?? 'Unknown') : 'Company',
     note:     note.value,
   })
-  showToast(`${entryType.value === 'advance' ? 'Advance' : 'Expense'} of ${inputAmount.value} ETB logged ✓`)
-  inputAmount.value = ''
-  note.value = ''
+  isSaving.value = false
+  if (ok !== false) {
+    showToast(`${entryType.value === 'advance' ? 'Advance' : 'Expense'} of ${inputAmount.value} ETB logged ✓`)
+    inputAmount.value = ''
+    note.value = ''
+  } else {
+    showToast('⚠ Failed to save. Check connection.')
+  }
 }
 
 const recentEntries = computed(() => [...store.cashEntries].reverse().slice(0, 8))

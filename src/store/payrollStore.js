@@ -117,11 +117,15 @@ export const usePayrollStore = defineStore('payroll', () => {
   function getGrossEarnings(workerId, week) {
     const worker = mesStore.operators.find(o => o.id === workerId)
     if (!worker) return 0
-    const entries = mesStore.ledgerEntries.filter(e => e.operator === worker.name && e.week === week)
+    // Filter by both operator name AND week
+    const entries = mesStore.ledgerEntries.filter(e =>
+      e.operator === worker.name && (e.week === week || !week)
+    )
     let gross = 0
     for (const entry of entries) {
       const qty = Number(entry.goodProduction) || 0
       if (qty <= 0) continue
+      // Size stored as '9cm' in ledger, pieceRates key is '9cm'
       const rate = mesStore.pieceRates?.[entry.dividerType]?.[entry.size]?.[entry.placement] ?? 0
       gross += qty * rate
     }
@@ -129,12 +133,11 @@ export const usePayrollStore = defineStore('payroll', () => {
   }
 
   function getHourlyEarnings(workerId, week) {
-    const worker = mesStore.operators.find(o => o.id === workerId)
-    if (!worker) return 0
     const profile = getWorkerProfile(workerId)
     const rate = Math.min(HOURLY_MAX, Math.max(HOURLY_MIN, profile.hourlyRate))
-    const hourlyEntries = mesStore.cashEntries.filter(e => e.operator === worker.name && e.week === week && e.type === 'hourly_wage')
-    const totalHours = hourlyEntries.reduce((sum, e) => sum + (Number(e.hours) || 0), 0)
+    // 8 hours per shift day, prorated by attendance
+    const daysAttended = getDaysAttended(workerId, week)
+    const totalHours = daysAttended * 8
     return toDecimal2(totalHours * rate)
   }
 

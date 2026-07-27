@@ -109,11 +109,13 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMesStore } from '@/store/mesStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
+import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 
 const router = useRouter()
 const store = useMesStore()
 const mesStore = store
 const attendanceStore = useAttendanceStore()
+const sysAuth = useSystemAuthStore()
 
 const modal = ref({ open: false, operator: null })
 
@@ -137,27 +139,38 @@ function openModal(op) {
 }
 function closeModal() { modal.value = { open: false, operator: null } }
 
-function handleClockIn() {
-  // Flagging as 'Late Authorized' via comment per user requirement fallback 
-  mesStore.clockIn(modal.value.operator)
+async function handleClockIn() {
+  const op = modal.value.operator
+  mesStore.clockIn(op)                        // update local UI state immediately
+  await attendanceStore.recordClockIn(op)     // persist to Supabase
   closeModal()
   router.push('/production')
 }
 
-function handleClockOut() {
-  mesStore.clockOut(modal.value.operator)
+async function handleClockOut() {
+  const op = modal.value.operator
+  mesStore.clockOut(op)
+  // Log clock-out time in attendance
+  try {
+    const { supabase } = await import('@/lib/supabaseClient')
+    await supabase.from('mes_attendance')
+      .update({ clock_out: new Date().toISOString() })
+      .eq('operator_id', op.id)
+      .is('clock_out', null)
+  } catch (e) { /* non-critical, ignore */ }
   closeModal()
 }
 
-// Numpad logic
-function appendNum(n) {
+async function appendNum(n) {
   if (overridePin.value.length < 4) {
     overridePin.value += String(n)
     if (overridePin.value.length === 4) {
-      if (overridePin.value === mesStore.adminPin) {
+      // Verify override PIN against Supabase (admin role)
+      const result = await sysAuth.unlockSystem(overridePin.value, 'admin')
+      if (result.success) {
         isOverrideAuthorized.value = true
         showOverride.value = false
-        validation.value.allowed = true // Force reveal Green button
+        validation.value.allowed = true
       } else {
         alert('Invalid Manager PIN')
         overridePin.value = ''
