@@ -1,79 +1,7 @@
 <template>
-  <div class="cash-layout">
+  <TabletLayout>
     <!-- LEFT Sidebar -->
-    <aside class="cash-sidebar">
-      <!-- Type Selector -->
-      <div class="sidebar-section">
-        <p class="section-title">Entry Type</p>
-        <div class="type-list">
-          <button
-            class="type-btn"
-            :class="{ 'type-btn--active': entryType === 'advance' }"
-            @click="entryType = 'advance'"
-          >
-            <span class="material-symbols-rounded">person</span>
-            Employee Advance
-          </button>
-          <button
-            class="type-btn"
-            :class="{ 'type-btn--active type-btn--expense': entryType === 'expense' }"
-            @click="entryType = 'expense'"
-          >
-            <span class="material-symbols-rounded">business_center</span>
-            Company Expense
-          </button>
-        </div>
-      </div>
-
-      <!-- Operator (Advance only) -->
-      <div v-if="entryType === 'advance'" class="sidebar-section">
-        <p class="section-title">Recipient</p>
-        <div class="op-list">
-          <button
-            v-for="op in store.operators"
-            :key="op.id"
-            class="op-btn"
-            :class="{ 'op-btn--active': selectedOp?.id === op.id }"
-            @click="selectedOp = op"
-          >
-            <div class="op-dot" :class="op.color">{{ op.avatar }}</div>
-            {{ op.name }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Summary Card -->
-      <div class="summary-card">
-        <div class="summary-item">
-          <span>Total Advances</span>
-          <strong class="summary-val">{{ store.totalAdvances }} ETB</strong>
-        </div>
-        <div class="summary-item">
-          <span>Total Expenses</span>
-          <strong class="summary-val summary-val--exp">{{ store.totalExpenses }} ETB</strong>
-        </div>
-      </div>
-
-      <!-- Recent entries -->
-      <div class="sidebar-section flex-1">
-        <p class="section-title">Recent Entries</p>
-        <div class="entry-list">
-          <div v-for="e in recentEntries" :key="e.id" class="entry-item">
-            <span class="entry-type" :class="e.type === 'advance' ? 'type--adv' : 'type--exp'">
-              {{ e.type === 'advance' ? 'ADV' : 'EXP' }}
-            </span>
-            <div class="entry-body">
-              <p class="entry-who">{{ e.operator }}</p>
-              <p class="entry-note">{{ e.note || '—' }}</p>
-            </div>
-            <span class="entry-amount">{{ e.amount }} ETB</span>
-          </div>
-          <p v-if="!recentEntries.length" class="empty-hint">No entries yet</p>
-        </div>
-      </div>
-    </aside>
-
-    <!-- MAIN: Input Area -->
+        <!-- MAIN: Input Area -->
     <main class="cash-main">
       <!-- Quick Presets -->
       <div class="presets-row">
@@ -129,10 +57,11 @@
         </div>
       </Transition>
     </main>
-  </div>
+  </TabletLayout>
 </template>
 
 <script setup>
+import TabletLayout from '@/components/layout/TabletLayout.vue'
 import { ref, computed, reactive } from 'vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import { useMesStore } from '@/store/mesStore.js'
@@ -188,26 +117,10 @@ const recentEntries = computed(() => [...store.cashEntries].reverse().slice(0, 8
 </script>
 
 <style scoped>
-.cash-layout {
-  display: flex;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background: #0f172a;
-}
+
 
 /* Sidebar */
-.cash-sidebar {
-  width: 25%;
-  min-width: 260px;
-  background: #1e293b;
-  border-right: 1px solid rgba(245,158,11,.2);
-  display: flex;
-  flex-direction: column;
-  padding: 1.25rem 1rem;
-  gap: 1rem;
-  overflow: hidden;
-}
+
 .sidebar-section          { display: flex; flex-direction: column; gap: .5rem; }
 .sidebar-section.flex-1   { flex: 1; overflow: hidden; }
 .section-title {
@@ -276,13 +189,12 @@ const recentEntries = computed(() => [...store.cashEntries].reverse().slice(0, 8
 
 /* Main */
 .cash-main {
-  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 2rem;
-  gap: 1rem;
   position: relative;
-  overflow: hidden;
 }
 
 .presets-row { display: flex; align-items: center; gap: 1rem; }

@@ -1,5 +1,5 @@
 <template>
-  <div class="payroll-layout">
+  <TabletLayout>
     <!-- Header Bar -->
     <div class="payroll-header">
       <div class="header-left">
@@ -150,10 +150,11 @@
         </div>
       </div>
     </div>
-  </div>
+  </TabletLayout>
 </template>
 
 <script setup>
+import TabletLayout from '@/components/layout/TabletLayout.vue'
 import { ref, computed } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore.js'
@@ -206,15 +207,7 @@ function executeHold(reason) {
 </script>
 
 <style scoped>
-.payroll-layout {
-  display: flex;
-  flex-direction: column;
-  width: 100vw;
-  height: 100vh;
-  background: #0f172a;
-  overflow: hidden;
-  font-family: 'Inter', sans-serif;
-}
+
 
 /* Header */
 .payroll-header {
@@ -245,9 +238,10 @@ function executeHold(reason) {
 
 /* Split View Layout */
 .split-view {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
   display: flex;
-  flex: 1;
-  overflow: hidden;
 }
 
 /* Left: Worker List */

@@ -1,84 +1,7 @@
 <template>
-  <div class="admin-layout">
+  <TabletLayout>
     <!-- ─── LEFT: Settings Nav Sidebar ─────────────────────────────── -->
-    <aside class="admin-sidebar">
-      <div class="sidebar-brand">
-        <span class="material-symbols-rounded brand-icon">settings</span>
-        <div>
-          <p class="brand-title">Admin Settings</p>
-          <p class="brand-sub">Configuration Panel</p>
-        </div>
-      </div>
-
-      <nav class="settings-nav">
-        <button
-          class="snav-item"
-          :class="{ 'snav-item--active': activeTab === 'rates' }"
-          @click="activeTab = 'rates'"
-        >
-          <span class="material-symbols-rounded snav-icon">price_change</span>
-          <div class="snav-text">
-            <span class="snav-label">Piece-Rate (ብር/pcs)</span>
-            <span class="snav-sub">ETB per unit by variant</span>
-          </div>
-          <span class="material-symbols-rounded snav-arrow">chevron_right</span>
-        </button>
-
-        <button
-          class="snav-item"
-          :class="{ 'snav-item--active': activeTab === 'thresholds' }"
-          @click="activeTab = 'thresholds'"
-        >
-          <span class="material-symbols-rounded snav-icon">warning</span>
-          <div class="snav-text">
-            <span class="snav-label">Waste Thresholds</span>
-            <span class="snav-sub">Alert trigger percentages</span>
-          </div>
-          <span class="material-symbols-rounded snav-arrow">chevron_right</span>
-        </button>
-
-        <button
-          class="snav-item"
-          :class="{ 'snav-item--active': activeTab === 'system' }"
-          @click="activeTab = 'system'"
-        >
-          <span class="material-symbols-rounded snav-icon">tune</span>
-          <div class="snav-text">
-            <span class="snav-label">System Config</span>
-            <span class="snav-sub">Flags &amp; integrations</span>
-          </div>
-          <span class="material-symbols-rounded snav-arrow">chevron_right</span>
-        </button>
-        <button
-          class="snav-item"
-          :class="{ 'snav-item--active': activeTab === 'employees' }"
-          @click="activeTab = 'employees'"
-        >
-          <span class="material-symbols-rounded snav-icon">group</span>
-          <div class="snav-text">
-            <span class="snav-label">Employee Accounts</span>
-            <span class="snav-sub">Manage PINs and roles</span>
-          </div>
-          <span class="material-symbols-rounded snav-arrow">chevron_right</span>
-        </button>
-      </nav>
-
-      <!-- Apply Button (sticky at bottom of sidebar) -->
-      <button class="apply-btn" @click="applyChanges">
-        <span class="material-symbols-rounded">check_circle</span>
-        Apply Global Changes
-      </button>
-
-      <!-- Confirmation Toast -->
-      <Transition name="toast">
-        <div v-if="saved" class="saved-toast">
-          <span class="material-symbols-rounded">done_all</span>
-          Changes Applied
-        </div>
-      </Transition>
-    </aside>
-
-    <!-- ─── RIGHT: Settings Main Area ──────────────────────────────── -->
+        <!-- ─── RIGHT: Settings Main Area ──────────────────────────────── -->
     <main class="admin-main">
 
       <!-- ══════════════════════════════════════════════════════════════
@@ -357,10 +280,11 @@
       </div>
 
     </main>
-  </div>
+  </TabletLayout>
 </template>
 
 <script setup>
+import TabletLayout from '@/components/layout/TabletLayout.vue'
 import { ref } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
 import EmployeeManager from '@/components/EmployeeManager.vue'
@@ -416,26 +340,10 @@ function applyChanges() {
 </script>
 
 <style scoped>
-.admin-layout {
-  display: flex;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background: #0f172a;
-}
+
 
 /* ── Sidebar ───────────────────────────────────────────────────────────── */
-.admin-sidebar {
-  width: 25%;
-  min-width: 260px;
-  background: #1e293b;
-  border-right: 1px solid rgba(16,185,129,.2);
-  display: flex;
-  flex-direction: column;
-  padding: 1.25rem 1rem;
-  gap: 1rem;
-  overflow: hidden;
-}
+
 
 .sidebar-brand { display: flex; align-items: center; gap: .7rem; padding-bottom: .75rem; border-bottom: 1px solid rgba(255,255,255,.07); }
 .brand-icon    { font-size: 1.5rem !important; color: #10b981; }
@@ -495,9 +403,12 @@ function applyChanges() {
 
 /* ── Main Panel ────────────────────────────────────────────────────────── */
 .admin-main {
-  flex: 1;
+  width: 100%;
+  height: 100%;
   overflow-y: auto;
-  padding: 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
 
 .tab-panel { display: flex; flex-direction: column; gap: 1.25rem; }

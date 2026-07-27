@@ -1,32 +1,7 @@
 <template>
-  <div class="inv-layout">
+  <TabletLayout>
     <!-- LEFT Sidebar: Material List -->
-    <aside class="inv-sidebar">
-      <div class="sidebar-header">
-        <span class="material-symbols-rounded" style="font-size:1.4rem;color:#6366f1">inventory_2</span>
-        <p class="sidebar-title">Raw Materials</p>
-      </div>
-
-      <div class="material-list">
-        <button
-          v-for="item in store.inventory"
-          :key="item.id"
-          class="material-btn"
-          :class="{ 'material-btn--active': selectedItem?.id === item.id }"
-          @click="selectItem(item)"
-        >
-          <div class="mat-info">
-            <span class="mat-name">{{ item.name }}</span>
-            <span class="mat-unit">{{ item.unit }}</span>
-          </div>
-          <div class="mat-qty" :class="{ 'qty--low': item.qty < 10 }">
-            {{ item.qty }}
-          </div>
-        </button>
-      </div>
-    </aside>
-
-    <!-- MAIN: Numpad Adjustment -->
+        <!-- MAIN: Numpad Adjustment -->
     <main class="inv-main">
       <div v-if="selectedItem" class="inv-content">
         <!-- Selected Material Header -->
@@ -86,10 +61,11 @@
         <p>Select a raw material from the sidebar</p>
       </div>
     </main>
-  </div>
+  </TabletLayout>
 </template>
 
 <script setup>
+import TabletLayout from '@/components/layout/TabletLayout.vue'
 import { ref } from 'vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import { useMesStore } from '@/store/mesStore.js'
@@ -114,26 +90,10 @@ function applyAdjustment() {
 </script>
 
 <style scoped>
-.inv-layout {
-  display: flex;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background: #0f172a;
-}
+
 
 /* Sidebar */
-.inv-sidebar {
-  width: 25%;
-  min-width: 260px;
-  background: #1e293b;
-  border-right: 1px solid rgba(99,102,241,.2);
-  display: flex;
-  flex-direction: column;
-  padding: 1.25rem 1rem;
-  gap: 1rem;
-  overflow: hidden;
-}
+
 
 .sidebar-header {
   display: flex; align-items: center; gap: .6rem;
@@ -165,11 +125,12 @@ function applyAdjustment() {
 
 /* Main */
 .inv-main {
-  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
   display: flex;
-  align-items: stretch;
-  padding: 1.5rem 2rem;
-  overflow: hidden;
+  flex-direction: column;
+  position: relative;
 }
 
 .inv-content {

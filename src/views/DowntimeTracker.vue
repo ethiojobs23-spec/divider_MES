@@ -1,47 +1,7 @@
 <template>
-  <div class="downtime-layout">
+  <TabletLayout>
     <!-- LEFT Sidebar -->
-    <aside class="dt-sidebar">
-      <!-- Reason Selector -->
-      <div class="sidebar-section">
-        <p class="section-title">Stoppage Reason</p>
-        <div class="reason-list">
-          <button
-            v-for="r in reasons"
-            :key="r.code"
-            class="reason-btn"
-            :class="{
-              'reason-btn--active': selectedReason?.code === r.code,
-              'reason-btn--disabled': store.activeDowntime !== null,
-            }"
-            @click="selectedReason = r"
-          >
-            <span class="reason-icon material-symbols-rounded">{{ r.icon }}</span>
-            <span class="reason-text">{{ r.label }}</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Recent Sessions -->
-      <div class="sidebar-section flex-1">
-        <p class="section-title">Recent Stoppages</p>
-        <div class="session-list">
-          <div
-            v-for="s in recentSessions"
-            :key="s.id"
-            class="session-item"
-          >
-            <div class="session-reason">{{ s.reason }}</div>
-            <div class="session-meta">
-              {{ fmtDuration(s.duration) }} &bull; {{ fmtTime(s.startTime) }}
-            </div>
-          </div>
-          <p v-if="!recentSessions.length" class="empty-hint">No stoppages recorded</p>
-        </div>
-      </div>
-    </aside>
-
-    <!-- MAIN: Stopwatch -->
+        <!-- MAIN: Stopwatch -->
     <main class="dt-main">
       <!-- Active Downtime Banner -->
       <div v-if="store.activeDowntime" class="active-banner">
@@ -92,10 +52,11 @@
         ← Select a stoppage reason from the sidebar first
       </p>
     </main>
-  </div>
+  </TabletLayout>
 </template>
 
 <script setup>
+import TabletLayout from '@/components/layout/TabletLayout.vue'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
 
@@ -176,25 +137,10 @@ function fmtTime(iso) {
 </script>
 
 <style scoped>
-.downtime-layout {
-  display: flex;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background: #0f172a;
-}
+
 
 /* Sidebar */
-.dt-sidebar {
-  width: 25%;
-  min-width: 260px;
-  background: #1e293b;
-  border-right: 1px solid rgba(239,68,68,.2);
-  display: flex;
-  flex-direction: column;
-  padding: 1.25rem 1rem;
-  gap: 1.25rem;
-}
+
 .sidebar-section { display: flex; flex-direction: column; gap: .5rem; }
 .sidebar-section.flex-1 { flex: 1; overflow: hidden; }
 .section-title {
@@ -234,13 +180,11 @@ function fmtTime(iso) {
 
 /* Main */
 .dt-main {
-  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1.5rem;
-  padding: 2rem;
   position: relative;
 }
 

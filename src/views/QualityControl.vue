@@ -1,77 +1,7 @@
 <template>
-  <TabletLayout>
-    <!-- ─── SIDEBAR: Top Performers Leaderboard ─────────────────────── -->
-    <template #sidebar><!-- content is projected via default slot below --></template>
-  </TabletLayout>
-
-  <div class="qc-layout">
+    <TabletLayout>
     <!-- LEFT: Leaderboard -->
-    <aside class="qc-sidebar">
-      <div class="sidebar-header">
-        <span class="material-symbols-rounded" style="color:#f59e0b;font-size:1.4rem">emoji_events</span>
-        <p class="sidebar-title">Top Performers</p>
-      </div>
-      <p class="sidebar-sub">Ranked by lowest waste %</p>
-
-      <div class="leaderboard">
-        <div
-          v-for="(op, idx) in store.operatorEfficiency"
-          :key="op.id"
-          class="lb-card"
-          :class="{
-            'lb-card--gold':   idx === 0,
-            'lb-card--silver': idx === 1,
-            'lb-card--bronze': idx === 2,
-          }"
-        >
-          <!-- Rank badge -->
-          <div class="lb-rank" :class="`rank-${idx}`">
-            <span v-if="idx === 0" class="material-symbols-rounded rank-icon">workspace_premium</span>
-            <span v-else>{{ idx + 1 }}</span>
-          </div>
-
-          <!-- Avatar -->
-          <div class="lb-avatar" :class="op.color">{{ op.avatar }}</div>
-
-          <!-- Info -->
-          <div class="lb-info">
-            <p class="lb-name">{{ op.name }}</p>
-            <p class="lb-stats">{{ op.good }} good &bull; {{ op.waste }} waste</p>
-          </div>
-
-          <!-- Waste % chip -->
-          <div
-            class="lb-pct"
-            :class="
-              op.wastePercent >= store.wasteThresholds.critical ? 'pct--critical' :
-              op.wastePercent >= store.wasteThresholds.warn     ? 'pct--warn' : 'pct--ok'
-            "
-          >
-            {{ op.total === 0 ? '—' : op.wastePercent + '%' }}
-          </div>
-        </div>
-
-        <p v-if="!store.operatorEfficiency.length" class="empty-lb">No production data yet</p>
-      </div>
-
-      <!-- Threshold Legend -->
-      <div class="threshold-legend">
-        <div class="legend-item">
-          <span class="dot dot--ok" />
-          <span>Safe (&lt; {{ store.wasteThresholds.warn }}%)</span>
-        </div>
-        <div class="legend-item">
-          <span class="dot dot--warn" />
-          <span>Warning (&lt; {{ store.wasteThresholds.critical }}%)</span>
-        </div>
-        <div class="legend-item">
-          <span class="dot dot--critical" />
-          <span>Critical (&ge; {{ store.wasteThresholds.critical }}%)</span>
-        </div>
-      </div>
-    </aside>
-
-    <!-- RIGHT: Waste Timeline Feed -->
+        <!-- RIGHT: Waste Timeline Feed -->
     <main class="qc-main">
       <!-- Header bar -->
       <div class="qc-topbar">
@@ -202,7 +132,7 @@
         </TransitionGroup>
       </div>
     </main>
-  </div>
+  </TabletLayout>
 </template>
 
 <script setup>
@@ -245,26 +175,10 @@ function fmtTime(iso) {
 </script>
 
 <style scoped>
-.qc-layout {
-  display: flex;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background: #0f172a;
-}
+
 
 /* ── Sidebar ───────────────────────────────────────────────────────────── */
-.qc-sidebar {
-  width: 25%;
-  min-width: 260px;
-  background: #1e293b;
-  border-right: 1px solid rgba(245,158,11,.25);
-  display: flex;
-  flex-direction: column;
-  padding: 1.25rem 1rem;
-  gap: .9rem;
-  overflow: hidden;
-}
+
 .sidebar-header { display: flex; align-items: center; gap: .6rem; }
 .sidebar-title  { font-size: 1rem; font-weight: 800; color: #f1f5f9; }
 .sidebar-sub    { font-size: .65rem; color: #64748b; letter-spacing: .06em; text-transform: uppercase; margin-top: -.4rem; }
@@ -336,10 +250,11 @@ function fmtTime(iso) {
 
 /* ── Main ──────────────────────────────────────────────────────────────── */
 .qc-main {
-  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 /* Topbar */

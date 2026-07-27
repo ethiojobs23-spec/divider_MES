@@ -1,71 +1,7 @@
 <template>
-  <div class="dispatch-layout">
+  <TabletLayout>
     <!-- ─── LEFT: Dispatch Config Sidebar ──────────────────────────── -->
-    <aside class="dispatch-sidebar">
-      <!-- Divider Type -->
-      <div class="sidebar-section">
-        <p class="section-title">
-          <span class="material-symbols-rounded section-icon">category</span>
-          Divider Type
-        </p>
-        <div class="type-grid">
-          <button
-            v-for="t in dividerTypes"
-            :key="t"
-            class="type-btn"
-            :class="{ 'type-btn--active': selections.dividerType === t }"
-            @click="selections.dividerType = t"
-          >{{ t }}</button>
-        </div>
-      </div>
-
-      <!-- Destination / Client -->
-      <div class="sidebar-section">
-        <p class="section-title">
-          <span class="material-symbols-rounded section-icon">location_on</span>
-          Destination
-        </p>
-        <div class="client-list">
-          <button
-            v-for="client in store.clients"
-            :key="client"
-            class="client-btn"
-            :class="{ 'client-btn--active': selections.client === client }"
-            @click="selections.client = client"
-          >
-            <span class="material-symbols-rounded client-icon">warehouse</span>
-            {{ client }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Selection Summary -->
-      <div class="summary-card">
-        <div class="sum-row">
-          <span class="sum-label">Type</span>
-          <span class="sum-val">{{ selections.dividerType || '—' }}</span>
-        </div>
-        <div class="sum-row">
-          <span class="sum-label">To</span>
-          <span class="sum-val sum-val--dest">{{ selections.client || '—' }}</span>
-        </div>
-        <div class="sum-row">
-          <span class="sum-label">Qty</span>
-          <span class="sum-val sum-val--qty">{{ batchQty || '0' }} pcs</span>
-        </div>
-      </div>
-
-      <!-- Total Dispatched Counter -->
-      <div class="total-counter">
-        <span class="material-symbols-rounded" style="color:#6366f1">local_shipping</span>
-        <div>
-          <p class="counter-val">{{ store.totalDispatched.toLocaleString() }}</p>
-          <p class="counter-lbl">Total Dispatched This Week</p>
-        </div>
-      </div>
-    </aside>
-
-    <!-- ─── RIGHT: Numpad + Dispatch Log ──────────────────────────── -->
+        <!-- ─── RIGHT: Numpad + Dispatch Log ──────────────────────────── -->
     <main class="dispatch-main">
       <!-- Recent dispatches header -->
       <div class="main-header">
@@ -139,10 +75,11 @@
         </div>
       </Transition>
     </main>
-  </div>
+  </TabletLayout>
 </template>
 
 <script setup>
+import TabletLayout from '@/components/layout/TabletLayout.vue'
 import { ref, reactive, computed } from 'vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import { useMesStore } from '@/store/mesStore.js'
@@ -194,27 +131,10 @@ function fmtTime(iso) {
 </script>
 
 <style scoped>
-.dispatch-layout {
-  display: flex;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background: #0f172a;
-}
+
 
 /* ── Sidebar ───────────────────────────────────────────────────────────── */
-.dispatch-sidebar {
-  width: 25%;
-  min-width: 260px;
-  background: #1e293b;
-  border-right: 1px solid rgba(251,191,36,.2);
-  display: flex;
-  flex-direction: column;
-  padding: 1.25rem 1rem;
-  gap: 1rem;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
+
 
 .sidebar-section { display: flex; flex-direction: column; gap: .5rem; }
 .section-title {
@@ -284,13 +204,12 @@ function fmtTime(iso) {
 
 /* ── Main ──────────────────────────────────────────────────────────────── */
 .dispatch-main {
-  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding: 1.25rem 1.75rem;
-  gap: 1rem;
   position: relative;
-  overflow: hidden;
 }
 
 .main-header { display: flex; align-items: center; justify-content: space-between; }
