@@ -172,6 +172,7 @@ async function validatePin() {
 
   if (result.success) {
     unlocked.value = true
+    sysAuth.grantAdminAccess()
 
     // Redirect back to the originally requested route
     const returnTo = route.query.returnTo ?? '/settings'

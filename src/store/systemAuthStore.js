@@ -17,6 +17,8 @@ export const useSystemAuthStore = defineStore('systemAuth', () => {
   const authorizedManager = ref('')      // name entered at unlock
   const shiftStartedAt    = ref(null)    // ISO string, set on unlock
 
+  const hasAdminAccess    = ref(false)   // granted after secondary PinAuth
+
   // ── Computed ─────────────────────────────────────────────────────────────
   const shiftDuration = computed(() => {
     if (!shiftStartedAt.value) return '--:--'
@@ -27,12 +29,6 @@ export const useSystemAuthStore = defineStore('systemAuth', () => {
   })
 
   // ── Actions ──────────────────────────────────────────────────────────────
-  /**
-   * Attempt to unlock the system by querying Supabase.
-   * @param {string} pin          - 4-digit string entered via VirtualNumpad
-   * @param {string} mode         - 'admin' or 'employee'
-   * @returns {{ success: boolean, message: string }}
-   */
   async function unlockSystem(pin, mode = 'admin') {
     try {
       const { data: operator, error } = await supabase
@@ -45,8 +41,8 @@ export const useSystemAuthStore = defineStore('systemAuth', () => {
         return { success: false, message: 'Invalid PIN. Access denied.' }
       }
       
-      // Verify role
-      if (mode === 'admin' && operator.role !== 'admin') {
+      // Verify role (allow both admin and System Admin)
+      if (mode === 'admin' && operator.role !== 'admin' && operator.role !== 'System Admin') {
         return { success: false, message: 'Admin privileges required.' }
       }
       
@@ -64,12 +60,17 @@ export const useSystemAuthStore = defineStore('systemAuth', () => {
     }
   }
 
+  function grantAdminAccess() {
+    hasAdminAccess.value = true
+  }
+
   function lockSystem() {
     isSystemUnlocked.value  = false
     currentRole.value       = null
     currentEmployeeId.value = null
     authorizedManager.value = ''
     shiftStartedAt.value    = null
+    hasAdminAccess.value    = false
   }
 
   return {
@@ -78,8 +79,10 @@ export const useSystemAuthStore = defineStore('systemAuth', () => {
     currentEmployeeId,
     authorizedManager,
     shiftStartedAt,
+    hasAdminAccess,
     shiftDuration,
     unlockSystem,
+    grantAdminAccess,
     lockSystem,
   }
 })

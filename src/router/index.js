@@ -198,8 +198,12 @@ router.beforeEach((to) => {
 
   // 4. Admin-gated routes → PIN challenge (then return)
   if (to.meta.requiresAdmin && sysAuth.isSystemUnlocked) {
-    const mesStore = useMesStore()
-    if (!mesStore.hasAdminAccess) {
+    // If they logged in as Admin initially, automatically grant secondary access
+    if (sysAuth.currentRole === 'admin') {
+      sysAuth.grantAdminAccess()
+    }
+    
+    if (!sysAuth.hasAdminAccess) {
       return { name: 'PinAuth', query: { returnTo: to.fullPath } }
     }
   }
