@@ -60,6 +60,7 @@ export const useAttendanceStore = defineStore('attendance', () => {
         clockInLog.value = data.map(dbRow => ({
           operatorId: dbRow.operator_id,
           timestamp: dbRow.clock_in,
+          clockOut: dbRow.clock_out,
           status: dbRow.status,
           shiftDate: dbRow.shift_date,
           week: dbRow.production_week
@@ -87,6 +88,7 @@ export const useAttendanceStore = defineStore('attendance', () => {
       clockInLog.value.push({
         operatorId: data.operator_id,
         timestamp: data.clock_in,
+        clockOut: data.clock_out,
         status: data.status,
         shiftDate: data.shift_date,
         week: data.production_week

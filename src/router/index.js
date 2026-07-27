@@ -23,6 +23,7 @@ import ProductionBlockMatrix from '@/views/ProductionBlockMatrix.vue'
 import HourlyWageTracker     from '@/views/HourlyWageTracker.vue'
 import CompanyExpenses       from '@/views/CompanyExpenses.vue'
 import EmployeeDashboard     from '@/views/employee/EmployeeDashboard.vue'
+import AttendanceViewer      from '@/views/AttendanceViewer.vue'
 
 // ─── Route Definitions ─────────────────────────────────────────────────────
 const routes = [
@@ -82,6 +83,12 @@ const routes = [
     name: 'DowntimeTracker',
     component: DowntimeTracker,
     meta: { title: 'Downtime', icon: 'timer_off', requiresSystemAuth: true, nav: true },
+  },
+  {
+    path: '/attendance-log',
+    name: 'AttendanceViewer',
+    component: AttendanceViewer,
+    meta: { title: 'Attendance Log', icon: 'recent_patient', requiresSystemAuth: true, nav: true },
   },
 
   // ── Inventory ──────────────────────────────────────────────────────────
