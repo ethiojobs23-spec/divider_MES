@@ -3,6 +3,13 @@
     <!-- LEFT Sidebar -->
         <!-- MAIN: Stopwatch -->
     <main class="dt-main">
+      <Transition name="toast">
+        <div v-if="toast.visible" class="toast" :class="'toast-' + toast.type">
+          <span class="material-symbols-rounded">{{ toast.icon }}</span>
+          {{ toast.message }}
+        </div>
+      </Transition>
+      
       <!-- Active Downtime Banner -->
       <div v-if="store.activeDowntime" class="active-banner">
         <span class="material-symbols-rounded pulse">warning</span>
@@ -28,9 +35,22 @@
       </div>
 
       <!-- Action Buttons -->
-      <div class="dt-actions">
+      <div v-if="!store.activeDowntime" class="dt-setup">
+        <h3 class="setup-title">Select Stoppage Reason</h3>
+        <div class="reasons-grid">
+          <button
+            v-for="r in reasons"
+            :key="r.code"
+            class="reason-btn"
+            :class="{ 'reason-btn--active': selectedReason?.code === r.code }"
+            @click="selectedReason = r"
+          >
+            <span class="material-symbols-rounded reason-icon">{{ r.icon }}</span>
+            {{ r.label }}
+          </button>
+        </div>
+        
         <button
-          v-if="!store.activeDowntime"
           class="dt-btn dt-btn--start"
           :disabled="!selectedReason"
           @click="startDowntime"
@@ -38,8 +58,11 @@
           <span class="material-symbols-rounded">stop_circle</span>
           FLAG STOPPAGE
         </button>
+        </button>
+      </div>
+      
+      <div v-else class="dt-actions">
         <button
-          v-else
           class="dt-btn dt-btn--resolve"
           @click="resolveDowntime"
         >
@@ -47,10 +70,6 @@
           RESOLVE ISSUE
         </button>
       </div>
-
-      <p v-if="!selectedReason && !store.activeDowntime" class="hint-text">
-        ← Select a stoppage reason from the sidebar first
-      </p>
     </main>
   </TabletLayout>
 </template>
@@ -67,10 +86,18 @@ const reasons = [
   { code: 'EQP',  label: 'Equipment Failure',    icon: 'build' },
   { code: 'POW',  label: 'Power Outage',          icon: 'bolt' },
   { code: 'QC',   label: 'Quality Hold',          icon: 'verified' },
+  { code: 'MNT',  label: 'Maintenance',           icon: 'engineering' },
+  { code: 'OPR',  label: 'Operator Unavailable',  icon: 'person_off' },
   { code: 'OTH',  label: 'Other / Unknown',       icon: 'help' },
 ]
 
 const selectedReason = ref(null)
+
+const toast = ref({ visible: false, message: '', type: 'info', icon: 'info' })
+function showToast(msg, type = 'info', icon = 'info') {
+  toast.value = { visible: true, message: msg, type, icon }
+  setTimeout(() => { toast.value.visible = false }, 4000)
+}
 
 // Stopwatch
 const elapsed = ref(0)
@@ -108,16 +135,18 @@ const ringOffset = computed(() => {
   return CIRCUMFERENCE * (1 - pct)
 })
 
-function startDowntime() {
+async function startDowntime() {
   if (!selectedReason.value) return
   elapsed.value = 0
-  store.startDowntime(selectedReason.value.label)
+  await store.startDowntime(selectedReason.value.label)
+  showToast('SYSTEM ALERT: Line Stoppage Triggered - ' + selectedReason.value.label, 'danger', 'warning')
 }
 
-function resolveDowntime() {
-  store.resolveDowntime()
+async function resolveDowntime() {
+  await store.resolveDowntime()
   elapsed.value = 0
   selectedReason.value = null
+  showToast('SYSTEM ALERT: Line Stoppage Resolved', 'success', 'check_circle')
 }
 
 const recentSessions = computed(() =>
@@ -185,8 +214,28 @@ function fmtTime(iso) {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  padding: 2rem;
   position: relative;
+  gap: 2rem;
 }
+
+/* Toast */
+.toast {
+  position: fixed;
+  top: 2rem; left: 50%; transform: translateX(-50%);
+  background: #1e293b; color: #f8fafc;
+  padding: 1rem 2rem; border-radius: 99px;
+  font-weight: 700; font-size: 1.1rem;
+  display: flex; align-items: center; gap: .75rem;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  z-index: 1000;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.toast-danger { background: #7f1d1d; border-color: #ef4444; color: #fecaca; }
+.toast-success { background: #064e3b; border-color: #10b981; color: #a7f3d0; }
+.toast-enter-active, .toast-leave-active { transition: all .3s ease; }
+.toast-enter-from, .toast-leave-to       { opacity: 0; transform: translate(-50%, -1rem); }
 
 .active-banner {
   position: absolute; top: 1.25rem; left: 50%; transform: translateX(-50%);
@@ -236,30 +285,58 @@ function fmtTime(iso) {
 
 .ring--active .sw-time { color: #fca5a5; }
 
+.dt-setup {
+  display: flex; flex-direction: column; align-items: center; gap: 1.5rem;
+  width: 100%; max-width: 600px;
+}
+.setup-title {
+  font-size: 1.2rem; font-weight: 800; color: #cbd5e1; margin: 0; text-transform: uppercase; letter-spacing: 0.1em;
+}
+
+.reasons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  width: 100%;
+}
+.reason-btn {
+  display: flex; flex-direction: column; align-items: center; gap: .7rem;
+  padding: 1.5rem;
+  background: #1e293b;
+  border: 2px solid rgba(255,255,255,.05);
+  color: #94a3b8;
+  border-radius: 1rem;
+  font-size: 1rem; font-weight: 700;
+  cursor: pointer;
+  transition: all .2s ease;
+  text-align: center;
+}
+.reason-btn:hover { background: rgba(255,255,255,0.05); color: #e2e8f0; border-color: rgba(255,255,255,0.1); }
+.reason-btn--active { background: rgba(239,68,68,.15); border-color: #ef4444; color: #fca5a5; }
+.reason-icon { font-size: 2rem; }
+
 /* Actions */
-.dt-actions { display: flex; }
+.dt-actions { display: flex; justify-content: center; margin-top: 1rem; }
 .dt-btn {
-  height: 5rem;
-  min-width: 18rem;
+  height: 4.5rem;
+  min-width: 20rem;
   font-size: 1.2rem;
   font-weight: 800;
   letter-spacing: .1em;
   border: none;
-  border-radius: .85rem;
+  border-radius: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: .6rem;
+  gap: .75rem;
   cursor: pointer;
   transition: all .15s ease;
 }
 .dt-btn:disabled { opacity: .35; cursor: not-allowed; }
-.dt-btn--start   { background: linear-gradient(135deg,#dc2626,#ef4444); color: #fff; }
-.dt-btn--resolve { background: linear-gradient(135deg,#059669,#10b981); color: #fff; }
-.dt-btn:not(:disabled):hover  { filter: brightness(1.1); }
-.dt-btn:not(:disabled):active { transform: scale(.97); }
-
-.hint-text { font-size: .75rem; color: #475569; }
+.dt-btn--start   { background: linear-gradient(135deg,#dc2626,#ef4444); color: #fff; box-shadow: 0 10px 25px rgba(239,68,68,0.2); }
+.dt-btn--resolve { background: linear-gradient(135deg,#059669,#10b981); color: #fff; box-shadow: 0 10px 25px rgba(16,185,129,0.2); }
+.dt-btn:not(:disabled):hover  { filter: brightness(1.1); transform: translateY(-2px); }
+.dt-btn:not(:disabled):active { transform: translateY(0) scale(.97); }
 
 /* Pulse animation */
 @keyframes pulse {

@@ -319,11 +319,11 @@ export const useMesStore = defineStore('mes', () => {
   const activeDowntime = ref(null)
 
   async function startDowntime(reason) {
-    if (activeDowntime.value || !activeOperator.value) return
+    if (activeDowntime.value) return
     try {
       const payload = {
         issue_category: reason,
-        operator_id: activeOperator.value.id,
+        operator_id: activeOperator.value ? activeOperator.value.id : null,
         start_time: new Date().toISOString()
       }
       const { data, error } = await supabase.from('mes_downtime_logs').insert(payload).select().single()
