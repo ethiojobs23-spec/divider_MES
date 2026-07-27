@@ -25,6 +25,14 @@ export const useMesStore = defineStore('mes', () => {
       const { data: cash } = await supabase.from('mes_financial_ledger').select('*')
       if (cash) cashEntries.value = cash.map(mapSupabaseCashToLocal)
 
+      // 5. Fetch dispatch logs for this week
+      const { data: dispatches } = await supabase
+        .from('mes_dispatch_logs')
+        .select('*')
+        .eq('production_week', currentProductionWeek.value)
+        .order('created_at', { ascending: false })
+      if (dispatches) dispatchLogs.value = dispatches.map(mapSupabaseDispatchToLocal)
+
     } catch (err) {
       console.error('[Store] Error fetching initial data:', err)
     } finally {
@@ -183,6 +191,45 @@ export const useMesStore = defineStore('mes', () => {
   const dispatchLogs = ref([])
   const clients = ref(['Addis Ababa Main', 'Hawassa Depot', 'Dire Dawa Branch'])
 
+  function mapSupabaseDispatchToLocal(dbRow) {
+    return {
+      id: dbRow.id,
+      timestamp: dbRow.created_at,
+      dividerType: dbRow.divider_type,
+      client: dbRow.client_name,
+      quantity: dbRow.quantity,
+      dispatchedBy: dbRow.dispatched_by ?? 'Operator',
+    }
+  }
+
+  async function addDispatch(data) {
+    try {
+      const payload = {
+        production_week: currentProductionWeek.value,
+        divider_type: data.dividerType,
+        client_name: data.client,
+        quantity: data.quantity,
+        dispatched_by: activeOperator.value?.name ?? 'Manager',
+        dispatch_date: new Date().toISOString().split('T')[0],
+      }
+      const { data: savedRow, error } = await supabase
+        .from('mes_dispatch_logs')
+        .insert(payload)
+        .select()
+        .single()
+      if (error) throw error
+      dispatchLogs.value.unshift(mapSupabaseDispatchToLocal(savedRow))
+      return true
+    } catch (err) {
+      console.error('[Store] Dispatch failed:', err)
+      return false
+    }
+  }
+
+  const totalDispatched = computed(() =>
+    dispatchLogs.value.reduce((s, d) => s + (Number(d.quantity) || 0), 0)
+  )
+
   // ─── Admin Config — Piece Rates & Thresholds ───────────────────────────────
   const pieceRates = ref({
     '50': { '9cm': { 'ብተና': 2.50, 'ውስጥ': 3.00, 'የተለየ': 3.50 }, '7cm': { 'ብተና': 2.00, 'ውስጥ': 2.50, 'የተለየ': 3.00 } },
@@ -309,7 +356,7 @@ export const useMesStore = defineStore('mes', () => {
     ledgerEntries, submitProductionLog, weeklyAggregation,
     inventory,
     cashEntries, addCashEntry, totalAdvances, totalExpenses,
-    dispatchLogs, clients,
+    dispatchLogs, clients, addDispatch, totalDispatched,
     pieceRates, setPieceRate,
     wasteThresholds, setWasteThreshold,
     systemConfig, updateSystemConfig,
