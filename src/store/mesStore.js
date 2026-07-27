@@ -100,10 +100,9 @@ export const useMesStore = defineStore('mes', () => {
   }
 
   async function submitProductionLog(data) {
-    if (!activeOperator.value) return false
     try {
       const payload = {
-        operator_id: activeOperator.value.id,
+        operator_id: activeOperator.value ? activeOperator.value.id : null,
         production_week: currentProductionWeek.value,
         production_date: new Date().toISOString().split('T')[0],
         divider_type: data.dividerType,

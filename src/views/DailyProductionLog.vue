@@ -165,22 +165,18 @@ const activePlacement = ref('ብተና')
 const activeSize      = ref('9cm')
 
 // ─── Grid Data Store ───────────────────────────────────────────────────────
-// Shape: { [placement][size][day][col] = quantity }
-const gridData = reactive({})
-
-function ensurePath(placement, size, day, col) {
-  if (!gridData[placement])       gridData[placement] = {}
-  if (!gridData[placement][size]) gridData[placement][size] = {}
-  if (!gridData[placement][size][day]) gridData[placement][size][day] = {}
-}
-
-function getCellValue(day, col, placement, size) {
-  return gridData[placement]?.[size]?.[day]?.[col] ?? 0
-}
-
-function setCellValue(day, col, placement, size, value) {
-  ensurePath(placement, size, day, col)
-  gridData[placement][size][day][col] = value
+function getCellValue(dayName, col, placement, size) {
+  const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 }
+  const targetDay = dayMap[dayName]
+  
+  return store.ledgerEntries
+    .filter(e => 
+       new Date(e.timestamp).getDay() === targetDay &&
+       e.dividerType === col &&
+       e.placement === placement &&
+       e.size === size
+    )
+    .reduce((sum, e) => sum + (Number(e.goodProduction) || 0), 0)
 }
 
 // ─── Totals ────────────────────────────────────────────────────────────────
@@ -199,9 +195,8 @@ const activeCell   = ref(null) // { day, col }
 const numpadValue  = ref('')
 
 function openNumpad(day, col) {
-  const existing = getCellValue(day, col, activePlacement.value, activeSize.value)
   activeCell.value = { day, col }
-  numpadValue.value = existing > 0 ? String(existing) : ''
+  numpadValue.value = '' // Always clear numpad to add new entries, rather than replace
 }
 
 function cancelNumpad() {
@@ -212,9 +207,6 @@ function cancelNumpad() {
 async function confirmEntry() {
   if (!activeCell.value) return
   const qty = parseInt(numpadValue.value, 10) || 0
-
-  // Save locally for immediate UI feedback
-  setCellValue(activeCell.value.day, activeCell.value.col, activePlacement.value, activeSize.value, qty)
 
   // Also persist to Supabase
   if (qty > 0) {

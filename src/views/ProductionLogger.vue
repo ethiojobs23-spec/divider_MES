@@ -1,130 +1,124 @@
 <template>
   <TabletLayout>
-    <!-- ─── Sidebar Slot ─────────────────────────────────────────── -->
-    <template #default>
-      <!-- We override via slot scoping trick — sidebar content is inside TabletLayout -->
-    </template>
+    <div class="prod-layout">
+      <!-- LEFT: Filter Sidebar -->
+      <aside class="prod-sidebar">
+        <div class="sidebar-section">
+          <p class="section-title">Divider Type</p>
+          <div class="toggle-group">
+            <button
+              v-for="t in dividerTypes"
+              :key="t"
+              class="toggle-btn"
+              :class="{ 'toggle-btn--active': selections.dividerType === t }"
+              @click="selections.dividerType = t"
+            >{{ t }}</button>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <p class="section-title">Placement Style</p>
+          <div class="toggle-group toggle-group--col">
+            <button
+              v-for="p in placements"
+              :key="p"
+              class="toggle-btn"
+              :class="{ 'toggle-btn--active': selections.placement === p }"
+              @click="selections.placement = p"
+            >{{ p }}</button>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <p class="section-title">Size</p>
+          <div class="toggle-group">
+            <button
+              v-for="s in sizes"
+              :key="s"
+              class="toggle-btn"
+              :class="{ 'toggle-btn--active': selections.size === s }"
+              @click="selections.size = s"
+            >{{ s }}</button>
+          </div>
+        </div>
+
+        <!-- Summary Card -->
+        <div class="summary-card">
+          <p class="summary-row"><span>Type</span><strong>{{ selections.dividerType || '—' }}</strong></p>
+          <p class="summary-row"><span>Place</span><strong>{{ selections.placement || '—' }}</strong></p>
+          <p class="summary-row"><span>Size</span><strong>{{ selections.size || '—' }}</strong></p>
+          <p class="summary-row"><span>Operator</span><strong>{{ store.activeOperator?.name || '—' }}</strong></p>
+          <p class="summary-row"><span>Rate</span><strong class="rate-val">ETB {{ (store.pieceRates?.[selections.dividerType]?.[selections.size]?.[selections.placement] ?? 0).toFixed(2) }}/pc</strong></p>
+          <div class="summary-divider" />
+          <p class="summary-row"><span>Today's entries</span><strong class="count-val">{{ todayEntries.length }}</strong></p>
+          <p class="summary-row"><span>Earnings preview</span><strong class="earn-val">ETB {{ earningsPreview }}</strong></p>
+        </div>
+      </aside>
+
+      <!-- RIGHT: Main Numpad Area -->
+      <main class="prod-main">
+        <!-- Tab switcher -->
+        <div class="field-tabs">
+          <button
+            class="field-tab"
+            :class="{ 'field-tab--active': activeField === 'good' }"
+            @click="activeField = 'good'"
+          >
+            <span class="material-symbols-rounded">check_circle</span>
+            Good Production
+          </button>
+          <button
+            class="field-tab field-tab--waste"
+            :class="{ 'field-tab--active': activeField === 'waste' }"
+            @click="activeField = 'waste'"
+          >
+            <span class="material-symbols-rounded">delete</span>
+            Waste Material
+          </button>
+        </div>
+
+        <!-- Values Summary -->
+        <div class="values-row">
+          <div class="value-chip value-chip--good">
+            <span>Good</span>
+            <strong>{{ values.good || '0' }}</strong>
+          </div>
+          <div class="value-chip value-chip--waste">
+            <span>Waste</span>
+            <strong>{{ values.waste || '0' }}</strong>
+          </div>
+        </div>
+
+        <!-- Numpad -->
+        <div class="numpad-container">
+          <VirtualNumpad
+            :label="activeField === 'good' ? 'Good Production (pcs)' : 'Waste Material (pcs)'"
+            v-model="values[activeField]"
+          />
+        </div>
+
+        <!-- Save Button -->
+        <button
+          class="save-btn"
+          :class="{ 'save-btn--error': toast.isError }"
+          :disabled="!canSave || isSaving"
+          @click="saveEntry"
+        >
+          <span class="material-symbols-rounded">{{ isSaving ? 'hourglass_top' : 'save' }}</span>
+          {{ isSaving ? 'SAVING…' : 'SAVE TO LEDGER' }}
+          <span v-if="values.good && !isSaving" class="earn-badge">ETB {{ earningsPreview }}</span>
+        </button>
+
+        <!-- Toast -->
+        <Transition name="toast">
+          <div v-if="toast.visible" class="toast">
+            <span class="material-symbols-rounded">check_circle</span>
+            {{ toast.message }}
+          </div>
+        </Transition>
+      </main>
+    </div>
   </TabletLayout>
-
-  <!-- Custom full-layout override using the same 25/75 split manually -->
-  <div class="prod-layout">
-    <!-- LEFT: Filter Sidebar -->
-    <aside class="prod-sidebar">
-      <div class="sidebar-section">
-        <p class="section-title">Divider Type</p>
-        <div class="toggle-group">
-          <button
-            v-for="t in dividerTypes"
-            :key="t"
-            class="toggle-btn"
-            :class="{ 'toggle-btn--active': selections.dividerType === t }"
-            @click="selections.dividerType = t"
-          >{{ t }}</button>
-        </div>
-      </div>
-
-      <div class="sidebar-section">
-        <p class="section-title">Placement Style</p>
-        <div class="toggle-group toggle-group--col">
-          <button
-            v-for="p in placements"
-            :key="p"
-            class="toggle-btn"
-            :class="{ 'toggle-btn--active': selections.placement === p }"
-            @click="selections.placement = p"
-          >{{ p }}</button>
-        </div>
-      </div>
-
-      <div class="sidebar-section">
-        <p class="section-title">Size</p>
-        <div class="toggle-group">
-          <button
-            v-for="s in sizes"
-            :key="s"
-            class="toggle-btn"
-            :class="{ 'toggle-btn--active': selections.size === s }"
-            @click="selections.size = s"
-          >{{ s }}</button>
-        </div>
-      </div>
-
-      <!-- Summary Card -->
-      <div class="summary-card">
-        <p class="summary-row"><span>Type</span><strong>{{ selections.dividerType || '—' }}</strong></p>
-        <p class="summary-row"><span>Place</span><strong>{{ selections.placement || '—' }}</strong></p>
-        <p class="summary-row"><span>Size</span><strong>{{ selections.size || '—' }}</strong></p>
-        <p class="summary-row"><span>Operator</span><strong>{{ store.activeOperator?.name || '—' }}</strong></p>
-        <p class="summary-row"><span>Rate</span><strong class="rate-val">ETB {{ (store.pieceRates?.[selections.dividerType]?.[selections.size]?.[selections.placement] ?? 0).toFixed(2) }}/pc</strong></p>
-        <div class="summary-divider" />
-        <p class="summary-row"><span>Today's entries</span><strong class="count-val">{{ todayEntries.length }}</strong></p>
-        <p class="summary-row"><span>Earnings preview</span><strong class="earn-val">ETB {{ earningsPreview }}</strong></p>
-      </div>
-    </aside>
-
-    <!-- RIGHT: Main Numpad Area -->
-    <main class="prod-main">
-      <!-- Tab switcher -->
-      <div class="field-tabs">
-        <button
-          class="field-tab"
-          :class="{ 'field-tab--active': activeField === 'good' }"
-          @click="activeField = 'good'"
-        >
-          <span class="material-symbols-rounded">check_circle</span>
-          Good Production
-        </button>
-        <button
-          class="field-tab field-tab--waste"
-          :class="{ 'field-tab--active': activeField === 'waste' }"
-          @click="activeField = 'waste'"
-        >
-          <span class="material-symbols-rounded">delete</span>
-          Waste Material
-        </button>
-      </div>
-
-      <!-- Values Summary -->
-      <div class="values-row">
-        <div class="value-chip value-chip--good">
-          <span>Good</span>
-          <strong>{{ values.good || '0' }}</strong>
-        </div>
-        <div class="value-chip value-chip--waste">
-          <span>Waste</span>
-          <strong>{{ values.waste || '0' }}</strong>
-        </div>
-      </div>
-
-      <!-- Numpad -->
-      <div class="numpad-container">
-        <VirtualNumpad
-          :label="activeField === 'good' ? 'Good Production (pcs)' : 'Waste Material (pcs)'"
-          v-model="values[activeField]"
-        />
-      </div>
-
-      <!-- Save Button -->
-      <button
-        class="save-btn"
-        :class="{ 'save-btn--error': toast.isError }"
-        :disabled="!canSave || isSaving"
-        @click="saveEntry"
-      >
-        <span class="material-symbols-rounded">{{ isSaving ? 'hourglass_top' : 'save' }}</span>
-        {{ isSaving ? 'SAVING…' : 'SAVE TO LEDGER' }}
-        <span v-if="values.good && !isSaving" class="earn-badge">ETB {{ earningsPreview }}</span>
-      </button>
-
-      <!-- Toast -->
-      <Transition name="toast">
-        <div v-if="toast.visible" class="toast">
-          <span class="material-symbols-rounded">check_circle</span>
-          {{ toast.message }}
-        </div>
-      </Transition>
-    </main>
-  </div>
 </template>
 
 <script setup>
@@ -200,8 +194,8 @@ async function saveEntry() {
 <style scoped>
 .prod-layout {
   display: flex;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   background: #0f172a;
 }
