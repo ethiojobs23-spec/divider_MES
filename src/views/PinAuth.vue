@@ -96,10 +96,12 @@
 import { ref, computed, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMesStore } from '@/store/mesStore.js'
+import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 
 const router = useRouter()
 const route  = useRoute()
 const store  = useMesStore()
+const sysAuth = useSystemAuthStore()
 
 // ─── PIN State ──────────────────────────────────────────────────────────────
 const pin          = ref('')
@@ -159,25 +161,17 @@ function handleKey(key) {
   }
 }
 
+// The sysAuth store is imported at the top now
+
 // ─── Validation ─────────────────────────────────────────────────────────────
 async function validatePin() {
   const entered = pin.value
 
-  // Option A: Local validation (fast, for offline mode)
-  const isCorrect = entered === CORRECT_PIN.value
+  // Query Supabase via our updated systemAuthStore
+  const result = await sysAuth.unlockSystem(entered, 'admin')
 
-  // Option B: Server-side validation (uncomment for production)
-  // try {
-  //   const { data } = await authAPI.verifyPin(entered)
-  //   isCorrect = data.valid === true
-  // } catch (err) {
-  //   // Network error → fall back to local validation
-  //   isCorrect = entered === CORRECT_PIN.value
-  // }
-
-  if (isCorrect) {
+  if (result.success) {
     unlocked.value = true
-    store.grantAdminAccess()
 
     // Redirect back to the originally requested route
     const returnTo = route.query.returnTo ?? '/settings'
@@ -185,7 +179,7 @@ async function validatePin() {
       router.replace(returnTo)
     }, 900)
   } else {
-    triggerError()
+    triggerError(result.message)
   }
 }
 

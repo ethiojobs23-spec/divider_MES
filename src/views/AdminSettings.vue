@@ -49,6 +49,18 @@
           </div>
           <span class="material-symbols-rounded snav-arrow">chevron_right</span>
         </button>
+        <button
+          class="snav-item"
+          :class="{ 'snav-item--active': activeTab === 'employees' }"
+          @click="activeTab = 'employees'"
+        >
+          <span class="material-symbols-rounded snav-icon">group</span>
+          <div class="snav-text">
+            <span class="snav-label">Employee Accounts</span>
+            <span class="snav-sub">Manage PINs and roles</span>
+          </div>
+          <span class="material-symbols-rounded snav-arrow">chevron_right</span>
+        </button>
       </nav>
 
       <!-- Apply Button (sticky at bottom of sidebar) -->
@@ -68,6 +80,13 @@
 
     <!-- ─── RIGHT: Settings Main Area ──────────────────────────────── -->
     <main class="admin-main">
+
+      <!-- ══════════════════════════════════════════════════════════════
+           TAB 0: EMPLOYEES
+      ══════════════════════════════════════════════════════════════ -->
+      <div v-if="activeTab === 'employees'" class="tab-panel">
+        <EmployeeManager />
+      </div>
 
       <!-- ══════════════════════════════════════════════════════════════
            TAB 1: PIECE RATES
@@ -344,11 +363,12 @@
 <script setup>
 import { ref } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
+import EmployeeManager from '@/components/EmployeeManager.vue'
 
 const store = useMesStore()
 
 // ─── Nav state ──────────────────────────────────────────────────────────────
-const activeTab    = ref('rates')
+const activeTab    = ref('employees')
 const selectedType = ref('50')
 
 // ─── Rate config ────────────────────────────────────────────────────────────
