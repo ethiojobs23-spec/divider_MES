@@ -12,8 +12,11 @@
         <button class="nav-btn" :class="{ active: activeTab === 'overview' }" @click="activeTab = 'overview'">
           <span class="material-symbols-rounded">dashboard</span> My Dashboard
         </button>
-        <button class="nav-btn" :class="{ active: activeTab === 'loans' }" @click="activeTab = 'loans'">
-          <span class="material-symbols-rounded">account_balance_wallet</span> Loan Request
+        <button class="nav-btn" :class="{ active: activeTab === 'cash-loan' }" @click="activeTab = 'cash-loan'">
+          <span class="material-symbols-rounded">account_balance_wallet</span> Cash Loan
+        </button>
+        <button class="nav-btn" :class="{ active: activeTab === 'payment-request' }" @click="activeTab = 'payment-request'">
+          <span class="material-symbols-rounded">payments</span> Payment Request
         </button>
         <button class="nav-btn" :class="{ active: activeTab === 'attendance' }" @click="activeTab = 'attendance'">
           <span class="material-symbols-rounded">how_to_reg</span> Attendance & Shift
@@ -77,28 +80,58 @@
         </div>
       </div>
 
-      <!-- Loans Tab -->
-      <div v-if="activeTab === 'loans'" class="tab-content split-layout">
+      <!-- Cash Loan Tab -->
+      <div v-if="activeTab === 'cash-loan'" class="tab-content split-layout">
          <div class="form-card">
-           <h3>Request Cash Advance</h3>
+           <h3>Request Cash Loan</h3>
            <div class="form-group">
              <label>Amount (ETB)</label>
-             <input type="number" v-model.number="loanAmount" class="input-field" placeholder="Enter amount" />
+             <input type="number" v-model.number="cashLoanAmount" class="input-field" placeholder="Enter amount" />
+           </div>
+           <button class="btn-submit" :disabled="!cashLoanAmount" @click="submitCashLoan">Submit Request</button>
+           <p v-if="cashLoanMessage" class="success-msg">{{ cashLoanMessage }}</p>
+         </div>
+         
+         <div class="history-card">
+           <h3>My Recent Loans</h3>
+           <div class="history-list">
+             <div v-for="loan in myLoans" :key="loan.id" class="history-item">
+               <div class="history-left">
+                 <span class="material-symbols-rounded history-icon">account_balance</span>
+                 <div>
+                   <span class="reason">Interest: {{ loan.interestRate }}%</span>
+                   <span class="date">{{ new Date(loan.issuedAt).toLocaleDateString() }}</span>
+                 </div>
+               </div>
+               <span class="amount">{{ loan.amount }} ETB</span>
+             </div>
+             <p v-if="!myLoans.length" class="empty-text">No recent loans logged.</p>
+           </div>
+         </div>
+      </div>
+
+      <!-- Payment Request Tab -->
+      <div v-if="activeTab === 'payment-request'" class="tab-content split-layout">
+         <div class="form-card">
+           <h3>Request Payment / Advance</h3>
+           <div class="form-group">
+             <label>Amount (ETB)</label>
+             <input type="number" v-model.number="paymentAmount" class="input-field" placeholder="Enter amount" />
            </div>
            <div class="form-group">
              <label>Reason</label>
-             <select v-model="loanReason" class="input-field">
+             <select v-model="paymentReason" class="input-field">
                <option>Weekly Advance</option>
                <option>Transport</option>
                <option>Emergency</option>
              </select>
            </div>
-           <button class="btn-submit" :disabled="!loanAmount" @click="submitLoan">Submit Request</button>
-           <p v-if="loanMessage" class="success-msg">{{ loanMessage }}</p>
+           <button class="btn-submit" :disabled="!paymentAmount" @click="submitPaymentRequest">Submit Request</button>
+           <p v-if="paymentMessage" class="success-msg">{{ paymentMessage }}</p>
          </div>
          
          <div class="history-card">
-           <h3>My Recent Advances</h3>
+           <h3>My Recent Payment Requests</h3>
            <div class="history-list">
              <div v-for="adv in myAdvances" :key="adv.id" class="history-item">
                <div class="history-left">
@@ -110,7 +143,7 @@
                </div>
                <span class="amount">{{ adv.amount }} ETB</span>
              </div>
-             <p v-if="!myAdvances.length" class="empty-text">No recent advances logged.</p>
+             <p v-if="!myAdvances.length" class="empty-text">No recent payment requests logged.</p>
            </div>
          </div>
       </div>
@@ -185,7 +218,8 @@ const activeTab = ref('overview')
 
 const tabTitles = {
   overview: 'My Dashboard',
-  loans: 'Cash Advances & Loans',
+  'cash-loan': 'Cash Loan',
+  'payment-request': 'Payment Request',
   attendance: 'Attendance & Shift Management',
   production: 'My Production Log',
 }
@@ -215,10 +249,27 @@ const estimatedEarnings = computed(() => {
   return grossPiece + grossHourly
 })
 
-// ── Loans ──
-const loanAmount = ref('')
-const loanReason = ref('Weekly Advance')
-const loanMessage = ref('')
+// ── Cash Loan ──
+const cashLoanAmount = ref('')
+const cashLoanMessage = ref('')
+
+const myLoans = computed(() => {
+  if (!employee.value) return []
+  return payrollStore.loans.filter(l => l.workerId === employee.value.id).reverse()
+})
+
+function submitCashLoan() {
+  if (!cashLoanAmount.value || !employee.value) return
+  payrollStore.requestLoan(employee.value.id, currentWeek.value, Number(cashLoanAmount.value))
+  cashLoanMessage.value = `Cash loan of ${cashLoanAmount.value} ETB requested successfully!`
+  cashLoanAmount.value = ''
+  setTimeout(() => { cashLoanMessage.value = '' }, 3000)
+}
+
+// ── Payment Request ──
+const paymentAmount = ref('')
+const paymentReason = ref('Weekly Advance')
+const paymentMessage = ref('')
 
 const myAdvances = computed(() => {
   if (!employee.value) return []
@@ -227,17 +278,17 @@ const myAdvances = computed(() => {
     .reverse()
 })
 
-function submitLoan() {
-  if (!loanAmount.value || !employee.value) return
+function submitPaymentRequest() {
+  if (!paymentAmount.value || !employee.value) return
   mesStore.addCashEntry({
     type: 'advance',
-    amount: Number(loanAmount.value),
+    amount: Number(paymentAmount.value),
     operator: employee.value.name,
-    note: loanReason.value,
+    note: paymentReason.value,
   })
-  loanMessage.value = `Advance of ${loanAmount.value} ETB logged successfully!`
-  loanAmount.value = ''
-  setTimeout(() => { loanMessage.value = '' }, 3000)
+  paymentMessage.value = `Payment request of ${paymentAmount.value} ETB logged successfully!`
+  paymentAmount.value = ''
+  setTimeout(() => { paymentMessage.value = '' }, 3000)
 }
 
 // ── Attendance ──
