@@ -99,7 +99,9 @@
                <div class="history-left">
                  <span class="material-symbols-rounded history-icon">account_balance</span>
                  <div>
-                   <span class="reason">Interest: {{ loan.interestRate }}%</span>
+                   <span class="reason">Interest: {{ loan.interestRate }}% • 
+                     <strong :class="'status-' + loan.status">{{ loan.status.toUpperCase() }}</strong>
+                   </span>
                    <span class="date">{{ new Date(loan.issuedAt).toLocaleDateString() }}</span>
                  </div>
                </div>
@@ -137,7 +139,9 @@
                <div class="history-left">
                  <span class="material-symbols-rounded history-icon">receipt_long</span>
                  <div>
-                   <span class="reason">{{ adv.note || 'Advance' }}</span>
+                   <span class="reason">{{ adv.note || 'Advance' }} • 
+                     <strong :class="'status-' + adv.type">{{ formatAdvanceStatus(adv.type) }}</strong>
+                   </span>
                    <span class="date">{{ new Date(adv.timestamp).toLocaleDateString() }}</span>
                  </div>
                </div>
@@ -277,9 +281,16 @@ const paymentMessage = ref('')
 const myAdvances = computed(() => {
   if (!employee.value) return []
   return mesStore.cashEntries
-    .filter(e => e.type === 'advance' && e.operator === employee.value.name)
+    .filter(e => (e.type === 'advance' || e.type === 'pending_advance' || e.type === 'rejected_advance') && e.operator === employee.value.name)
     .reverse()
 })
+
+function formatAdvanceStatus(type) {
+  if (type === 'pending_advance') return 'PENDING'
+  if (type === 'advance') return 'APPROVED'
+  if (type === 'rejected_advance') return 'REJECTED'
+  return type.toUpperCase()
+}
 
 function submitPaymentRequest() {
   if (!paymentAmount.value || !employee.value) return
@@ -540,6 +551,9 @@ function logout() {
 .history-left { display: flex; align-items: center; gap: 1rem; }
 .history-icon { color: #fbbf24; background: rgba(245,158,11,0.1); padding: 0.5rem; border-radius: 0.5rem; }
 .reason { display: block; font-weight: 600; color: #e2e8f0; font-size: 1.05rem; }
+.status-pending, .status-pending_advance { color: #f59e0b; }
+.status-active, .status-advance { color: #10b981; }
+.status-rejected, .status-rejected_advance { color: #ef4444; }
 .date { display: block; font-size: 0.85rem; color: #64748b; }
 .amount { font-weight: 800; color: #34d399; font-size: 1.1rem; }
 

@@ -79,7 +79,7 @@
               <span class="material-symbols-rounded icon-loan">account_balance</span>
               <div>
                 <p class="p-title">Loan Request • <strong>{{ loan.amount }} ETB</strong></p>
-                <p class="p-sub">Requested by operator ID: {{ loan.workerId }}</p>
+                <p class="p-sub">Requested by: <strong>{{ getOperatorName(loan.workerId) }}</strong> (Efficiency: <strong :class="getEfficiencyColor(getOperatorEfficiency(loan.workerId))">{{ getOperatorEfficiency(loan.workerId) }}%</strong>)</p>
               </div>
             </div>
             <div class="pending-actions">
@@ -94,7 +94,7 @@
               <span class="material-symbols-rounded icon-adv">payments</span>
               <div>
                 <p class="p-title">Payment Request • <strong>{{ adv.amount }} ETB</strong></p>
-                <p class="p-sub">Requested by: {{ adv.operator }} ({{ adv.note }})</p>
+                <p class="p-sub">Requested by: <strong>{{ adv.operator }}</strong> (Efficiency: <strong :class="getEfficiencyColor(getOperatorEfficiencyByName(adv.operator))">{{ getOperatorEfficiencyByName(adv.operator) }}%</strong>) | Reason: {{ adv.note }}</p>
               </div>
             </div>
             <div class="pending-actions">
@@ -173,21 +173,60 @@ const pendingLoans = computed(() => payrollStore.loans.filter(l => l.status === 
 const pendingAdvances = computed(() => store.cashEntries.filter(e => e.type === 'pending_advance'))
 const pendingCount = computed(() => pendingLoans.value.length + pendingAdvances.value.length)
 
+function getOperatorName(id) {
+  return store.operators.find(o => o.id === id)?.name || 'Unknown'
+}
+
+function getOperatorEfficiency(id) {
+  const stat = store.operatorEfficiency.find(o => o.id === id)
+  if (!stat) return 0
+  // wastePercent is the waste rate, so efficiency is 100 - wastePercent
+  return (100 - stat.wastePercent).toFixed(1)
+}
+
+function getOperatorEfficiencyByName(name) {
+  const stat = store.operatorEfficiency.find(o => o.name === name)
+  if (!stat) return 0
+  return (100 - stat.wastePercent).toFixed(1)
+}
+
+function getEfficiencyColor(eff) {
+  const v = Number(eff)
+  if (v >= 90) return 'text-green-400'
+  if (v >= 80) return 'text-yellow-400'
+  return 'text-red-400'
+}
+
+function verifyAdminPin() {
+  const pin = window.prompt("Enter Admin PIN to authorize:")
+  if (!pin) return false
+  const admin = store.operators.find(o => o.pin_code === pin && o.role === 'admin')
+  if (!admin) {
+    showToast('⚠ Invalid Admin PIN!')
+    return false
+  }
+  return true
+}
+
 async function handleApproveLoan(id) {
+  if (!verifyAdminPin()) return
   await payrollStore.approveLoan(id)
-  showToast('Loan approved')
+  showToast('Loan approved ✓')
 }
 async function handleRejectLoan(id) {
+  if (!verifyAdminPin()) return
   await payrollStore.rejectLoan(id)
-  showToast('Loan rejected')
+  showToast('Loan rejected ✓')
 }
 async function handleApproveAdvance(id) {
+  if (!verifyAdminPin()) return
   await store.approveCashEntry(id)
-  showToast('Payment request approved')
+  showToast('Payment request approved ✓')
 }
 async function handleRejectAdvance(id) {
+  if (!verifyAdminPin()) return
   await store.rejectCashEntry(id)
-  showToast('Payment request rejected')
+  showToast('Payment request rejected ✓')
 }
 
 const recentEntries = computed(() => [...store.cashEntries].reverse().slice(0, 8))
@@ -388,6 +427,9 @@ const recentEntries = computed(() => [...store.cashEntries].reverse().slice(0, 8
 .icon-adv { font-size: 2rem; color: #3b82f6; background: rgba(59,130,246,0.15); padding: 0.5rem; border-radius: 0.75rem; }
 .p-title { font-size: 1.1rem; color: #e2e8f0; margin: 0 0 0.25rem 0; }
 .p-sub { font-size: 0.85rem; color: #94a3b8; margin: 0; }
+.text-green-400 { color: #4ade80 !important; }
+.text-yellow-400 { color: #facc15 !important; }
+.text-red-400 { color: #f87171 !important; }
 
 .pending-actions { display: flex; gap: 0.75rem; }
 .btn-approve, .btn-reject {
