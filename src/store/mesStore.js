@@ -193,6 +193,30 @@ export const useMesStore = defineStore('mes', () => {
     '45': { '9cm': { 'ብተና': 2.40, 'ውስጥ': 2.90, 'የተለየ': 3.40 }, '7cm': { 'ብተና': 1.90, 'ውስጥ': 2.40, 'የተለየ': 2.90 } },
   })
 
+  function setPieceRate(type, size, placement, value) {
+    if (!pieceRates.value[type]) pieceRates.value[type] = {}
+    if (!pieceRates.value[type][size]) pieceRates.value[type][size] = {}
+    pieceRates.value[type][size][placement] = value
+  }
+
+  // Waste alert thresholds (used by QualityControl + AdminSettings)
+  const wasteThresholds = ref({ warn: 8, critical: 15 })
+
+  function setWasteThreshold(level, value) {
+    wasteThresholds.value[level] = Number(value)
+  }
+
+  function updateSystemConfig(key, value) {
+    systemConfig.value[key] = value
+  }
+
+  const systemConfig = ref({
+    autoPauseOnDowntime: false,
+    requireOperatorForEntry: false,
+    telegramBotEnabled: false,
+    exportRecipient: 'Frezer',
+  })
+
   // ─── Analytics Computeds ───────────────────────────────────────────────────
   const operatorEfficiency = computed(() => {
     return operators.value.map(op => {
@@ -204,6 +228,22 @@ export const useMesStore = defineStore('mes', () => {
       return { ...op, good, waste, total, wastePercent }
     }).sort((a, b) => a.wastePercent - b.wastePercent)
   })
+
+  const totalGoodAllTime = computed(() =>
+    ledgerEntries.value.reduce((s, e) => s + (Number(e.goodProduction) || 0), 0)
+  )
+  const totalWasteAllTime = computed(() =>
+    ledgerEntries.value.reduce((s, e) => s + (Number(e.wasteMaterial) || 0), 0)
+  )
+  const overallWastePct = computed(() => {
+    const total = totalGoodAllTime.value + totalWasteAllTime.value
+    return total > 0 ? +((totalWasteAllTime.value / total) * 100).toFixed(1) : 0
+  })
+
+  // Admin access flag (used by router guard)
+  const hasAdminAccess = ref(false)
+  function grantAdminAccess() { hasAdminAccess.value = true }
+  function revokeAdminAccess() { hasAdminAccess.value = false }
 
   // ─── Downtime ──────────────────────────────────────────────────────────────
   const downtimeSessions = ref([])
@@ -270,8 +310,12 @@ export const useMesStore = defineStore('mes', () => {
     inventory,
     cashEntries, addCashEntry, totalAdvances, totalExpenses,
     dispatchLogs, clients,
-    pieceRates,
+    pieceRates, setPieceRate,
+    wasteThresholds, setWasteThreshold,
+    systemConfig, updateSystemConfig,
     operatorEfficiency,
+    totalGoodAllTime, totalWasteAllTime, overallWastePct,
+    hasAdminAccess, grantAdminAccess, revokeAdminAccess,
     downtimeSessions, activeDowntime, startDowntime, resolveDowntime, logDowntime,
   }
 })
