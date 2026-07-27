@@ -58,7 +58,6 @@
           <span class="material-symbols-rounded">stop_circle</span>
           FLAG STOPPAGE
         </button>
-        </button>
       </div>
       
       <div v-else class="dt-actions">
