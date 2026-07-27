@@ -53,6 +53,7 @@ export const usePayrollStore = defineStore('payroll', () => {
           week: dbRow.production_week,
           amount: Number(dbRow.principal),
           interestRate: Number(dbRow.interest_rate),
+          status: dbRow.status,
           issuedAt: dbRow.issued_at
         }))
       }
@@ -74,7 +75,7 @@ export const usePayrollStore = defineStore('payroll', () => {
         production_week: week,
         principal: principal,
         interest_rate: interestRate,
-        status: 'active'
+        status: 'pending'
       }
       const { data, error } = await supabase.from('mes_loans').insert(payload).select().single()
       if (error) throw error
@@ -85,6 +86,7 @@ export const usePayrollStore = defineStore('payroll', () => {
         week: data.production_week,
         amount: Number(data.principal),
         interestRate: Number(data.interest_rate),
+        status: data.status,
         issuedAt: data.issued_at
       })
     } catch (err) {
@@ -93,7 +95,7 @@ export const usePayrollStore = defineStore('payroll', () => {
   }
 
   function getLoanDeductions(workerId, week) {
-    const workerLoans = loans.value.filter(l => l.workerId === workerId && l.week === week)
+    const workerLoans = loans.value.filter(l => l.workerId === workerId && l.week === week && l.status === 'active')
     let principal = 0
     let interest  = 0
     for (const loan of workerLoans) {
@@ -104,6 +106,28 @@ export const usePayrollStore = defineStore('payroll', () => {
       principal: toDecimal2(principal),
       interest: toDecimal2(interest),
       totalDeduction: toDecimal2(principal + interest),
+    }
+  }
+
+  async function approveLoan(loanId) {
+    try {
+      const { error } = await supabase.from('mes_loans').update({ status: 'active' }).eq('id', loanId)
+      if (error) throw error
+      const loan = loans.value.find(l => l.id === loanId)
+      if (loan) loan.status = 'active'
+    } catch (err) {
+      console.error('[PayrollStore] Error approving loan:', err)
+    }
+  }
+
+  async function rejectLoan(loanId) {
+    try {
+      const { error } = await supabase.from('mes_loans').update({ status: 'rejected' }).eq('id', loanId)
+      if (error) throw error
+      const loan = loans.value.find(l => l.id === loanId)
+      if (loan) loan.status = 'rejected'
+    } catch (err) {
+      console.error('[PayrollStore] Error rejecting loan:', err)
     }
   }
 
@@ -208,7 +232,7 @@ export const usePayrollStore = defineStore('payroll', () => {
 
   return {
     fetchLoans, workerProfiles, getWorkerProfile, setWorkerProfile,
-    loans, requestLoan, getLoanDeductions,
+    loans, requestLoan, getLoanDeductions, approveLoan, rejectLoan,
     getDaysAttended,
     getGrossEarnings, getHourlyEarnings, calculateFinalPayout, weeklyPayrollSummary,
     payoutStatuses, getPayoutStatus, approvePayout, holdPayout,

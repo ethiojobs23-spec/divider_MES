@@ -1,9 +1,21 @@
 <template>
   <TabletLayout>
-    <!-- LEFT Sidebar -->
-        <!-- MAIN: Input Area -->
+    <!-- MAIN: Input Area -->
     <main class="cash-main">
-      <!-- Quick Presets -->
+      <nav class="settings-top-nav">
+        <button class="snav-item" :class="{'snav-item--active': activeTab === 'new'}" @click="activeTab = 'new'">
+          <span class="material-symbols-rounded snav-icon">add_circle</span>
+          <span class="snav-label">New Entry</span>
+        </button>
+        <button class="snav-item" :class="{'snav-item--active': activeTab === 'pending'}" @click="activeTab = 'pending'">
+          <span class="material-symbols-rounded snav-icon">pending_actions</span>
+          <span class="snav-label">Pending Approvals</span>
+          <span class="badge" v-if="pendingCount > 0">{{ pendingCount }}</span>
+        </button>
+      </nav>
+
+      <div v-if="activeTab === 'new'" class="tab-panel">
+        <!-- Quick Presets -->
       <div class="presets-row">
         <p class="presets-label">Quick Amount</p>
         <div class="presets">
@@ -56,6 +68,46 @@
           {{ toast.message }}
         </div>
       </Transition>
+      </div>
+
+      <div v-if="activeTab === 'pending'" class="tab-panel approvals-panel">
+        <h3 class="panel-heading">Pending Requests</h3>
+        <div class="pending-list">
+          <!-- Pending Loans -->
+          <div v-for="loan in pendingLoans" :key="'loan-'+loan.id" class="pending-item">
+            <div class="pending-info">
+              <span class="material-symbols-rounded icon-loan">account_balance</span>
+              <div>
+                <p class="p-title">Loan Request • <strong>{{ loan.amount }} ETB</strong></p>
+                <p class="p-sub">Requested by operator ID: {{ loan.workerId }}</p>
+              </div>
+            </div>
+            <div class="pending-actions">
+              <button class="btn-approve" @click="handleApproveLoan(loan.id)"><span class="material-symbols-rounded">check</span></button>
+              <button class="btn-reject" @click="handleRejectLoan(loan.id)"><span class="material-symbols-rounded">close</span></button>
+            </div>
+          </div>
+
+          <!-- Pending Payment Requests (Advances) -->
+          <div v-for="adv in pendingAdvances" :key="'adv-'+adv.id" class="pending-item">
+            <div class="pending-info">
+              <span class="material-symbols-rounded icon-adv">payments</span>
+              <div>
+                <p class="p-title">Payment Request • <strong>{{ adv.amount }} ETB</strong></p>
+                <p class="p-sub">Requested by: {{ adv.operator }} ({{ adv.note }})</p>
+              </div>
+            </div>
+            <div class="pending-actions">
+              <button class="btn-approve" @click="handleApproveAdvance(adv.id)"><span class="material-symbols-rounded">check</span></button>
+              <button class="btn-reject" @click="handleRejectAdvance(adv.id)"><span class="material-symbols-rounded">close</span></button>
+            </div>
+          </div>
+          
+          <div v-if="pendingCount === 0" class="empty-state">
+            No pending approvals right now.
+          </div>
+        </div>
+      </div>
     </main>
   </TabletLayout>
 </template>
@@ -65,8 +117,12 @@ import TabletLayout from '@/components/layout/TabletLayout.vue'
 import { ref, computed, reactive } from 'vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import { useMesStore } from '@/store/mesStore.js'
+import { usePayrollStore } from '@/store/payrollStore.js'
 
 const store = useMesStore()
+const payrollStore = usePayrollStore()
+
+const activeTab = ref('new')
 
 const entryType  = ref('advance')
 const selectedOp = ref(null)
@@ -111,6 +167,27 @@ async function submitEntry() {
   } else {
     showToast('⚠ Failed to save. Check connection.')
   }
+}
+
+const pendingLoans = computed(() => payrollStore.loans.filter(l => l.status === 'pending'))
+const pendingAdvances = computed(() => store.cashEntries.filter(e => e.type === 'pending_advance'))
+const pendingCount = computed(() => pendingLoans.value.length + pendingAdvances.value.length)
+
+async function handleApproveLoan(id) {
+  await payrollStore.approveLoan(id)
+  showToast('Loan approved')
+}
+async function handleRejectLoan(id) {
+  await payrollStore.rejectLoan(id)
+  showToast('Loan rejected')
+}
+async function handleApproveAdvance(id) {
+  await store.approveCashEntry(id)
+  showToast('Payment request approved')
+}
+async function handleRejectAdvance(id) {
+  await store.rejectCashEntry(id)
+  showToast('Payment request rejected')
 }
 
 const recentEntries = computed(() => [...store.cashEntries].reverse().slice(0, 8))
@@ -262,4 +339,70 @@ const recentEntries = computed(() => [...store.cashEntries].reverse().slice(0, 8
 }
 .toast-enter-active, .toast-leave-active { transition: all .25s ease; }
 .toast-enter-from, .toast-leave-to       { opacity: 0; transform: translate(-50%, 1rem); }
+
+/* Navigation & Tabs */
+.settings-top-nav {
+  display: flex; gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  background: #1e293b;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+}
+.snav-item {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .6rem 1rem;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: .5rem;
+  color: #64748b;
+  cursor: pointer;
+  transition: all .15s ease;
+  position: relative;
+}
+.snav-item:hover        { background: rgba(255,255,255,.05); color: #cbd5e1; }
+.snav-item--active      { background: rgba(16,185,129,.12); border-color: #10b981; color: #34d399; }
+.snav-icon              { font-size: 1.1rem !important; }
+.snav-label             { font-size: .85rem; font-weight: 700; }
+.badge {
+  background: #ef4444; color: #fff;
+  font-size: 0.7rem; font-weight: 800;
+  padding: 0.15rem 0.4rem; border-radius: 99px;
+  margin-left: 0.25rem;
+}
+
+.tab-panel {
+  display: flex; flex-direction: column; gap: 1.25rem; padding: 1.5rem; flex: 1; overflow-y: auto;
+}
+
+/* Approvals Panel */
+.panel-heading { font-size: 1.2rem; font-weight: 800; color: #f8fafc; margin: 0 0 1rem 0; }
+.pending-list { display: flex; flex-direction: column; gap: 1rem; }
+.pending-item {
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 1rem;
+  padding: 1.25rem;
+}
+.pending-info { display: flex; align-items: center; gap: 1rem; }
+.icon-loan { font-size: 2rem; color: #a855f7; background: rgba(168,85,247,0.15); padding: 0.5rem; border-radius: 0.75rem; }
+.icon-adv { font-size: 2rem; color: #3b82f6; background: rgba(59,130,246,0.15); padding: 0.5rem; border-radius: 0.75rem; }
+.p-title { font-size: 1.1rem; color: #e2e8f0; margin: 0 0 0.25rem 0; }
+.p-sub { font-size: 0.85rem; color: #94a3b8; margin: 0; }
+
+.pending-actions { display: flex; gap: 0.75rem; }
+.btn-approve, .btn-reject {
+  width: 3rem; height: 3rem;
+  border-radius: 50%;
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; cursor: pointer; transition: all 0.2s;
+}
+.btn-approve { background: rgba(16,185,129,0.15); color: #10b981; }
+.btn-approve:hover { background: #10b981; color: #fff; }
+.btn-reject { background: rgba(239,68,68,0.15); color: #ef4444; }
+.btn-reject:hover { background: #ef4444; color: #fff; }
+
+.empty-state {
+  text-align: center; padding: 4rem 1rem; color: #64748b; font-size: 1.1rem; font-weight: 600;
+}
 </style>

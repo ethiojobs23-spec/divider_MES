@@ -180,6 +180,28 @@ export const useMesStore = defineStore('mes', () => {
     }
   }
 
+  async function approveCashEntry(id) {
+    try {
+      const { error } = await supabase.from('mes_financial_ledger').update({ transaction_type: 'advance' }).eq('id', id)
+      if (error) throw error
+      const entry = cashEntries.value.find(e => e.id === id)
+      if (entry) entry.type = 'advance'
+    } catch (err) {
+      console.error('[Store] Cash approve failed:', err)
+    }
+  }
+
+  async function rejectCashEntry(id) {
+    try {
+      const { error } = await supabase.from('mes_financial_ledger').update({ transaction_type: 'rejected_advance' }).eq('id', id)
+      if (error) throw error
+      const entry = cashEntries.value.find(e => e.id === id)
+      if (entry) entry.type = 'rejected_advance'
+    } catch (err) {
+      console.error('[Store] Cash reject failed:', err)
+    }
+  }
+
   const totalAdvances = computed(() =>
     cashEntries.value.filter(e => e.type === 'advance').reduce((s, e) => s + Number(e.amount), 0)
   )
@@ -355,7 +377,7 @@ export const useMesStore = defineStore('mes', () => {
     currentProductionWeek, setProductionWeek,
     ledgerEntries, submitProductionLog, weeklyAggregation,
     inventory,
-    cashEntries, addCashEntry, totalAdvances, totalExpenses,
+    cashEntries, addCashEntry, approveCashEntry, rejectCashEntry, totalAdvances, totalExpenses,
     dispatchLogs, clients, addDispatch, totalDispatched,
     pieceRates, setPieceRate,
     wasteThresholds, setWasteThreshold,

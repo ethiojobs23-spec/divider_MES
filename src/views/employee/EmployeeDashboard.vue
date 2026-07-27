@@ -284,7 +284,7 @@ const myAdvances = computed(() => {
 function submitPaymentRequest() {
   if (!paymentAmount.value || !employee.value) return
   mesStore.addCashEntry({
-    type: 'advance',
+    type: 'pending_advance',
     amount: Number(paymentAmount.value),
     operator: employee.value.name,
     note: paymentReason.value,
