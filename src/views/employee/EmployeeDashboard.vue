@@ -86,7 +86,7 @@
            <h3>Request Cash Loan</h3>
            <div class="form-group">
              <label>Amount (ETB)</label>
-             <input type="number" v-model.number="cashLoanAmount" class="input-field" placeholder="Enter amount" />
+             <VirtualNumpad v-model="cashLoanAmount" label="" />
            </div>
            <button class="btn-submit" :disabled="!cashLoanAmount" @click="submitCashLoan">Submit Request</button>
            <p v-if="cashLoanMessage" class="success-msg">{{ cashLoanMessage }}</p>
@@ -116,7 +116,7 @@
            <h3>Request Payment / Advance</h3>
            <div class="form-group">
              <label>Amount (ETB)</label>
-             <input type="number" v-model.number="paymentAmount" class="input-field" placeholder="Enter amount" />
+             <VirtualNumpad v-model="paymentAmount" label="" />
            </div>
            <div class="form-group">
              <label>Reason</label>
@@ -208,6 +208,7 @@ import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
+import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 
 const router = useRouter()
 const sysAuth = useSystemAuthStore()
