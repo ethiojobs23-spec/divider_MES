@@ -9,9 +9,12 @@ export const useMesStore = defineStore('mes', () => {
   async function fetchInitialData() {
     isLoading.value = true
     try {
-      // 1. Fetch active operators
+      // 1. Fetch active operators and customers
       const { data: ops } = await supabase.from('mes_operators').select('*').eq('is_active', true)
-      if (ops) operators.value = ops
+      if (ops) {
+        operators.value = ops.filter(o => o.role !== 'customer')
+        clients.value = ops.filter(o => o.role === 'customer')
+      }
 
       // 2. Fetch inventory
       const { data: inv } = await supabase.from('mes_inventory').select('*')
@@ -44,6 +47,7 @@ export const useMesStore = defineStore('mes', () => {
   const activeOperator = ref(null)
   const clockedInOperators = ref({}) // We keep clock ins local session-based for UI, or use attendanceStore
   const operators = ref([])
+  const clients = ref([])
 
   const isOperatorClockedIn = computed(() => (id) => !!clockedInOperators.value[id])
 
@@ -210,7 +214,6 @@ export const useMesStore = defineStore('mes', () => {
 
   // ─── Dispatch / Logistics ───────────────────────────────────────────────────
   const dispatchLogs = ref([])
-  const clients = ref(['Addis Ababa Main', 'Hawassa Depot', 'Dire Dawa Branch'])
 
   function mapSupabaseDispatchToLocal(dbRow) {
     return {
@@ -250,6 +253,26 @@ export const useMesStore = defineStore('mes', () => {
   const totalDispatched = computed(() =>
     dispatchLogs.value.reduce((s, d) => s + (Number(d.quantity) || 0), 0)
   )
+
+  async function addClient(name) {
+    try {
+      const payload = {
+        name,
+        role: 'customer',
+        pin_code: '0000', // unused for customers
+        is_active: true,
+        color: 'bg-emerald-500',
+        avatar: name.charAt(0).toUpperCase()
+      }
+      const { data, error } = await supabase.from('mes_operators').insert(payload).select().single()
+      if (error) throw error
+      clients.value.push(data)
+      return true
+    } catch (err) {
+      console.error('[Store] Add client failed:', err)
+      return false
+    }
+  }
 
   // ─── Admin Config — Piece Rates & Thresholds ───────────────────────────────
   const pieceRates = ref({
@@ -377,7 +400,7 @@ export const useMesStore = defineStore('mes', () => {
     ledgerEntries, submitProductionLog, weeklyAggregation,
     inventory,
     cashEntries, addCashEntry, approveCashEntry, rejectCashEntry, totalAdvances, totalExpenses,
-    dispatchLogs, clients, addDispatch, totalDispatched,
+    dispatchLogs, clients, addClient, addDispatch, totalDispatched,
     pieceRates, setPieceRate,
     wasteThresholds, setWasteThreshold,
     systemConfig, updateSystemConfig,

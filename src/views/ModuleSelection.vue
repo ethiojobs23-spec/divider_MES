@@ -165,6 +165,18 @@
         <span class="material-symbols-rounded card-arrow">arrow_forward</span>
       </button>
       
+      <!-- Customers -->
+      <button class="module-card card--amber" @click="go('/customers')">
+        <div class="card-glow" />
+        <span class="material-symbols-rounded card-icon">group</span>
+        <div class="card-body">
+          <p class="card-eyebrow">OPERATIONS</p>
+          <h2 class="card-title">Customers</h2>
+          <p class="card-sub">Manage & Track Dispatches</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
+      
       <!-- 12. Employee Profiles -->
       <button class="module-card card--slate" @click="go('/profile')">
         <div class="card-glow" />

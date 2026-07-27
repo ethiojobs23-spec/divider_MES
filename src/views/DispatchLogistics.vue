@@ -21,6 +21,41 @@
 
       <!-- Input Area -->
       <div class="input-area">
+        <!-- Setup / Selectors -->
+        <div class="setup-col">
+          <p class="log-title">
+            <span class="material-symbols-rounded" style="font-size:1rem">inventory_2</span>
+            Select Divider Type
+          </p>
+          <div class="type-grid">
+            <button
+              v-for="t in dividerTypes"
+              :key="t"
+              class="type-btn"
+              :class="{ 'type-btn--active': selections.dividerType === t }"
+              @click="selections.dividerType = t"
+            >{{ t }}</button>
+          </div>
+
+          <p class="log-title" style="margin-top: 1rem">
+            <span class="material-symbols-rounded" style="font-size:1rem">store</span>
+            Select Customer
+          </p>
+          <div class="client-list">
+            <button
+              v-for="c in store.clients"
+              :key="c.id"
+              class="client-btn"
+              :class="{ 'client-btn--active': selections.client === c.name }"
+              @click="selections.client = c.name"
+            >
+              <span class="material-symbols-rounded client-icon">store</span>
+              {{ c.name }}
+            </button>
+            <div v-if="!store.clients.length" class="empty-hint">No customers found. Admin must add customers.</div>
+          </div>
+        </div>
+
         <!-- Numpad -->
         <div class="numpad-col">
           <VirtualNumpad
@@ -178,6 +213,7 @@ function fmtTime(iso) {
 .client-btn:active      { transform: scale(.98); }
 .client-btn--active     { background: rgba(251,191,36,.12); border-color: #f59e0b; color: #fcd34d; }
 .client-icon            { font-size: 1rem !important; }
+.empty-hint { font-size: 0.8rem; color: #475569; padding: 1rem; text-align: center; border: 1px dashed rgba(255,255,255,0.1); border-radius: 0.5rem; }
 
 .summary-card {
   background: rgba(255,255,255,.04);
@@ -229,6 +265,18 @@ function fmtTime(iso) {
   gap: 1.25rem;
   flex: 1;
   min-height: 0;
+}
+
+.setup-col {
+  flex: 0.8;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,.05);
+  border-radius: .8rem;
+  padding: 1.25rem;
+  overflow-y: auto;
 }
 
 .numpad-col { flex: 1.1; display: flex; flex-direction: column; }

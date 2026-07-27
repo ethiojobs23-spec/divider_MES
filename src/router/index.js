@@ -24,6 +24,7 @@ import HourlyWageTracker     from '@/views/HourlyWageTracker.vue'
 import CompanyExpenses       from '@/views/CompanyExpenses.vue'
 import EmployeeDashboard     from '@/views/employee/EmployeeDashboard.vue'
 import AttendanceViewer      from '@/views/AttendanceViewer.vue'
+import CustomersManager      from '@/views/CustomersManager.vue'
 
 // ─── Route Definitions ─────────────────────────────────────────────────────
 const routes = [
@@ -137,6 +138,12 @@ const routes = [
     name: 'DispatchLogistics',
     component: DispatchLogistics,
     meta: { title: 'Dispatch', icon: 'local_shipping', requiresSystemAuth: true, nav: true },
+  },
+  {
+    path: '/customers',
+    name: 'CustomersManager',
+    component: CustomersManager,
+    meta: { title: 'Customers', icon: 'group', requiresSystemAuth: true, requiresAdmin: true, nav: true },
   },
 
   // ── Analytics & Admin ──────────────────────────────────────────────────
