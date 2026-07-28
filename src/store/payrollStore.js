@@ -177,7 +177,33 @@ export const usePayrollStore = defineStore('payroll', () => {
     return toDecimal2(totalHours * rate)
   }
 
-  // ── Final Payout Calculation ───────────────────────────────────────────────
+  // ── Shift-based earnings breakdown ─────────────────────────────────────────────────
+  /** Returns an array of {date, entries[], shiftGood, shiftWaste, shiftEarnings, status} for this worker's shift submissions */
+  function getShiftBreakdown(workerId, week) {
+    const worker = mesStore.operators.find(o => o.id === workerId)
+    if (!worker) return []
+    return mesStore.shiftSubmissions
+      .filter(s => s.operator_id === workerId)
+      .map(s => {
+        const entries = (s.details?.entries || []).map(e => {
+          const rate = mesStore.pieceRates?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
+          const earnings = toDecimal2(rate * (Number(e.good) || 0))
+          return { ...e, rate, earnings }
+        })
+        const shiftEarnings = entries.reduce((sum, e) => sum + e.earnings, 0)
+        return {
+          date: s.transaction_date,
+          status: s.target_name,
+          shiftGood: s.details?.totalGood ?? 0,
+          shiftWaste: s.details?.totalWaste ?? 0,
+          shiftEarnings: toDecimal2(shiftEarnings),
+          entries
+        }
+      })
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+  }
+
+  // ── Final Payout Calculation ─────────────────────────────────────────────────
   function calculateFinalPayout(workerId, week) {
     const daysAttended = getDaysAttended(workerId, week)
     const attendanceFactor = daysAttended > 0 ? toDecimal2(daysAttended / WORK_DAYS_PER_WEEK) : 0
@@ -186,7 +212,23 @@ export const usePayrollStore = defineStore('payroll', () => {
       return { grossPieceRate: 0, grossHourly: 0, attendanceFactor: 0, grossEarnings: 0, totalDeduction: 0, netPayout: 0, daysAttended: 0 }
     }
 
-    const grossPieceRate = getGrossEarnings(workerId, week)
+    // Use approved shift submissions for piece-rate if available; fallback to raw ledger
+    const approvedShifts = mesStore.shiftSubmissions.filter(
+      s => s.operator_id === workerId && s.target_name === 'approved'
+    )
+    let grossPieceRate
+    if (approvedShifts.length > 0) {
+      grossPieceRate = toDecimal2(approvedShifts.reduce((sum, s) => {
+        const entries = s.details?.entries || []
+        return sum + entries.reduce((es, e) => {
+          const rate = mesStore.pieceRates?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
+          return es + rate * (Number(e.good) || 0)
+        }, 0)
+      }, 0))
+    } else {
+      grossPieceRate = getGrossEarnings(workerId, week)
+    }
+
     const grossHourly = getHourlyEarnings(workerId, week)
     const grossEarnings = toDecimal2((grossPieceRate + grossHourly) * attendanceFactor)
     const { totalDeduction: loanDeductions } = getLoanDeductions(workerId, week)
@@ -248,7 +290,7 @@ export const usePayrollStore = defineStore('payroll', () => {
     fetchLoans, workerProfiles, getWorkerProfile, setWorkerProfile,
     loans, requestLoan, getLoanDeductions, getAdvanceDeductions, approveLoan, rejectLoan,
     getDaysAttended,
-    getGrossEarnings, getHourlyEarnings, calculateFinalPayout, weeklyPayrollSummary,
+    getGrossEarnings, getHourlyEarnings, calculateFinalPayout, getShiftBreakdown, weeklyPayrollSummary,
     payoutStatuses, getPayoutStatus, approvePayout, holdPayout,
     PLACEMENT_KEYS, HOURLY_MIN, HOURLY_MAX, toDecimal2,
   }

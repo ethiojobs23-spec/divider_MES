@@ -62,35 +62,114 @@
          </div>
          
          <div class="breakdown-content" :class="{ 'is-locked': selectedWorker.payoutStatus.status === 'approved' }">
+
+            <!-- Shift Submissions Breakdown -->
             <div class="calculation-card">
-              <h3>Earnings Calculation</h3>
+              <h3>Shift Submissions & Piece-Rate</h3>
+              <div v-if="shiftBreakdown.length" class="shift-rows">
+                <div
+                  v-for="shift in shiftBreakdown"
+                  :key="shift.date"
+                  class="shift-row"
+                  :class="'shift-row--' + shift.status"
+                >
+                  <div class="shift-row-header" @click="toggleShift(shift.date)">
+                    <div class="shift-date">
+                      <span class="material-symbols-rounded" style="font-size:1rem">calendar_today</span>
+                      {{ new Date(shift.date).toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'short'}) }}
+                    </div>
+                    <div class="shift-summary-pills">
+                      <span class="pill pill--green">{{ shift.shiftGood }} pcs good</span>
+                      <span v-if="shift.shiftWaste" class="pill pill--red">{{ shift.shiftWaste }} waste</span>
+                      <span class="pill pill--yellow">ETB {{ shift.shiftEarnings.toFixed(2) }}</span>
+                    </div>
+                    <span class="shift-status-badge" :class="'ssb--' + shift.status">
+                      {{ shift.status.toUpperCase() }}
+                    </span>
+                    <span class="material-symbols-rounded" style="font-size:1rem; color:#64748b">
+                      {{ expandedShift === shift.date ? 'expand_less' : 'expand_more' }}
+                    </span>
+                  </div>
+                  <!-- Entry detail rows -->
+                  <div v-if="expandedShift === shift.date" class="shift-entries">
+                    <table class="entry-mini-table">
+                      <thead><tr><th>Type</th><th>Placement</th><th>Size</th><th>Good Pcs</th><th>Rate</th><th class="tar">Earnings</th></tr></thead>
+                      <tbody>
+                        <tr v-for="(e, i) in shift.entries" :key="i">
+                          <td>{{ e.dividerType }}</td>
+                          <td>{{ e.placement }}</td>
+                          <td>{{ e.size }}</td>
+                          <td style="color:#34d399"><strong>{{ e.good }}</strong></td>
+                          <td style="color:#94a3b8">{{ e.rate }} ETB/pc</td>
+                          <td class="tar" style="color:#fbbf24"><strong>{{ e.earnings.toFixed(2) }}</strong></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="no-shifts-note">
+                <span class="material-symbols-rounded">info</span>
+                No shift submissions found. Piece-rate calculated from raw production ledger.
+              </div>
+
+              <div class="calc-row math-result" style="margin-top:1rem">
+                <span>Total Piece-Rate Earnings</span>
+                <span>{{ selectedWorker.grossPieceRate.toFixed(2) }} ETB</span>
+              </div>
+            </div>
+
+            <!-- Attendance & Hourly -->
+            <div class="calculation-card">
+              <h3>Attendance &amp; Hourly Pay</h3>
               <div class="calc-row">
-                 <span>Gross Piece-Rate</span>
-                 <span>{{ selectedWorker.grossPieceRate.toFixed(2) }} ETB</span>
+                <span>Days Attended</span>
+                <span><strong style="color:#fbbf24">{{ selectedWorker.daysAttended }}</strong> / 6 days</span>
               </div>
               <div class="calc-row">
-                 <span>Gross Hourly</span>
-                 <span>{{ selectedWorker.grossHourly.toFixed(2) }} ETB</span>
-              </div>
-              <div class="calc-row math-op">
-                 <span>Subtotal</span>
-                 <span>{{ (selectedWorker.grossPieceRate + selectedWorker.grossHourly).toFixed(2) }} ETB</span>
+                <span>Attendance Factor</span>
+                <span>{{ (selectedWorker.attendanceFactor * 100).toFixed(0) }}%</span>
               </div>
               <div class="calc-row">
-                 <span>Attendance Factor ({{ selectedWorker.daysAttended }}/6 days)</span>
-                 <span>x {{ selectedWorker.attendanceFactor.toFixed(2) }}</span>
+                <span>Hourly Rate</span>
+                <span>ETB {{ payrollStore.getWorkerProfile(selectedWorker.id).hourlyRate }}/hr × {{ selectedWorker.daysAttended * 8 }}h</span>
               </div>
               <div class="calc-row math-result">
-                 <span>Adjusted Gross Earnings</span>
-                 <span>{{ selectedWorker.grossEarnings.toFixed(2) }} ETB</span>
+                <span>Gross Hourly Pay</span>
+                <span>{{ selectedWorker.grossHourly.toFixed(2) }} ETB</span>
+              </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="calculation-card">
+              <h3>Earnings Summary</h3>
+              <div class="calc-row">
+                <span>Piece-Rate Subtotal</span>
+                <span>{{ selectedWorker.grossPieceRate.toFixed(2) }} ETB</span>
+              </div>
+              <div class="calc-row">
+                <span>Hourly Subtotal</span>
+                <span>{{ selectedWorker.grossHourly.toFixed(2) }} ETB</span>
+              </div>
+              <div class="calc-row math-op">
+                <span>Combined Gross</span>
+                <span>{{ (selectedWorker.grossPieceRate + selectedWorker.grossHourly).toFixed(2) }} ETB</span>
+              </div>
+              <div class="calc-row">
+                <span>× Attendance Factor ({{ selectedWorker.daysAttended }}/6 days)</span>
+                <span>× {{ selectedWorker.attendanceFactor.toFixed(2) }}</span>
+              </div>
+              <div class="calc-row math-result">
+                <span>Adjusted Gross Earnings</span>
+                <span>{{ selectedWorker.grossEarnings.toFixed(2) }} ETB</span>
               </div>
             </div>
 
             <div class="calculation-card deductions">
               <h3>Deductions</h3>
               <div class="calc-row">
-                 <span>Advances + Interest</span>
-                 <span class="deduction-val">- {{ selectedWorker.totalDeduction.toFixed(2) }} ETB</span>
+                <span>Advances + Loans + Interest</span>
+                <span class="deduction-val">- {{ selectedWorker.totalDeduction.toFixed(2) }} ETB</span>
               </div>
             </div>
 
@@ -167,6 +246,16 @@ const currentWeek = computed(() => mesStore.currentProductionWeek)
 const selectedWorkerId = ref(null)
 const selectedWorker = computed(() => {
   return payrollStore.weeklyPayrollSummary.find(w => w.id === selectedWorkerId.value)
+})
+
+// Shift breakdown for selected worker
+const expandedShift = ref(null)
+function toggleShift(date) {
+  expandedShift.value = expandedShift.value === date ? null : date
+}
+const shiftBreakdown = computed(() => {
+  if (!selectedWorker.value) return []
+  return payrollStore.getShiftBreakdown(selectedWorker.value.id, currentWeek.value)
 })
 
 const totalAllDeductions = computed(() => {
@@ -534,5 +623,58 @@ function executeHold(reason) {
 .reason-btn:hover {
   background: rgba(239,68,68,0.2);
   border-color: #ef4444;
+}
+
+/* Shift breakdown rows */
+.shift-rows { display: flex; flex-direction: column; gap: 0.5rem; }
+.shift-row {
+  border-radius: 0.65rem; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+.shift-row--pending  { border-color: rgba(245,158,11,0.2); }
+.shift-row--approved { border-color: rgba(16,185,129,0.2); }
+.shift-row--rejected { border-color: rgba(239,68,68,0.2); opacity: 0.7; }
+
+.shift-row-header {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.75rem 1rem; cursor: pointer;
+  background: rgba(255,255,255,0.02);
+}
+.shift-row-header:hover { background: rgba(255,255,255,0.04); }
+
+.shift-date {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-weight: 700; color: #e2e8f0; font-size: 0.9rem;
+  min-width: 7rem;
+}
+.shift-summary-pills { display: flex; gap: 0.35rem; flex: 1; flex-wrap: wrap; }
+.pill {
+  font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 999px;
+}
+.pill--green  { background: rgba(52,211,153,0.12); color: #34d399; }
+.pill--red    { background: rgba(248,113,113,0.12); color: #f87171; }
+.pill--yellow { background: rgba(251,191,36,0.12); color: #fbbf24; }
+
+.shift-status-badge {
+  font-size: 0.65rem; font-weight: 800; padding: 0.2rem 0.6rem; border-radius: 999px; letter-spacing: 0.08em;
+}
+.ssb--pending  { background: rgba(245,158,11,0.12); color: #fbbf24; }
+.ssb--approved { background: rgba(16,185,129,0.12); color: #34d399; }
+.ssb--rejected { background: rgba(239,68,68,0.12); color: #f87171; }
+
+.shift-entries { padding: 0.75rem 1rem; background: rgba(0,0,0,0.2); }
+.entry-mini-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.entry-mini-table th {
+  color: #64748b; padding: 0.4rem 0.6rem; text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.7rem;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.entry-mini-table td { padding: 0.4rem 0.6rem; color: #e2e8f0; }
+.tar { text-align: right !important; }
+
+.no-shifts-note {
+  display: flex; align-items: center; gap: 0.5rem;
+  color: #475569; font-size: 0.85rem; padding: 0.75rem;
+  background: rgba(255,255,255,0.02); border-radius: 0.5rem;
 }
 </style>
