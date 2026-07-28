@@ -47,35 +47,37 @@
           <div class="modal-time">{{ currentTime }}</div>
 
           <div class="modal-actions" v-if="!showOverride">
-            <!-- Time-Gated Clock In -->
-            <button
-              v-if="validation.allowed || isOverrideAuthorized"
-              class="modal-btn modal-btn--in"
-              :disabled="store.isOperatorClockedIn(modal.operator?.id)"
-              @click="handleClockIn"
-            >
-              <span class="material-symbols-rounded">login</span>
-              CLOCK IN
-            </button>
+            <!-- Normal action button if allowed or overridden -->
+            <template v-if="validation.allowed || isOverrideAuthorized">
+              <!-- Clock In -->
+              <button
+                v-if="!store.isOperatorClockedIn(modal.operator?.id)"
+                class="modal-btn modal-btn--in"
+                @click="handleClockIn"
+              >
+                <span class="material-symbols-rounded">login</span>
+                CLOCK IN
+              </button>
+              
+              <!-- Clock Out -->
+              <button
+                v-else
+                class="modal-btn modal-btn--out"
+                @click="handleClockOut"
+              >
+                <span class="material-symbols-rounded">logout</span>
+                CLOCK OUT
+              </button>
+            </template>
             
             <!-- Denied State & Manager Override -->
-            <div v-else-if="!store.isOperatorClockedIn(modal.operator?.id)" class="denied-container">
+            <div v-else class="denied-container">
               <div class="denied-block">
                 <span class="material-symbols-rounded">block</span>
                 {{ validation.message }}
               </div>
               <a href="#" class="override-link" @click.prevent="showOverride = true">Manager Override</a>
             </div>
-
-            <!-- Clock Out -->
-            <button
-              class="modal-btn modal-btn--out"
-              :disabled="!store.isOperatorClockedIn(modal.operator?.id)"
-              @click="handleClockOut"
-            >
-              <span class="material-symbols-rounded">logout</span>
-              CLOCK OUT
-            </button>
           </div>
 
           <!-- Virtual Numpad for Override -->
@@ -151,25 +153,38 @@ function openModal(op) {
 function closeModal() { modal.value = { open: false, operator: null } }
 
 async function handleClockIn() {
-  const op = modal.value.operator
-  mesStore.clockIn(op)                        // update local UI state immediately
-  await attendanceStore.recordClockIn(op)     // persist to Supabase
-  closeModal()
-  router.push('/production')
+  try {
+    const op = modal.value.operator
+    await attendanceStore.recordClockIn(op, isOverrideAuthorized.value)
+    mesStore.clockIn(op)
+    closeModal()
+    router.push('/production')
+  } catch (err) {
+    alert(err.message || 'Error clocking in')
+  }
 }
 
 async function handleClockOut() {
-  const op = modal.value.operator
-  mesStore.clockOut(op)
-  // Log clock-out time in attendance
   try {
+    const op = modal.value.operator
     const { supabase } = await import('@/lib/supabaseClient')
+    const outTime = new Date().toISOString()
     await supabase.from('mes_attendance')
-      .update({ clock_out: new Date().toISOString() })
+      .update({ clock_out: outTime })
       .eq('operator_id', op.id)
       .is('clock_out', null)
-  } catch (e) { /* non-critical, ignore */ }
-  closeModal()
+      
+    // Update local attendance store state
+    const logEntry = attendanceStore.clockInLog.find(log => log.operatorId === op.id && !log.clockOut)
+    if (logEntry) {
+      logEntry.clockOut = outTime
+    }
+    
+    mesStore.clockOut(op)
+    closeModal()
+  } catch (e) {
+    alert(e.message || 'Error clocking out')
+  }
 }
 
 async function appendNum(n) {
