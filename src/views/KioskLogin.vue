@@ -8,8 +8,8 @@
         <p class="header-sub">Select your operator profile to continue</p>
       </div>
       <div class="header-time-gate">
-        <span class="gate-label">Morning Shift Check-In</span>
-        <span class="gate-value">{{ attendanceStore.shiftWindowStart }} AM - {{ attendanceStore.shiftWindowEnd }} AM</span>
+        <span class="gate-label">Current Status</span>
+        <span class="gate-value">{{ activeWindowText }}</span>
       </div>
       <div class="header-week">
         <span class="week-label">Production Week</span>
@@ -130,9 +130,20 @@ const currentTime = computed(() => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`
 })
 
+const activeWindowText = computed(() => {
+  const current = new Date().getHours() * 60 + new Date().getMinutes()
+  const w = attendanceStore.clockingWindows.find(win => {
+    const s = parseInt(win.start.split(':')[0]) * 60 + parseInt(win.start.split(':')[1])
+    const e = parseInt(win.end.split(':')[0]) * 60 + parseInt(win.end.split(':')[1])
+    return current >= s && current <= e
+  })
+  return w ? `${w.name} (${w.start} - ${w.end})` : 'Outside Allowed Hours'
+})
+
 function openModal(op) { 
   modal.value = { open: true, operator: op } 
-  validation.value = attendanceStore.validateClockInTime()
+  const isOut = store.isOperatorClockedIn(op.id)
+  validation.value = attendanceStore.validateClockTime(isOut ? 'out' : 'in')
   showOverride.value = false
   overridePin.value = ''
   isOverrideAuthorized.value = false
