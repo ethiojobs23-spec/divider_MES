@@ -58,10 +58,18 @@
 
         <!-- Numpad -->
         <div class="numpad-col">
+          <div v-if="selections.dividerType" class="stock-info" :class="{'stock-low': availableStock < Number(batchQty || 0)}">
+            <span class="material-symbols-rounded">inventory</span>
+            Available Stock: {{ availableStock }} pcs
+          </div>
           <VirtualNumpad
             label="Batch Quantity (pcs)"
             v-model="batchQty"
           />
+          <p v-if="selections.dividerType && Number(batchQty) > availableStock" class="error-msg">
+            <span class="material-symbols-rounded">error</span>
+            Cannot dispatch more than available stock!
+          </p>
         </div>
 
         <!-- Right panel: recent log -->
@@ -130,10 +138,17 @@ const selections = reactive({
 
 const batchQty = ref('')
 
+const availableStock = computed(() => {
+  if (!selections.dividerType) return 0
+  const item = store.inventory.find(i => i.divider_type === selections.dividerType)
+  return item ? item.available : 0
+})
+
 const canDispatch = computed(() =>
   selections.dividerType !== '' &&
   selections.client !== '' &&
-  Number(batchQty.value) > 0
+  Number(batchQty.value) > 0 &&
+  Number(batchQty.value) <= availableStock.value
 )
 
 const toast = reactive({ visible: false, message: '' })
@@ -279,7 +294,19 @@ function fmtTime(iso) {
   overflow-y: auto;
 }
 
-.numpad-col { flex: 1.1; display: flex; flex-direction: column; }
+.numpad-col { flex: 1.1; display: flex; flex-direction: column; gap: 0.5rem; position: relative; }
+
+.stock-info {
+  display: flex; align-items: center; gap: 0.5rem;
+  background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); color: #34d399;
+  padding: 0.75rem 1rem; border-radius: 0.75rem; font-weight: 700; font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+.stock-info.stock-low { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.2); color: #f87171; }
+.error-msg {
+  display: flex; align-items: center; gap: 0.4rem; color: #fca5a5; font-size: 0.85rem; font-weight: 700;
+  margin-top: 0.25rem;
+}
 
 /* Log Panel */
 .log-panel {

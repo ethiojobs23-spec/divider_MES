@@ -16,9 +16,26 @@ export const useMesStore = defineStore('mes', () => {
         clients.value = ops.filter(o => o.role === 'customer')
       }
 
-      // 2. Fetch inventory
-      const { data: inv } = await supabase.from('mes_inventory').select('*')
-      if (inv) inventory.value = inv
+      // 2. Fetch all-time production and dispatch to compute inventory
+      const { data: allProd } = await supabase.from('mes_production_logs').select('divider_type, qty_produced')
+      const { data: allDisp } = await supabase.from('mes_dispatch_logs').select('divider_type, quantity')
+      const invMap = {}
+      if (allProd) {
+        allProd.forEach(p => {
+          if (!invMap[p.divider_type]) invMap[p.divider_type] = 0
+          invMap[p.divider_type] += (Number(p.qty_produced) || 0)
+        })
+      }
+      if (allDisp) {
+        allDisp.forEach(d => {
+          if (!invMap[d.divider_type]) invMap[d.divider_type] = 0
+          invMap[d.divider_type] -= (Number(d.quantity) || 0)
+        })
+      }
+      inventory.value = Object.keys(invMap).map(type => ({
+        divider_type: type,
+        available: invMap[type]
+      }))
 
       // 3. Fetch this week's ledger
       const { data: ledger } = await supabase.from('mes_production_logs').select('*').eq('production_week', currentProductionWeek.value)
@@ -120,6 +137,12 @@ export const useMesStore = defineStore('mes', () => {
       if (error) throw error
 
       ledgerEntries.value.push(mapSupabaseLedgerToLocal(savedRow))
+      
+      // Update local inventory immediately
+      const invItem = inventory.value.find(i => i.divider_type === data.dividerType)
+      if (invItem) invItem.available += payload.qty_produced
+      else inventory.value.push({ divider_type: data.dividerType, available: payload.qty_produced })
+
       return true
     } catch (err) {
       console.error('[Store] Production log failed:', err)
@@ -243,6 +266,12 @@ export const useMesStore = defineStore('mes', () => {
         .single()
       if (error) throw error
       dispatchLogs.value.unshift(mapSupabaseDispatchToLocal(savedRow))
+      
+      // Update local inventory state to reflect the dispatch immediately
+      const invItem = inventory.value.find(i => i.divider_type === data.dividerType)
+      if (invItem) invItem.available -= data.quantity
+      else inventory.value.push({ divider_type: data.dividerType, available: -data.quantity })
+
       return true
     } catch (err) {
       console.error('[Store] Dispatch failed:', err)
