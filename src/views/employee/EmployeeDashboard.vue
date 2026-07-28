@@ -557,9 +557,9 @@ async function clockOut() {
 }
 
 async function handleAdminOverride(pin) {
-  const admin = mesStore.operators.find(o => o.pin_code === pin && o.role === 'admin')
+  const admin = mesStore.operators.find(o => o.pin_code === pin && (o.role === 'System Admin' || o.role === 'Supervisor'))
   if (!admin) {
-    adminOverrideModal.value.error = 'Invalid Admin PIN. Try again.'
+    adminOverrideModal.value.error = 'Invalid Admin/Supervisor PIN. Try again.'
     return
   }
   
@@ -589,10 +589,17 @@ async function executeClockOut(adminOverride = false) {
     mesStore.clockOut(employee.value)
     try {
       const { supabase } = await import('@/lib/supabaseClient')
+      const outTime = new Date().toISOString()
       await supabase.from('mes_attendance')
-        .update({ clock_out: new Date().toISOString() })
+        .update({ clock_out: outTime })
         .eq('operator_id', employee.value.id)
         .is('clock_out', null)
+        
+      // Update local attendance store state
+      const logEntry = attStore.clockInLog.find(log => log.operatorId === employee.value.id && !log.clockOut)
+      if (logEntry) {
+        logEntry.clockOut = outTime
+      }
     } catch (e) { /* ignore */ }
   }
 }

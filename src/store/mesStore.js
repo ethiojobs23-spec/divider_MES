@@ -101,7 +101,21 @@ export const useMesStore = defineStore('mes', () => {
   const operators = ref([])
   const clients = ref([])
 
-  const isOperatorClockedIn = computed(() => (id) => !!clockedInOperators.value[id])
+  const isOperatorClockedIn = computed(() => (id) => {
+    if (clockedInOperators.value[id]) return true
+    try {
+      const { useAttendanceStore } = require('./attendanceStore')
+      const attStore = useAttendanceStore()
+      const today = new Date().toISOString().split('T')[0]
+      return attStore.clockInLog.some(log => 
+        log.operatorId === id && 
+        log.shiftDate === today && 
+        !log.clockOut
+      )
+    } catch {
+      return false
+    }
+  })
 
   function clockIn(operator) {
     clockedInOperators.value[operator.id] = new Date().toISOString()
