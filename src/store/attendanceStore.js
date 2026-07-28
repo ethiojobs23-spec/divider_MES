@@ -26,30 +26,42 @@ function nowInMinutes() {
 export const useAttendanceStore = defineStore('attendance', () => {
   const mesStore = useMesStore()
 
-  // Shift window
-  const shiftWindowStart  = ref('07:30')
-  const shiftWindowEnd    = ref('08:15')
-  const gracePeriodMin    = ref(0)
-
-  const windowStartMin = computed(() => parseWindowTime(shiftWindowStart.value))
-  const windowEndMin   = computed(() => parseWindowTime(shiftWindowEnd.value) + gracePeriodMin.value)
+  // Allowed Clocking Windows
+  const clockingWindows = ref([
+    { id: 'morning_in', name: 'Morning Clock In', start: '07:30', end: '08:00', type: 'in' },
+    { id: 'lunch_out', name: 'Lunch Break Start', start: '12:00', end: '12:30', type: 'out' },
+    { id: 'lunch_in', name: 'Lunch Break End', start: '13:00', end: '13:30', type: 'in' },
+    { id: 'shift_out', name: 'Shift End', start: '17:00', end: '17:30', type: 'out' },
+  ])
 
   // Local mirror of attendance for current week
   const clockInLog = ref([])
 
-  function validateClockInTime() {
+  function validateClockTime(type) {
     try {
       const current = nowInMinutes()
-      const start   = windowStartMin.value
-      const end     = windowEndMin.value
-      const allowed = current >= start && current <= end
+      const validWindows = clockingWindows.value.filter(w => w.type === type)
+      
+      let allowed = false
+      let activeWindow = null
+
+      for (const w of validWindows) {
+        const startMin = parseWindowTime(w.start)
+        const endMin = parseWindowTime(w.end)
+        if (current >= startMin && current <= endMin) {
+          allowed = true
+          activeWindow = w
+          break
+        }
+      }
+
       return {
-        allowed, currentMin: current, windowStartMin: start, windowEndMin: end,
-        message: allowed ? '' : `CHECK-IN DENIED: Current time is outside the designated shift window (${shiftWindowStart.value}–${shiftWindowEnd.value}).`,
+        allowed, currentMin: current, activeWindow,
+        message: allowed ? '' : `Action denied: You are outside the allowed time windows for clocking ${type.toUpperCase()}. Admin override required.`,
       }
     } catch (err) {
       console.error('[AttendanceStore] Window validation error:', err.message)
-      return { allowed: false, currentMin: nowInMinutes(), windowStartMin: 0, windowEndMin: 0, message: `System Error: Shift window is misconfigured. Contact admin.` }
+      return { allowed: false, message: `System Error: Misconfigured time windows. Contact admin.` }
     }
   }
 
@@ -71,8 +83,9 @@ export const useAttendanceStore = defineStore('attendance', () => {
     }
   }
 
-  async function recordClockIn(operator) {
-    const val = validateClockInTime()
+  async function recordClockIn(operator, adminOverride = false) {
+    const val = validateClockTime('in')
+    if (!val.allowed && !adminOverride) throw new Error(val.message)
     try {
       const payload = {
         operator_id: operator.id,
@@ -104,16 +117,20 @@ export const useAttendanceStore = defineStore('attendance', () => {
     return uniqueDays.size
   }
 
-  function setShiftWindow(start, end) {
-    parseWindowTime(start)
+  function updateWindow(id, start, end) {
+    parseWindowTime(start) // validate format
     parseWindowTime(end)
-    if (parseWindowTime(start) >= parseWindowTime(end)) throw new Error('[AttendanceStore] Start must be before end')
-    shiftWindowStart.value = start
-    shiftWindowEnd.value   = end
+    if (parseWindowTime(start) >= parseWindowTime(end)) throw new Error('Start must be before end')
+    
+    const w = clockingWindows.value.find(x => x.id === id)
+    if (w) {
+      w.start = start
+      w.end = end
+    }
   }
 
   return {
-    shiftWindowStart, shiftWindowEnd, gracePeriodMin, windowStartMin, windowEndMin,
-    clockInLog, fetchAttendance, validateClockInTime, recordClockIn, setShiftWindow, getDaysAttended
+    clockingWindows,
+    clockInLog, fetchAttendance, validateClockTime, recordClockIn, updateWindow, getDaysAttended
   }
 })

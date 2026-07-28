@@ -275,19 +275,24 @@
             </div>
           </div>
 
-          <!-- Attendance Shift Window -->
-          <div class="config-item config-item--text">
+          <!-- Attendance Clocking Windows -->
+          <div class="config-item config-item--text clocking-windows-config">
             <div class="config-info">
               <span class="material-symbols-rounded config-icon" style="color:#f59e0b">schedule</span>
               <div>
-                <p class="config-label">Shift Attendance Window</p>
-                <p class="config-desc">Employees can only clock in between these times without a manager override.</p>
+                <p class="config-label">Allowed Clocking Windows</p>
+                <p class="config-desc">Employees can only clock in/out between these times. Outside these times, Admin PIN override is required.</p>
               </div>
             </div>
-            <div class="time-inputs">
-              <input type="time" v-model="attStore.shiftWindowStart" class="time-input" />
-              <span class="time-to">to</span>
-              <input type="time" v-model="attStore.shiftWindowEnd" class="time-input" />
+            <div class="windows-list">
+              <div v-for="w in attStore.clockingWindows" :key="w.id" class="window-row">
+                <span class="window-name">{{ w.name }} ({{ w.type.toUpperCase() }})</span>
+                <div class="time-inputs">
+                  <input type="time" v-model="w.start" class="time-input" @change="attStore.updateWindow(w.id, w.start, w.end)" />
+                  <span class="time-to">to</span>
+                  <input type="time" v-model="w.end" class="time-input" @change="attStore.updateWindow(w.id, w.start, w.end)" />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -672,6 +677,13 @@ function applyChanges() {
   box-shadow: 0 1px 4px rgba(0,0,0,.3);
 }
 .toggle-switch--on .toggle-thumb { left: calc(100% - 1.57rem); }
+
+/* Clocking Windows */
+.clocking-windows-config { align-items: flex-start !important; flex-direction: column; gap: 1rem; }
+.windows-list { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; background: rgba(0,0,0,0.15); padding: 1rem; border-radius: 1rem; border: 1px solid rgba(255,255,255,0.05); }
+.window-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.75rem; }
+.window-row:last-child { border-bottom: none; padding-bottom: 0; }
+.window-name { font-weight: 700; color: #cbd5e1; font-size: 0.95rem; }
 
 /* Recipient Pills */
 .recipient-pills { display: flex; gap: .4rem; flex-wrap: wrap; }

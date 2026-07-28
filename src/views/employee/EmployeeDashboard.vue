@@ -206,12 +206,16 @@
 
           <div class="attendance-actions">
             <button v-if="!isClockedIn" class="btn-clock btn-clock--in" @click="clockIn">
-              <span class="material-symbols-rounded">login</span> CLOCK IN NOW
+              <span class="material-symbols-rounded">login</span>
+              {{ attStore.validateClockTime('in').allowed ? 'CLOCK IN NOW' : 'ADMIN OVERRIDE: CLOCK IN' }}
             </button>
             <button v-else class="btn-clock btn-clock--out" @click="clockOut">
-              <span class="material-symbols-rounded">logout</span> CLOCK OUT NOW
+              <span class="material-symbols-rounded">logout</span>
+              {{ attStore.validateClockTime('out').allowed ? 'CLOCK OUT NOW' : 'ADMIN OVERRIDE: CLOCK OUT' }}
             </button>
           </div>
+          <p v-if="!isClockedIn && !attStore.validateClockTime('in').allowed" class="status-warn">Outside allowed clock-in windows. Admin PIN required.</p>
+          <p v-if="isClockedIn && !attStore.validateClockTime('out').allowed" class="status-warn">Outside allowed clock-out windows. Admin PIN required.</p>
         </div>
       </div>
 
@@ -341,6 +345,20 @@
       :loading="pinModal.loading"
       @confirm="handlePinConfirm"
       @cancel="pinModal.show = false"
+    />
+    <!-- Admin Override PIN Modal -->
+    <PinModal
+      v-if="adminOverrideModal.show"
+      title="Admin Authorization"
+      :subtitle="adminOverrideModal.action === 'clockIn' ? 'Override required for late/early Clock In' : 'Override required for late/early Clock Out'"
+      icon="admin_panel_settings"
+      icon-color="#f59e0b"
+      confirm-label="Authorize"
+      confirm-color="linear-gradient(135deg,#d97706,#f59e0b)"
+      :error-msg="adminOverrideModal.error"
+      :loading="adminOverrideModal.loading"
+      @confirm="handleAdminOverride"
+      @cancel="adminOverrideModal.show = false"
     />
   </div>
 </template>
@@ -485,14 +503,57 @@ const isClockedIn = computed(() => {
   return mesStore.isOperatorClockedIn(employee.value.id)
 })
 
+const adminOverrideModal = ref({ show: false, action: '', error: '', loading: false })
+
 async function clockIn() {
-  if (employee.value) {
-    mesStore.clockIn(employee.value)
-    await attStore.recordClockIn(employee.value)
+  if (!employee.value) return
+  const val = attStore.validateClockTime('in')
+  if (!val.allowed) {
+    adminOverrideModal.value = { show: true, action: 'clockIn', error: '', loading: false }
+    return
   }
+  await executeClockIn(false)
 }
 
 async function clockOut() {
+  if (!employee.value) return
+  const val = attStore.validateClockTime('out')
+  if (!val.allowed) {
+    adminOverrideModal.value = { show: true, action: 'clockOut', error: '', loading: false }
+    return
+  }
+  await executeClockOut(false)
+}
+
+async function handleAdminOverride(pin) {
+  const admin = mesStore.operators.find(o => o.pin_code === pin && o.role === 'admin')
+  if (!admin) {
+    adminOverrideModal.value.error = 'Invalid Admin PIN. Try again.'
+    return
+  }
+  
+  adminOverrideModal.value.loading = true
+  if (adminOverrideModal.value.action === 'clockIn') {
+    await executeClockIn(true)
+  } else {
+    await executeClockOut(true)
+  }
+  adminOverrideModal.value.loading = false
+  adminOverrideModal.value.show = false
+}
+
+async function executeClockIn(adminOverride = false) {
+  if (employee.value) {
+    mesStore.clockIn(employee.value)
+    try {
+      await attStore.recordClockIn(employee.value, adminOverride)
+    } catch (e) {
+      console.error('Clock in error:', e)
+    }
+  }
+}
+
+async function executeClockOut(adminOverride = false) {
   if (employee.value) {
     mesStore.clockOut(employee.value)
     try {
@@ -867,6 +928,9 @@ function logout() {
 .on-shift-block h3 { font-size: 1.5rem; color: #fbbf24; margin: 0; }
 .on-shift-block p  { font-size: 1.1rem; color: #94a3b8; margin: 0; max-width: 420px; line-height: 1.5; }
 .on-shift-block p strong { color: #f59e0b; }
+
+.status-warn { color: #fca5a5; font-size: 0.85rem; font-weight: 700; margin-top: 1rem; text-align: center; }
+
 .bg-rose-500 { background-color: #f43f5e; color: #fff; }
 .bg-indigo-500 { background-color: #6366f1; color: #fff; }
 .bg-emerald-500 { background-color: #10b981; color: #fff; }
