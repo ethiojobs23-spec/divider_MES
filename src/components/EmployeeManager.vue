@@ -73,6 +73,28 @@
             </select>
           </div>
         </div>
+        
+        <hr class="form-divider" />
+        <h4 class="section-heading">Payroll Configuration</h4>
+        <div class="form-row">
+          <label class="toggle-label">
+            <input type="checkbox" v-model="formData.payroll_config.isPieceRate" />
+            Pay by Piece-Rate (Per Unit Produced)
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="toggle-label">
+            <input type="checkbox" v-model="formData.payroll_config.isHourly" />
+            Pay Hourly
+          </label>
+        </div>
+        <div class="form-row" v-if="formData.payroll_config.isHourly">
+          <div class="form-group">
+            <label>Hourly Rate (ETB)</label>
+            <input v-model="formData.payroll_config.hourlyRate" type="number" min="0" placeholder="e.g. 15" />
+          </div>
+        </div>
+
         <div class="modal-actions">
           <button class="btn-cancel" @click="showModal = false">Cancel</button>
           <button class="btn-save" @click="saveEmployee" :disabled="isSaving">
@@ -95,18 +117,23 @@ const showModal = ref(false)
 const isSaving = ref(false)
 const editingId = ref(null)
 const formData = ref({
-  name: '', role: 'Operator', pin_code: '', avatar: '', color: 'bg-blue-500'
+  name: '', role: 'Operator', pin_code: '', avatar: '', color: 'bg-blue-500',
+  payroll_config: { isPieceRate: true, isHourly: false, hourlyRate: 15 }
 })
 
 function openCreateModal() {
   editingId.value = null
-  formData.value = { name: '', role: 'Operator', pin_code: '', avatar: '', color: 'bg-blue-500' }
+  formData.value = { 
+    name: '', role: 'Operator', pin_code: '', avatar: '', color: 'bg-blue-500',
+    payroll_config: { isPieceRate: true, isHourly: false, hourlyRate: 15 }
+  }
   showModal.value = true
 }
 
 function openEditModal(emp) {
   editingId.value = emp.id
-  formData.value = { ...emp }
+  const pc = emp.payroll_config || { isPieceRate: true, isHourly: false, hourlyRate: 15 }
+  formData.value = { ...emp, payroll_config: { ...pc } }
   showModal.value = true
 }
 
@@ -114,6 +141,7 @@ async function saveEmployee() {
   if (!formData.value.name || !formData.value.pin_code) return
   isSaving.value = true
   try {
+    let empId = editingId.value
     if (editingId.value) {
       const { error } = await supabase.from('mes_operators').update({
         name: formData.value.name,
@@ -124,16 +152,34 @@ async function saveEmployee() {
       }).eq('id', editingId.value)
       if (error) throw error
     } else {
-      const { error } = await supabase.from('mes_operators').insert([{
+      const { data, error } = await supabase.from('mes_operators').insert([{
         name: formData.value.name,
         role: formData.value.role,
         pin_code: formData.value.pin_code,
         avatar: formData.value.avatar,
         color: formData.value.color,
         is_active: true
-      }])
+      }]).select().single()
       if (error) throw error
+      empId = data.id
     }
+
+    // Save Payroll Config
+    const existingOp = mesStore.operators.find(o => o.id === empId)
+    const notesPayload = {
+      payroll_config: formData.value.payroll_config,
+      ...(existingOp?.work_types ? { work_types: existingOp.work_types } : {})
+    }
+    
+    await supabase.from('mes_financial_ledger').insert([{
+      operator_id: empId,
+      target_name: 'Config',
+      transaction_type: 'operator_config',
+      amount: 0,
+      transaction_date: new Date().toISOString().split('T')[0],
+      notes: JSON.stringify(notesPayload)
+    }])
+
     await mesStore.fetchInitialData() // refresh operators
     showModal.value = false
   } catch (err) {
@@ -213,4 +259,9 @@ async function toggleActive(emp) {
 .modal-actions button { padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 700; cursor: pointer; border: none; }
 .btn-cancel { background: transparent; border: 1px solid rgba(255,255,255,0.1) !important; color: #94a3b8; }
 .btn-save { background: #3b82f6; color: #fff; }
+
+.form-divider { border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 1.5rem 0 1rem; }
+.section-heading { margin: 0 0 1rem; color: #cbd5e1; font-size: 0.95rem; font-weight: 700; }
+.toggle-label { display: flex; align-items: center; gap: 0.75rem; color: #f8fafc; font-size: 0.9rem; font-weight: 600; cursor: pointer; user-select: none; }
+.toggle-label input[type="checkbox"] { width: 1.25rem; height: 1.25rem; accent-color: #3b82f6; cursor: pointer; }
 </style>

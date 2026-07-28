@@ -27,10 +27,15 @@ export const usePayrollStore = defineStore('payroll', () => {
 
   // ── Profiles ────────────────────────────────────────────────────────
   const workerProfiles = ref({})
-  const DEFAULT_PROFILE = { paymentMethod: 'Cash', accountInfo: '', baseInterestRate: 5, hourlyRate: HOURLY_MIN }
+  const DEFAULT_PROFILE = { 
+    paymentMethod: 'Cash', accountInfo: '', baseInterestRate: 5, 
+    hourlyRate: HOURLY_MIN, isHourly: false, isPieceRate: true 
+  }
 
   function getWorkerProfile(workerId) {
-    return { ...DEFAULT_PROFILE, ...workerProfiles.value[workerId] }
+    const op = mesStore.operators.find(o => o.id === workerId)
+    const opConfig = op?.payroll_config || {}
+    return { ...DEFAULT_PROFILE, ...opConfig, ...workerProfiles.value[workerId] }
   }
   function setWorkerProfile(workerId, profileData) {
     const incoming = { ...profileData }
@@ -151,6 +156,9 @@ export const usePayrollStore = defineStore('payroll', () => {
 
   // ── Gross Earnings (piece-rate) ────────────────────────────────────────────
   function getGrossEarnings(workerId, week) {
+    const profile = getWorkerProfile(workerId)
+    if (!profile.isPieceRate) return 0
+    
     const worker = mesStore.operators.find(o => o.id === workerId)
     if (!worker) return 0
     // Filter by both operator name AND week
@@ -170,6 +178,7 @@ export const usePayrollStore = defineStore('payroll', () => {
 
   function getHourlyEarnings(workerId, week) {
     const profile = getWorkerProfile(workerId)
+    if (!profile.isHourly) return 0
     const rate = Math.min(HOURLY_MAX, Math.max(HOURLY_MIN, profile.hourlyRate))
     // 8 hours per shift day, prorated by attendance
     const daysAttended = getDaysAttended(workerId, week)

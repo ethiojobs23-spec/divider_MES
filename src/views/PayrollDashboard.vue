@@ -64,7 +64,7 @@
          <div class="breakdown-content" :class="{ 'is-locked': selectedWorker.payoutStatus.status === 'approved' }">
 
             <!-- Shift Submissions Breakdown -->
-            <div class="calculation-card">
+            <div class="calculation-card" v-if="selectedWorkerProfile?.isPieceRate">
               <h3>Shift Submissions & Piece-Rate</h3>
               <div v-if="shiftBreakdown.length" class="shift-rows">
                 <div
@@ -120,7 +120,7 @@
             </div>
 
             <!-- Attendance & Hourly -->
-            <div class="calculation-card">
+            <div class="calculation-card" v-if="selectedWorkerProfile?.isHourly">
               <h3>Attendance &amp; Hourly Pay</h3>
               <div class="calc-row">
                 <span>Days Attended</span>
@@ -143,11 +143,11 @@
             <!-- Summary -->
             <div class="calculation-card">
               <h3>Earnings Summary</h3>
-              <div class="calc-row">
+              <div class="calc-row" v-if="selectedWorkerProfile?.isPieceRate">
                 <span>Piece-Rate Subtotal</span>
                 <span>{{ selectedWorker.grossPieceRate.toFixed(2) }} ETB</span>
               </div>
-              <div class="calc-row">
+              <div class="calc-row" v-if="selectedWorkerProfile?.isHourly">
                 <span>Hourly Subtotal</span>
                 <span>{{ selectedWorker.grossHourly.toFixed(2) }} ETB</span>
               </div>
@@ -246,6 +246,10 @@ const currentWeek = computed(() => mesStore.currentProductionWeek)
 const selectedWorkerId = ref(null)
 const selectedWorker = computed(() => {
   return payrollStore.weeklyPayrollSummary.find(w => w.id === selectedWorkerId.value)
+})
+
+const selectedWorkerProfile = computed(() => {
+  return selectedWorkerId.value ? payrollStore.getWorkerProfile(selectedWorkerId.value) : null
 })
 
 // Shift breakdown for selected worker

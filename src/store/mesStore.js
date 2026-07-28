@@ -50,14 +50,16 @@ export const useMesStore = defineStore('mes', () => {
         shiftSubmissions.value = cash
           .filter(r => r.transaction_type === 'shift_submission')
           .map(r => ({ ...r, details: (() => { try { return JSON.parse(r.notes) } catch { return {} } })() }))
-        // Load operator work_types from config records
+        // Load operator configs (work_types, payroll_config)
         const configs = cash.filter(r => r.transaction_type === 'operator_config')
-        configs.forEach(c => {
+        // Sort by id so later configs override earlier ones properly
+        configs.sort((a,b) => a.id - b.id).forEach(c => {
           try {
             const parsed = JSON.parse(c.notes)
-            if (parsed.work_types) {
-              const op = operators.value.find(o => o.id === c.operator_id)
-              if (op) op.work_types = parsed.work_types
+            const op = operators.value.find(o => o.id === c.operator_id)
+            if (op) {
+              if (parsed.work_types) op.work_types = parsed.work_types
+              if (parsed.payroll_config) op.payroll_config = parsed.payroll_config
             }
           } catch {}
         })
