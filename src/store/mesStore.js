@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
+import { useAttendanceStore } from './attendanceStore'
 
 export const useMesStore = defineStore('mes', () => {
   // ─── Initializing Data ─────────────────────────────────────────────────────
@@ -73,7 +74,6 @@ export const useMesStore = defineStore('mes', () => {
             if (parsed.wasteThresholds) wasteThresholds.value = parsed.wasteThresholds
             if (parsed.systemConfig) systemConfig.value = parsed.systemConfig
             if (parsed.clockingWindows) {
-              const { useAttendanceStore } = require('./attendanceStore')
               useAttendanceStore().clockingWindows = parsed.clockingWindows
             }
           } catch {}
@@ -104,7 +104,6 @@ export const useMesStore = defineStore('mes', () => {
   const isOperatorClockedIn = computed(() => (id) => {
     if (clockedInOperators.value[id]) return true
     try {
-      const { useAttendanceStore } = require('./attendanceStore')
       const attStore = useAttendanceStore()
       const today = new Date().toISOString().split('T')[0]
       return attStore.clockInLog.some(log => 
