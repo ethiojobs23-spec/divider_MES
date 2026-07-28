@@ -109,6 +109,21 @@
         </div>
       </div>
     </main>
+
+    <!-- Admin PIN Modal -->
+    <PinModal
+      v-if="adminPin.show"
+      title="Admin Authorization"
+      :subtitle="adminPin.action"
+      icon="admin_panel_settings"
+      icon-color="#f59e0b"
+      confirm-label="Authorize"
+      confirm-color="linear-gradient(135deg,#d97706,#f59e0b)"
+      :error-msg="adminPin.error"
+      :loading="adminPin.loading"
+      @confirm="executeAdminAction"
+      @cancel="adminPin.show = false"
+    />
   </TabletLayout>
 </template>
 
@@ -116,6 +131,7 @@
 import TabletLayout from '@/components/layout/TabletLayout.vue'
 import { ref, computed, reactive } from 'vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
+import PinModal from '@/components/ui/PinModal.vue'
 import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore.js'
 
@@ -197,36 +213,54 @@ function getEfficiencyColor(eff) {
   return 'text-red-400'
 }
 
-function verifyAdminPin() {
-  const pin = window.prompt("Enter Admin PIN to authorize:")
-  if (!pin) return false
+const adminPin = reactive({
+  show: false, action: '', pendingFn: null,
+  error: '', loading: false
+})
+
+function requireAdminPin(actionLabel, fn) {
+  adminPin.action = actionLabel
+  adminPin.pendingFn = fn
+  adminPin.error = ''
+  adminPin.loading = false
+  adminPin.show = true
+}
+
+async function executeAdminAction(pin) {
   const admin = store.operators.find(o => o.pin_code === pin && o.role === 'admin')
   if (!admin) {
-    showToast('⚠ Invalid Admin PIN!')
-    return false
+    adminPin.error = 'Invalid Admin PIN. Try again.'
+    return
   }
-  return true
+  adminPin.loading = true
+  await adminPin.pendingFn()
+  adminPin.loading = false
+  adminPin.show = false
 }
 
 async function handleApproveLoan(id) {
-  if (!verifyAdminPin()) return
-  await payrollStore.approveLoan(id)
-  showToast('Loan approved ✓')
+  requireAdminPin('Approve loan request', async () => {
+    await payrollStore.approveLoan(id)
+    showToast('Loan approved ✓')
+  })
 }
 async function handleRejectLoan(id) {
-  if (!verifyAdminPin()) return
-  await payrollStore.rejectLoan(id)
-  showToast('Loan rejected ✓')
+  requireAdminPin('Reject loan request', async () => {
+    await payrollStore.rejectLoan(id)
+    showToast('Loan rejected ✓')
+  })
 }
 async function handleApproveAdvance(id) {
-  if (!verifyAdminPin()) return
-  await store.approveCashEntry(id)
-  showToast('Payment request approved ✓')
+  requireAdminPin('Approve payment request', async () => {
+    await store.approveCashEntry(id)
+    showToast('Payment request approved ✓')
+  })
 }
 async function handleRejectAdvance(id) {
-  if (!verifyAdminPin()) return
-  await store.rejectCashEntry(id)
-  showToast('Payment request rejected ✓')
+  requireAdminPin('Reject payment request', async () => {
+    await store.rejectCashEntry(id)
+    showToast('Payment request rejected ✓')
+  })
 }
 
 const recentEntries = computed(() => [...store.cashEntries].reverse().slice(0, 8))

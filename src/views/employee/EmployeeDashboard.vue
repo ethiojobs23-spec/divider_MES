@@ -107,75 +107,91 @@
 
       <!-- Cash Loan Tab -->
       <div v-if="activeTab === 'cash-loan'" class="tab-content split-layout">
-         <div class="form-card">
-           <h3>Request Cash Loan</h3>
-           <div class="form-group">
-             <label>Amount (ETB)</label>
-             <VirtualNumpad v-model="cashLoanAmount" label="" />
-           </div>
-           <button class="btn-submit" :disabled="!cashLoanAmount" @click="submitCashLoan">Submit Request</button>
-           <p v-if="cashLoanMessage" class="success-msg">{{ cashLoanMessage }}</p>
+         <!-- ON SHIFT BLOCK -->
+         <div v-if="isClockedIn" class="on-shift-block">
+           <span class="material-symbols-rounded" style="font-size:3rem; color:#f59e0b">schedule</span>
+           <h3>You Are Currently On Shift</h3>
+           <p>Cash loan requests can only be made when you are <strong>not on shift</strong>. Please clock out first.</p>
          </div>
-         
-         <div class="history-card">
-           <h3>My Recent Loans</h3>
-           <div class="history-list">
-             <div v-for="loan in myLoans" :key="loan.id" class="history-item">
-               <div class="history-left">
-                 <span class="material-symbols-rounded history-icon">account_balance</span>
-                 <div>
-                   <span class="reason">Interest: {{ loan.interestRate }}% • 
-                     <strong :class="'status-' + loan.status">{{ loan.status.toUpperCase() }}</strong>
-                   </span>
-                   <span class="date">{{ new Date(loan.issuedAt).toLocaleDateString() }}</span>
-                 </div>
-               </div>
-               <span class="amount">{{ loan.amount }} ETB</span>
+         <template v-else>
+           <div class="form-card">
+             <h3>Request Cash Loan</h3>
+             <div class="form-group">
+               <label>Amount (ETB)</label>
+               <VirtualNumpad v-model="cashLoanAmount" label="" />
              </div>
-             <p v-if="!myLoans.length" class="empty-text">No recent loans logged.</p>
+             <button class="btn-submit" :disabled="!cashLoanAmount" @click="openLoanPin">Submit Request</button>
+             <p v-if="cashLoanMessage" class="success-msg">{{ cashLoanMessage }}</p>
            </div>
-         </div>
-      </div>
+           
+           <div class="history-card">
+             <h3>My Recent Loans</h3>
+             <div class="history-list">
+               <div v-for="loan in myLoans" :key="loan.id" class="history-item">
+                 <div class="history-left">
+                   <span class="material-symbols-rounded history-icon">account_balance</span>
+                   <div>
+                     <span class="reason">Interest: {{ loan.interestRate }}% • 
+                       <strong :class="'status-' + loan.status">{{ loan.status.toUpperCase() }}</strong>
+                     </span>
+                     <span class="date">{{ new Date(loan.issuedAt).toLocaleDateString() }}</span>
+                   </div>
+                 </div>
+                 <span class="amount">{{ loan.amount }} ETB</span>
+               </div>
+               <p v-if="!myLoans.length" class="empty-text">No recent loans logged.</p>
+             </div>
+           </div>
+         </template>
+       </div>
 
       <!-- Payment Request Tab -->
       <div v-if="activeTab === 'payment-request'" class="tab-content split-layout">
-         <div class="form-card">
-           <h3>Request Payment / Advance</h3>
-           <div class="form-group">
-             <label>Amount (ETB)</label>
-             <VirtualNumpad v-model="paymentAmount" label="" />
-           </div>
-           <div class="form-group">
-             <label>Reason</label>
-             <select v-model="paymentReason" class="input-field">
-               <option>Weekly Advance</option>
-               <option>Transport</option>
-               <option>Emergency</option>
-             </select>
-           </div>
-           <button class="btn-submit" :disabled="!paymentAmount" @click="submitPaymentRequest">Submit Request</button>
-           <p v-if="paymentMessage" class="success-msg">{{ paymentMessage }}</p>
+         <!-- ON SHIFT BLOCK -->
+         <div v-if="isClockedIn" class="on-shift-block">
+           <span class="material-symbols-rounded" style="font-size:3rem; color:#f59e0b">schedule</span>
+           <h3>You Are Currently On Shift</h3>
+           <p>Payment requests can only be made when you are <strong>not on shift</strong>. Please clock out first.</p>
          </div>
-         
-         <div class="history-card">
-           <h3>My Recent Payment Requests</h3>
-           <div class="history-list">
-             <div v-for="adv in myAdvances" :key="adv.id" class="history-item">
-               <div class="history-left">
-                 <span class="material-symbols-rounded history-icon">receipt_long</span>
-                 <div>
-                   <span class="reason">{{ adv.note || 'Advance' }} • 
-                     <strong :class="'status-' + adv.type">{{ formatAdvanceStatus(adv.type) }}</strong>
-                   </span>
-                   <span class="date">{{ new Date(adv.timestamp).toLocaleDateString() }}</span>
-                 </div>
-               </div>
-               <span class="amount">{{ adv.amount }} ETB</span>
+         <template v-else>
+           <div class="form-card">
+             <h3>Request Payment / Advance</h3>
+             <div class="form-group">
+               <label>Amount (ETB)</label>
+               <VirtualNumpad v-model="paymentAmount" label="" />
              </div>
-             <p v-if="!myAdvances.length" class="empty-text">No recent payment requests logged.</p>
+             <div class="form-group">
+               <label>Reason</label>
+               <select v-model="paymentReason" class="input-field">
+                 <option>Weekly Advance</option>
+                 <option>Transport</option>
+                 <option>Emergency</option>
+               </select>
+             </div>
+             <button class="btn-submit" :disabled="!paymentAmount" @click="openPaymentPin">Submit Request</button>
+             <p v-if="paymentMessage" class="success-msg">{{ paymentMessage }}</p>
            </div>
-         </div>
-      </div>
+           
+           <div class="history-card">
+             <h3>My Recent Payment Requests</h3>
+             <div class="history-list">
+               <div v-for="adv in myAdvances" :key="adv.id" class="history-item">
+                 <div class="history-left">
+                   <span class="material-symbols-rounded history-icon">receipt_long</span>
+                   <div>
+                     <span class="reason">{{ adv.note || 'Advance' }} • 
+                       <strong :class="'status-' + adv.type">{{ formatAdvanceStatus(adv.type) }}</strong>
+                     </span>
+                     <span class="date">{{ new Date(adv.timestamp).toLocaleDateString() }}</span>
+                   </div>
+                 </div>
+                 <span class="amount">{{ adv.amount }} ETB</span>
+               </div>
+               <p v-if="!myAdvances.length" class="empty-text">No recent payment requests logged.</p>
+             </div>
+           </div>
+         </template>
+       </div>
 
       <!-- Attendance & Shift Tab -->
       <div v-if="activeTab === 'attendance'" class="tab-content centered-content">
@@ -312,6 +328,20 @@
         </div>
       </div>
     </main>
+
+    <!-- Employee PIN Modal -->
+    <PinModal
+      v-if="pinModal.show"
+      :title="pinModal.mode === 'loan' ? 'Confirm Loan Request' : 'Confirm Payment Request'"
+      :subtitle="`Enter your PIN to request ${pinModal.mode === 'loan' ? cashLoanAmount + ' ETB loan' : paymentAmount + ' ETB payment'}`"
+      icon="lock"
+      icon-color="#6366f1"
+      confirm-label="Submit Request"
+      :error-msg="pinModal.error"
+      :loading="pinModal.loading"
+      @confirm="handlePinConfirm"
+      @cancel="pinModal.show = false"
+    />
   </div>
 </template>
 
@@ -323,6 +353,7 @@ import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
+import PinModal from '@/components/ui/PinModal.vue'
 
 const router = useRouter()
 const sysAuth = useSystemAuthStore()
@@ -376,12 +407,44 @@ const myLoans = computed(() => {
   return payrollStore.loans.filter(l => l.workerId === employee.value.id).reverse()
 })
 
-function submitCashLoan() {
+// PIN modal state
+const pinModal = ref({ show: false, mode: '', error: '', loading: false })
+
+function openLoanPin() {
   if (!cashLoanAmount.value || !employee.value) return
-  payrollStore.requestLoan(employee.value.id, currentWeek.value, Number(cashLoanAmount.value))
-  cashLoanMessage.value = `Cash loan of ${cashLoanAmount.value} ETB requested successfully!`
-  cashLoanAmount.value = ''
-  setTimeout(() => { cashLoanMessage.value = '' }, 3000)
+  pinModal.value = { show: true, mode: 'loan', error: '', loading: false }
+}
+function openPaymentPin() {
+  if (!paymentAmount.value || !employee.value) return
+  pinModal.value = { show: true, mode: 'payment', error: '', loading: false }
+}
+
+async function handlePinConfirm(pin) {
+  const op = employee.value
+  if (!op) return
+  // Verify employee's own PIN
+  if (op.pin_code !== pin) {
+    pinModal.value.error = 'Incorrect PIN. Please try again.'
+    return
+  }
+  pinModal.value.loading = true
+  if (pinModal.value.mode === 'loan') {
+    payrollStore.requestLoan(op.id, currentWeek.value, Number(cashLoanAmount.value))
+    cashLoanMessage.value = `Cash loan of ${cashLoanAmount.value} ETB requested successfully!`
+    cashLoanAmount.value = ''
+    setTimeout(() => { cashLoanMessage.value = '' }, 3000)
+  } else if (pinModal.value.mode === 'payment') {
+    mesStore.addCashEntry({
+      type: 'pending_advance',
+      amount: Number(paymentAmount.value),
+      operator: op.name,
+      note: paymentReason.value,
+    })
+    paymentMessage.value = `Payment request of ${paymentAmount.value} ETB submitted!`
+    paymentAmount.value = ''
+    setTimeout(() => { paymentMessage.value = '' }, 3000)
+  }
+  pinModal.value = { show: false, mode: '', error: '', loading: false }
 }
 
 // ── Payment Request ──
@@ -793,7 +856,17 @@ function logout() {
 .align-right { text-align: right !important; }
 .empty-text { text-align: center !important; color: #64748b !important; padding: 3rem !important; }
 
-/* Colors */
+/* On-shift block */
+.on-shift-block {
+  grid-column: 1 / -1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 1rem;
+  background: rgba(245,158,11,0.06); border: 2px dashed rgba(245,158,11,0.3);
+  border-radius: 1.5rem; padding: 3rem;
+}
+.on-shift-block h3 { font-size: 1.5rem; color: #fbbf24; margin: 0; }
+.on-shift-block p  { font-size: 1.1rem; color: #94a3b8; margin: 0; max-width: 420px; line-height: 1.5; }
+.on-shift-block p strong { color: #f59e0b; }
 .bg-rose-500 { background-color: #f43f5e; color: #fff; }
 .bg-indigo-500 { background-color: #6366f1; color: #fff; }
 .bg-emerald-500 { background-color: #10b981; color: #fff; }
