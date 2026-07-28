@@ -373,10 +373,20 @@ function shiftWeek(delta) {
 // ─── Apply confirmation ─────────────────────────────────────────────────────
 const saved = ref(false)
 let savedTimer = null
-function applyChanges() {
-  saved.value = true
-  clearTimeout(savedTimer)
-  savedTimer = setTimeout(() => { saved.value = false }, 2500)
+async function applyChanges() {
+  const ok = await store.saveSystemConfig({
+    pieceRates: store.pieceRates,
+    wasteThresholds: store.wasteThresholds,
+    systemConfig: store.systemConfig,
+    clockingWindows: attStore.clockingWindows,
+  })
+  if (ok) {
+    saved.value = true
+    clearTimeout(savedTimer)
+    savedTimer = setTimeout(() => { saved.value = false }, 2500)
+  } else {
+    alert("Failed to save settings.")
+  }
 }
 </script>
 

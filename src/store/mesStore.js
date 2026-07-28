@@ -63,6 +63,21 @@ export const useMesStore = defineStore('mes', () => {
             }
           } catch {}
         })
+
+        // Load system configs (pieceRates, thresholds, etc)
+        const sysConfigs = cash.filter(r => r.transaction_type === 'system_config' && r.target_name === 'global')
+        sysConfigs.sort((a,b) => a.id - b.id).forEach(c => {
+          try {
+            const parsed = JSON.parse(c.notes)
+            if (parsed.pieceRates) pieceRates.value = parsed.pieceRates
+            if (parsed.wasteThresholds) wasteThresholds.value = parsed.wasteThresholds
+            if (parsed.systemConfig) systemConfig.value = parsed.systemConfig
+            if (parsed.clockingWindows) {
+              const { useAttendanceStore } = require('./attendanceStore')
+              useAttendanceStore().clockingWindows = parsed.clockingWindows
+            }
+          } catch {}
+        })
       }
 
       // 5. Fetch dispatch logs for this week
@@ -357,6 +372,24 @@ export const useMesStore = defineStore('mes', () => {
     exportRecipient: 'Frezer',
   })
 
+  async function saveSystemConfig(configData) {
+    try {
+      const payload = {
+        operator_id: activeOperator.value?.id || null,
+        target_name: 'global',
+        transaction_type: 'system_config',
+        amount: 0,
+        transaction_date: new Date().toISOString().split('T')[0],
+        notes: JSON.stringify(configData)
+      }
+      await supabase.from('mes_financial_ledger').insert(payload)
+      return true
+    } catch (e) {
+      console.error('[Store] saveSystemConfig failed:', e)
+      return false
+    }
+  }
+
   // ─── Analytics Computeds ───────────────────────────────────────────────────
   const operatorEfficiency = computed(() => {
     return operators.value.map(op => {
@@ -554,7 +587,7 @@ export const useMesStore = defineStore('mes', () => {
     dispatchLogs, clients, addClient, addDispatch, totalDispatched,
     pieceRates, setPieceRate,
     wasteThresholds, setWasteThreshold,
-    systemConfig, updateSystemConfig,
+    systemConfig, updateSystemConfig, saveSystemConfig,
     operatorEfficiency,
     totalGoodAllTime, totalWasteAllTime, overallWastePct,
     hasAdminAccess, grantAdminAccess, revokeAdminAccess,
