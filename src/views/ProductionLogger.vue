@@ -3,6 +3,15 @@
     <div class="prod-layout">
       <!-- LEFT: Filter Sidebar -->
       <aside class="prod-sidebar">
+        <!-- Operator Selection -->
+        <div class="sidebar-section">
+          <p class="section-title">Select Operator</p>
+          <select v-model="selectedOperatorId" class="operator-select">
+            <option v-for="op in clockedInList" :key="op.id" :value="op.id">{{ op.name }}</option>
+            <option v-if="clockedInList.length === 0" value="" disabled>No one is clocked in</option>
+          </select>
+        </div>
+
         <div class="sidebar-section">
           <p class="section-title">Divider Type</p>
           <div class="toggle-group">
@@ -47,7 +56,7 @@
           <p class="summary-row"><span>Type</span><strong>{{ selections.dividerType || '—' }}</strong></p>
           <p class="summary-row"><span>Place</span><strong>{{ selections.placement || '—' }}</strong></p>
           <p class="summary-row"><span>Size</span><strong>{{ selections.size || '—' }}</strong></p>
-          <p class="summary-row"><span>Operator</span><strong>{{ store.activeOperator?.name || '—' }}</strong></p>
+          <p class="summary-row"><span>Operator</span><strong :class="{'text-red-400': !selectedOperatorId}">{{ selectedOperatorName || '—' }}</strong></p>
           <p class="summary-row"><span>Rate</span><strong class="rate-val">ETB {{ (store.pieceRates?.[selections.dividerType]?.[selections.size]?.[selections.placement] ?? 0).toFixed(2) }}/pc</strong></p>
           <div class="summary-divider" />
           <p class="summary-row"><span>Today's entries</span><strong class="count-val">{{ todayEntries.length }}</strong></p>
@@ -122,12 +131,30 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, watchEffect } from 'vue'
 import TabletLayout  from '@/components/layout/TabletLayout.vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import { useMesStore } from '@/store/mesStore.js'
 
 const store = useMesStore()
+
+const clockedInList = computed(() => {
+  return store.operators.filter(op => store.isOperatorClockedIn(op.id))
+})
+
+const selectedOperatorId = ref(null)
+const selectedOperatorName = computed(() => {
+  const op = clockedInList.value.find(o => o.id === selectedOperatorId.value)
+  return op ? op.name : null
+})
+
+watchEffect(() => {
+  if (!selectedOperatorId.value && clockedInList.value.length > 0) {
+    selectedOperatorId.value = clockedInList.value[0].id
+  } else if (selectedOperatorId.value && !clockedInList.value.find(o => o.id === selectedOperatorId.value)) {
+    selectedOperatorId.value = clockedInList.value.length ? clockedInList.value[0].id : null
+  }
+})
 
 const dividerTypes = ['50', '40', '30', '16', '12', '45']
 const placements   = ['ብተና', 'ውስጥ', 'የተለየ']
@@ -139,7 +166,7 @@ const activeField = ref('good')
 const isSaving   = ref(false)
 
 const canSave = computed(() =>
-  (values.good !== '' || values.waste !== '') && store.activeOperator !== null
+  (values.good !== '' || values.waste !== '') && selectedOperatorId.value !== null
 )
 
 // Today's entries from the store ledger
@@ -173,6 +200,7 @@ async function saveEntry() {
   if (!canSave.value || isSaving.value) return
   isSaving.value = true
   const ok = await store.submitProductionLog({
+    operator_id:    selectedOperatorId.value,
     dividerType:    selections.dividerType,
     placement:      selections.placement,
     size:           selections.size,
@@ -219,6 +247,23 @@ async function saveEntry() {
   text-transform: uppercase; letter-spacing: .1em;
   padding-bottom: .3rem; border-bottom: 1px solid rgba(255,255,255,.06);
 }
+
+.operator-select {
+  background: #0f172a;
+  color: #f8fafc;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  width: 100%;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2394a3b8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem top 50%;
+  background-size: 0.65rem auto;
+}
+.operator-select:focus { border-color: #6366f1; outline: none; }
 
 .toggle-group { display: flex; flex-wrap: wrap; gap: .4rem; }
 .toggle-group--col { flex-direction: column; }
