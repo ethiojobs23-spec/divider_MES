@@ -103,6 +103,33 @@
             No work types assigned yet. Contact admin.
           </div>
         </div>
+
+        <!-- Payroll Config Section -->
+        <div class="work-types-section">
+          <h3 class="section-label">
+            <span class="material-symbols-rounded">account_balance_wallet</span>
+            My Payroll Configuration
+            <span class="admin-only-badge">Admin-Managed</span>
+          </h3>
+          <div class="work-types-grid" v-if="employeePayrollConfig">
+            <div class="work-type-chip" :class="{ 'inactive-chip': !employeePayrollConfig.isPieceRate }">
+              <span class="material-symbols-rounded" style="font-size:1rem">{{ employeePayrollConfig.isPieceRate ? 'check_circle' : 'cancel' }}</span>
+              Piece-Rate Pay
+            </div>
+            <div class="work-type-chip" :class="{ 'inactive-chip': !employeePayrollConfig.isHourly }">
+              <span class="material-symbols-rounded" style="font-size:1rem">{{ employeePayrollConfig.isHourly ? 'check_circle' : 'cancel' }}</span>
+              Hourly Pay
+            </div>
+            <div class="work-type-chip" v-if="employeePayrollConfig.isHourly">
+              <span class="material-symbols-rounded" style="font-size:1rem">payments</span>
+              {{ employeePayrollConfig.hourlyRate }} ETB / hr
+            </div>
+          </div>
+          <div v-else class="work-types-empty">
+            <span class="material-symbols-rounded">info</span>
+            No payroll configuration set.
+          </div>
+        </div>
       </div>
 
       <!-- Cash Loan Tab -->
@@ -394,6 +421,10 @@ const tabTitles = {
 // Get employee info
 const employee = computed(() => {
   return mesStore.operators.find(op => op.id === sysAuth.currentEmployeeId)
+})
+
+const employeePayrollConfig = computed(() => {
+  return employee.value?.payroll_config
 })
 
 // ── Overview ──
@@ -967,6 +998,11 @@ function logout() {
   background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25);
   color: #a5b4fc; padding: 0.6rem 1rem; border-radius: 0.75rem;
   font-weight: 700; font-size: 1rem;
+}
+.inactive-chip {
+  background: rgba(100,116,139,0.1) !important;
+  border-color: rgba(100,116,139,0.2) !important;
+  color: #64748b !important;
 }
 .work-types-empty {
   display: flex; align-items: center; gap: 0.75rem;
