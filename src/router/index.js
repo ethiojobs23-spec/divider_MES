@@ -26,6 +26,7 @@ import CompanyExpenses       from '@/views/CompanyExpenses.vue'
 import EmployeeDashboard     from '@/views/employee/EmployeeDashboard.vue'
 import AttendanceViewer      from '@/views/AttendanceViewer.vue'
 import CustomersManager      from '@/views/CustomersManager.vue'
+import ShiftApprovals        from '@/views/ShiftApprovals.vue'
 
 // ─── Route Definitions ─────────────────────────────────────────────────────
 const routes = [
@@ -154,6 +155,12 @@ const routes = [
   },
 
   // ── Analytics & Admin ──────────────────────────────────────────────────
+  {
+    path: '/shift-approvals',
+    name: 'ShiftApprovals',
+    component: ShiftApprovals,
+    meta: { title: 'Shift Approvals', icon: 'task_alt', requiresSystemAuth: true, requiresAdmin: true, nav: true },
+  },
   {
     path: '/analytics',
     name: 'ExecutiveAnalytics',

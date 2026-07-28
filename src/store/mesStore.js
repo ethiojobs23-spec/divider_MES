@@ -41,9 +41,27 @@ export const useMesStore = defineStore('mes', () => {
       const { data: ledger } = await supabase.from('mes_production_logs').select('*').eq('production_week', currentProductionWeek.value)
       if (ledger) ledgerEntries.value = ledger.map(mapSupabaseLedgerToLocal)
 
-      // 4. Fetch this week's cash entries
+      // 4. Fetch this week's cash entries + shift submissions
       const { data: cash } = await supabase.from('mes_financial_ledger').select('*')
-      if (cash) cashEntries.value = cash.map(mapSupabaseCashToLocal)
+      if (cash) {
+        cashEntries.value = cash
+          .filter(r => r.transaction_type !== 'shift_submission' && r.transaction_type !== 'operator_config')
+          .map(mapSupabaseCashToLocal)
+        shiftSubmissions.value = cash
+          .filter(r => r.transaction_type === 'shift_submission')
+          .map(r => ({ ...r, details: (() => { try { return JSON.parse(r.notes) } catch { return {} } })() }))
+        // Load operator work_types from config records
+        const configs = cash.filter(r => r.transaction_type === 'operator_config')
+        configs.forEach(c => {
+          try {
+            const parsed = JSON.parse(c.notes)
+            if (parsed.work_types) {
+              const op = operators.value.find(o => o.id === c.operator_id)
+              if (op) op.work_types = parsed.work_types
+            }
+          } catch {}
+        })
+      }
 
       // 5. Fetch dispatch logs for this week
       const { data: dispatches } = await supabase
@@ -421,6 +439,108 @@ export const useMesStore = defineStore('mes', () => {
     else if (data.action === 'resolve') return await resolveDowntime(data.notes)
   }
 
+  // ─── Shift Submissions ─────────────────────────────────────────────────────
+  const shiftSubmissions = ref([])
+
+  async function submitShift(operatorId, operatorName) {
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      // Get today's production entries for this operator
+      const myEntries = ledgerEntries.value.filter(e => {
+        const d = new Date(e.timestamp).toISOString().split('T')[0]
+        return e.operator === operatorName && d === today
+      })
+      const totalGood  = myEntries.reduce((s,e) => s + (Number(e.goodProduction)||0), 0)
+      const totalWaste = myEntries.reduce((s,e) => s + (Number(e.wasteMaterial)||0), 0)
+      // Compute earnings using piece rates
+      let totalEarnings = 0
+      myEntries.forEach(e => {
+        const rate = pieceRates.value?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
+        totalEarnings += rate * (Number(e.goodProduction) || 0)
+      })
+      const details = {
+        entries: myEntries.map(e => ({
+          dividerType: e.dividerType, placement: e.placement, size: e.size,
+          good: e.goodProduction, waste: e.wasteMaterial, time: e.timestamp
+        })),
+        totalGood, totalWaste, totalEarnings: totalEarnings.toFixed(2),
+        submittedAt: new Date().toISOString(), week: currentProductionWeek.value
+      }
+      const payload = {
+        operator_id: operatorId,
+        target_name: 'pending',
+        transaction_type: 'shift_submission',
+        amount: totalEarnings,
+        transaction_date: today,
+        notes: JSON.stringify(details)
+      }
+      const { data, error } = await supabase.from('mes_financial_ledger').insert(payload).select().single()
+      if (error) throw error
+      shiftSubmissions.value.push({ ...data, details })
+      return { ok: true, totalGood, totalWaste, totalEarnings: totalEarnings.toFixed(2) }
+    } catch (err) {
+      console.error('[Store] Shift submit failed:', err)
+      return { ok: false }
+    }
+  }
+
+  async function approveShift(submissionId, adminPin) {
+    // Validate admin pin
+    const admin = operators.value.find(o => o.role === 'admin' && o.pin_code === adminPin)
+    if (!admin) return { ok: false, reason: 'Invalid Admin PIN' }
+    try {
+      const { error } = await supabase.from('mes_financial_ledger')
+        .update({ target_name: 'approved' })
+        .eq('id', submissionId)
+      if (error) throw error
+      const sub = shiftSubmissions.value.find(s => s.id === submissionId)
+      if (sub) sub.target_name = 'approved'
+      return { ok: true }
+    } catch (err) {
+      console.error('[Store] Approve shift failed:', err)
+      return { ok: false, reason: 'DB error' }
+    }
+  }
+
+  async function rejectShift(submissionId, adminPin, reason) {
+    const admin = operators.value.find(o => o.role === 'admin' && o.pin_code === adminPin)
+    if (!admin) return { ok: false, reason: 'Invalid Admin PIN' }
+    try {
+      const { error } = await supabase.from('mes_financial_ledger')
+        .update({ target_name: 'rejected', notes: JSON.stringify({ ...JSON.parse((shiftSubmissions.value.find(s=>s.id===submissionId)?.notes||'{}')), rejectionReason: reason }) })
+        .eq('id', submissionId)
+      if (error) throw error
+      const sub = shiftSubmissions.value.find(s => s.id === submissionId)
+      if (sub) { sub.target_name = 'rejected'; sub.details.rejectionReason = reason }
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, reason: 'DB error' }
+    }
+  }
+
+  async function setOperatorWorkTypes(operatorId, workTypes) {
+    try {
+      // Check if config already exists
+      const existing = (await supabase.from('mes_financial_ledger')
+        .select('id').eq('operator_id', operatorId).eq('transaction_type', 'operator_config')).data
+      const notes = JSON.stringify({ work_types: workTypes })
+      if (existing?.length) {
+        await supabase.from('mes_financial_ledger').update({ notes }).eq('id', existing[0].id)
+      } else {
+        await supabase.from('mes_financial_ledger').insert({
+          operator_id: operatorId, target_name: '', transaction_type: 'operator_config',
+          amount: 0, transaction_date: new Date().toISOString().split('T')[0], notes
+        })
+      }
+      const op = operators.value.find(o => o.id === operatorId)
+      if (op) op.work_types = workTypes
+      return true
+    } catch (err) {
+      console.error('[Store] setOperatorWorkTypes failed:', err)
+      return false
+    }
+  }
+
   return {
     isLoading, fetchInitialData,
     operators, activeOperator, clockedInOperators,
@@ -437,5 +557,6 @@ export const useMesStore = defineStore('mes', () => {
     totalGoodAllTime, totalWasteAllTime, overallWastePct,
     hasAdminAccess, grantAdminAccess, revokeAdminAccess,
     downtimeSessions, activeDowntime, startDowntime, resolveDowntime, logDowntime,
+    shiftSubmissions, submitShift, approveShift, rejectShift, setOperatorWorkTypes,
   }
 })

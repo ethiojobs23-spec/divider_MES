@@ -24,6 +24,10 @@
         <button class="nav-btn" :class="{ active: activeTab === 'production' }" @click="activeTab = 'production'">
           <span class="material-symbols-rounded">precision_manufacturing</span> Production Log
         </button>
+        <button class="nav-btn" :class="{ active: activeTab === 'shift-submit' }" @click="activeTab = 'shift-submit'">
+          <span class="material-symbols-rounded">task_alt</span> Submit Shift
+          <span v-if="pendingSubmission" class="nav-badge">!</span>
+        </button>
       </nav>
 
       <div class="sidebar-actions">
@@ -42,40 +46,61 @@
       </header>
 
       <!-- Overview Tab -->
-      <div v-if="activeTab === 'overview'" class="tab-content dashboard-grid">
-        <!-- Card 1: My Production -->
-        <div class="stat-card">
-          <div class="card-icon production">
-            <span class="material-symbols-rounded">precision_manufacturing</span>
+      <div v-if="activeTab === 'overview'" class="tab-content">
+        <div class="dashboard-grid">
+          <!-- Card 1: My Production -->
+          <div class="stat-card">
+            <div class="card-icon production">
+              <span class="material-symbols-rounded">precision_manufacturing</span>
+            </div>
+            <div class="card-content">
+              <h3>My Production</h3>
+              <div class="stat-value">{{ totalProduction }} <span>pcs</span></div>
+              <p class="stat-subtext">Total dividers produced this week</p>
+            </div>
           </div>
-          <div class="card-content">
-            <h3>My Production</h3>
-            <div class="stat-value">{{ totalProduction }} <span>pcs</span></div>
-            <p class="stat-subtext">Total dividers produced this week</p>
+
+          <!-- Card 2: My Attendance -->
+          <div class="stat-card">
+            <div class="card-icon attendance">
+              <span class="material-symbols-rounded">how_to_reg</span>
+            </div>
+            <div class="card-content">
+              <h3>My Attendance</h3>
+              <div class="stat-value">{{ daysAttended }} <span>/ 6 days</span></div>
+              <p class="stat-subtext">Clocked in this week</p>
+            </div>
+          </div>
+
+          <!-- Card 3: Financials -->
+          <div class="stat-card">
+            <div class="card-icon financial">
+              <span class="material-symbols-rounded">payments</span>
+            </div>
+            <div class="card-content">
+              <h3>Est. Earnings</h3>
+              <div class="stat-value">{{ estimatedEarnings.toFixed(2) }} <span>ETB</span></div>
+              <p class="stat-subtext">Estimated gross before deductions</p>
+            </div>
           </div>
         </div>
 
-        <!-- Card 2: My Attendance -->
-        <div class="stat-card">
-          <div class="card-icon attendance">
-            <span class="material-symbols-rounded">how_to_reg</span>
+        <!-- Work Types Section -->
+        <div class="work-types-section">
+          <h3 class="section-label">
+            <span class="material-symbols-rounded">build</span>
+            My Work Types
+            <span class="admin-only-badge">Admin-Managed</span>
+          </h3>
+          <div v-if="employee?.work_types?.length" class="work-types-grid">
+            <div v-for="wt in employee.work_types" :key="wt" class="work-type-chip">
+              <span class="material-symbols-rounded" style="font-size:1rem">check_circle</span>
+              {{ wt }}
+            </div>
           </div>
-          <div class="card-content">
-            <h3>My Attendance</h3>
-            <div class="stat-value">{{ daysAttended }} <span>/ 6 days</span></div>
-            <p class="stat-subtext">Clocked in this week</p>
-          </div>
-        </div>
-
-        <!-- Card 3: Financials -->
-        <div class="stat-card">
-          <div class="card-icon financial">
-            <span class="material-symbols-rounded">payments</span>
-          </div>
-          <div class="card-content">
-            <h3>Est. Earnings</h3>
-            <div class="stat-value">{{ estimatedEarnings.toFixed(2) }} <span>ETB</span></div>
-            <p class="stat-subtext">Estimated gross before deductions</p>
+          <div v-else class="work-types-empty">
+            <span class="material-symbols-rounded">info</span>
+            No work types assigned yet. Contact admin.
           </div>
         </div>
       </div>
@@ -185,7 +210,8 @@
                 <th>Type</th>
                 <th>Size</th>
                 <th>Placement</th>
-                <th class="align-right">Qty</th>
+                <th class="align-right">Good</th>
+                <th class="align-right">Waste</th>
               </tr>
             </thead>
             <tbody>
@@ -194,11 +220,95 @@
                 <td>{{ entry.dividerType }}</td>
                 <td>{{ entry.size }}</td>
                 <td>{{ entry.placement || '—' }}</td>
-                <td class="align-right"><strong>{{ entry.goodProduction }}</strong></td>
+                <td class="align-right"><strong style="color:#34d399">{{ entry.goodProduction }}</strong></td>
+                <td class="align-right"><strong style="color:#f87171">{{ entry.wasteMaterial || 0 }}</strong></td>
               </tr>
-              <tr v-if="!myProduction.length"><td colspan="5" class="empty-text">No production logged yet.</td></tr>
+              <tr v-if="!myProduction.length"><td colspan="6" class="empty-text">No production logged yet.</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Shift Submit Tab -->
+      <div v-if="activeTab === 'shift-submit'" class="tab-content">
+        <!-- Today's Summary -->
+        <div class="shift-summary-card">
+          <h3>
+            <span class="material-symbols-rounded">summarize</span>
+            Today's Production Summary
+          </h3>
+          <div class="shift-stats">
+            <div class="shift-stat">
+              <span class="shift-stat-val" style="color:#34d399">{{ todayGood }}</span>
+              <span class="shift-stat-lbl">Good Pcs</span>
+            </div>
+            <div class="shift-stat">
+              <span class="shift-stat-val" style="color:#f87171">{{ todayWaste }}</span>
+              <span class="shift-stat-lbl">Waste Pcs</span>
+            </div>
+            <div class="shift-stat">
+              <span class="shift-stat-val" style="color:#fbbf24">ETB {{ todayEarnings }}</span>
+              <span class="shift-stat-lbl">Est. Earnings</span>
+            </div>
+            <div class="shift-stat">
+              <span class="shift-stat-val" style="color:#a5b4fc">{{ todayEntries.length }}</span>
+              <span class="shift-stat-lbl">Log Entries</span>
+            </div>
+          </div>
+
+          <!-- Breakdown table -->
+          <table class="data-table" style="margin-top:1.5rem">
+            <thead><tr><th>Type</th><th>Placement</th><th>Size</th><th class="align-right">Good</th><th class="align-right">Waste</th></tr></thead>
+            <tbody>
+              <tr v-for="e in todayEntries" :key="e.id">
+                <td>{{ e.dividerType }}</td><td>{{ e.placement }}</td><td>{{ e.size }}</td>
+                <td class="align-right" style="color:#34d399">{{ e.goodProduction }}</td>
+                <td class="align-right" style="color:#f87171">{{ e.wasteMaterial || 0 }}</td>
+              </tr>
+              <tr v-if="!todayEntries.length"><td colspan="5" class="empty-text">No entries logged today.</td></tr>
+            </tbody>
+          </table>
+
+          <!-- Submit button -->
+          <div class="submit-area">
+            <div v-if="alreadySubmittedToday" class="submitted-banner">
+              <span class="material-symbols-rounded">check_circle</span>
+              Shift already submitted today.
+              <span :class="'status-' + alreadySubmittedToday.target_name">{{ alreadySubmittedToday.target_name?.toUpperCase() }}</span>
+              <span v-if="alreadySubmittedToday.target_name === 'rejected' && alreadySubmittedToday.details?.rejectionReason" class="reject-reason">
+                Reason: {{ alreadySubmittedToday.details.rejectionReason }}
+              </span>
+            </div>
+            <button
+              v-else
+              class="btn-submit-shift"
+              :disabled="!todayEntries.length || isSubmitting"
+              @click="submitTodayShift"
+            >
+              <span class="material-symbols-rounded">task_alt</span>
+              {{ isSubmitting ? 'Submitting...' : 'SUBMIT SHIFT FOR APPROVAL' }}
+            </button>
+            <p v-if="submitMessage" class="success-msg">{{ submitMessage }}</p>
+          </div>
+        </div>
+
+        <!-- Past submissions -->
+        <div class="production-list-card" style="margin-top:1.5rem">
+          <h3>My Shift Submission History</h3>
+          <div class="history-list">
+            <div v-for="sub in mySubmissions" :key="sub.id" class="submission-row">
+              <div class="sub-date">{{ new Date(sub.transaction_date).toLocaleDateString('en-GB', {weekday:'short', day:'2-digit', month:'short'}) }}</div>
+              <div class="sub-stats">
+                <span>Good: <strong>{{ sub.details?.totalGood ?? '—' }}</strong></span>
+                <span>Waste: <strong>{{ sub.details?.totalWaste ?? '—' }}</strong></span>
+                <span>ETB: <strong>{{ Number(sub.amount).toFixed(2) }}</strong></span>
+              </div>
+              <div class="sub-status" :class="'sub-status--' + sub.target_name">
+                {{ sub.target_name?.toUpperCase() }}
+              </div>
+            </div>
+            <p v-if="!mySubmissions.length" class="empty-text">No submissions yet.</p>
+          </div>
         </div>
       </div>
     </main>
@@ -229,6 +339,7 @@ const tabTitles = {
   'payment-request': 'Payment Request',
   attendance: 'Attendance & Shift Management',
   production: 'My Production Log',
+  'shift-submit': 'Submit My Shift',
 }
 
 // Get employee info
@@ -338,6 +449,59 @@ const myProduction = computed(() => {
     .filter(e => e.operator === employee.value.name && e.week === currentWeek.value)
     .reverse()
 })
+
+// ── Today's entries for shift submission ──
+const todayEntries = computed(() => {
+  if (!employee.value) return []
+  const today = new Date().toISOString().split('T')[0]
+  return mesStore.ledgerEntries.filter(e => {
+    return e.operator === employee.value.name &&
+      new Date(e.timestamp).toISOString().split('T')[0] === today
+  })
+})
+
+const todayGood = computed(() => todayEntries.value.reduce((s,e) => s + (Number(e.goodProduction)||0), 0))
+const todayWaste = computed(() => todayEntries.value.reduce((s,e) => s + (Number(e.wasteMaterial)||0), 0))
+const todayEarnings = computed(() => {
+  let total = 0
+  todayEntries.value.forEach(e => {
+    const rate = mesStore.pieceRates?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
+    total += rate * (Number(e.goodProduction) || 0)
+  })
+  return total.toFixed(2)
+})
+
+// ── Shift submissions ──
+const mySubmissions = computed(() => {
+  if (!employee.value) return []
+  return mesStore.shiftSubmissions
+    .filter(s => s.operator_id === employee.value.id)
+    .sort((a,b) => new Date(b.transaction_date) - new Date(a.transaction_date))
+})
+
+const alreadySubmittedToday = computed(() => {
+  const today = new Date().toISOString().split('T')[0]
+  return mySubmissions.value.find(s => s.transaction_date === today) || null
+})
+
+const pendingSubmission = computed(() => alreadySubmittedToday.value?.target_name === 'pending')
+
+const isSubmitting = ref(false)
+const submitMessage = ref('')
+
+async function submitTodayShift() {
+  if (!employee.value || isSubmitting.value) return
+  isSubmitting.value = true
+  const result = await mesStore.submitShift(employee.value.id, employee.value.name)
+  isSubmitting.value = false
+  if (result.ok) {
+    submitMessage.value = `✓ Shift submitted! ${result.totalGood} pcs good, ETB ${result.totalEarnings} est. earnings. Awaiting admin approval.`
+    setTimeout(() => { submitMessage.value = '' }, 5000)
+  } else {
+    submitMessage.value = '⚠ Submission failed. Please try again.'
+    setTimeout(() => { submitMessage.value = '' }, 3000)
+  }
+}
 
 // ── Logout ──
 function logout() {
@@ -639,4 +803,109 @@ function logout() {
 .bg-sky-500 { background-color: #0ea5e9; color: #fff; }
 .bg-orange-500 { background-color: #f97316; color: #fff; }
 .bg-teal-500 { background-color: #14b8a6; color: #fff; }
+
+/* Work Types */
+.work-types-section {
+  margin-top: 2rem;
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 1.5rem;
+  padding: 2rem;
+}
+.section-label {
+  display: flex; align-items: center; gap: 0.75rem;
+  font-size: 1rem; font-weight: 700; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin: 0 0 1.25rem 0;
+}
+.admin-only-badge {
+  font-size: 0.65rem; font-weight: 800; padding: 0.2rem 0.65rem;
+  background: rgba(239,68,68,0.1); color: #fca5a5;
+  border: 1px solid rgba(239,68,68,0.2); border-radius: 999px;
+  letter-spacing: 0.05em;
+}
+.work-types-grid { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.work-type-chip {
+  display: flex; align-items: center; gap: 0.5rem;
+  background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25);
+  color: #a5b4fc; padding: 0.6rem 1rem; border-radius: 0.75rem;
+  font-weight: 700; font-size: 1rem;
+}
+.work-types-empty {
+  display: flex; align-items: center; gap: 0.75rem;
+  color: #475569; font-size: 1rem; padding: 1rem;
+  background: rgba(255,255,255,0.02); border-radius: 0.75rem;
+}
+
+/* Nav badge */
+.nav-badge {
+  background: #f59e0b; color: #1c1917;
+  font-size: 0.7rem; font-weight: 900;
+  width: 1.2rem; height: 1.2rem; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin-left: auto;
+}
+
+/* Shift Summary Card */
+.shift-summary-card {
+  background: #1e293b;
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: 1.5rem;
+  padding: 2.5rem;
+}
+.shift-summary-card h3 {
+  display: flex; align-items: center; gap: 0.75rem;
+  font-size: 1.4rem; color: #f8fafc; margin: 0 0 1.5rem 0;
+}
+.shift-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+.shift-stat {
+  background: rgba(255,255,255,0.03); border-radius: 1rem; padding: 1.25rem;
+  display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.shift-stat-val { font-size: 1.75rem; font-weight: 900; font-variant-numeric: tabular-nums; }
+.shift-stat-lbl { font-size: 0.8rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+
+.submit-area { margin-top: 2rem; }
+.btn-submit-shift {
+  width: 100%; padding: 1.5rem;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff; border: none; border-radius: 1rem;
+  font-size: 1.25rem; font-weight: 800; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 0.75rem;
+  transition: all 0.2s; box-shadow: 0 8px 25px rgba(99,102,241,0.3);
+}
+.btn-submit-shift:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+.btn-submit-shift:not(:disabled):hover { filter: brightness(1.1); }
+
+.submitted-banner {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2);
+  color: #34d399; padding: 1.25rem 1.5rem; border-radius: 1rem;
+  font-size: 1.1rem; font-weight: 700;
+}
+.reject-reason { font-size: 0.9rem; color: #fca5a5; }
+
+/* Submission row */
+.submission-row {
+  display: flex; align-items: center; gap: 1.5rem;
+  padding: 1rem 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.sub-date { font-weight: 700; color: #94a3b8; min-width: 7rem; font-size: 0.95rem; }
+.sub-stats { flex: 1; display: flex; gap: 1.5rem; font-size: 0.95rem; color: #64748b; }
+.sub-stats strong { color: #e2e8f0; }
+.sub-status {
+  font-size: 0.75rem; font-weight: 800; padding: 0.3rem 0.85rem;
+  border-radius: 999px; letter-spacing: 0.08em;
+}
+.sub-status--pending  { background: rgba(245,158,11,0.12); color: #fbbf24; }
+.sub-status--approved { background: rgba(16,185,129,0.12); color: #34d399; }
+.sub-status--rejected { background: rgba(239,68,68,0.12); color: #f87171; }
+
+.status-pending  { color: #f59e0b; font-weight: 800; }
+.status-approved { color: #10b981; font-weight: 800; }
+.status-rejected { color: #ef4444; font-weight: 800; }
 </style>

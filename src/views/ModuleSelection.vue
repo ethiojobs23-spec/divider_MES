@@ -240,6 +240,18 @@
         <span class="material-symbols-rounded card-arrow">arrow_forward</span>
       </button>
 
+      <!-- Shift Approvals -->
+      <button class="module-card card--gold" @click="go('/shift-approvals')">
+        <div class="card-glow" />
+        <span class="material-symbols-rounded card-icon">task_alt</span>
+        <div class="card-body">
+          <p class="card-eyebrow">ADMIN</p>
+          <h2 class="card-title">Shift Review</h2>
+          <p class="card-sub">Approve Employee Shift Submissions</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
+
     </main>
 
     <!-- ── Footer ─────────────────────────────────────────────────── -->
