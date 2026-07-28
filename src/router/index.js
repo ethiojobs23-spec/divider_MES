@@ -8,6 +8,7 @@ import WelcomeAuth           from '@/views/WelcomeAuth.vue'
 import ModuleSelection       from '@/views/ModuleSelection.vue'
 import KioskLogin            from '@/views/KioskLogin.vue'
 import ProductionLogger      from '@/views/ProductionLogger.vue'
+import LiveProductionDashboard from '@/views/LiveProductionDashboard.vue'
 import DowntimeTracker       from '@/views/DowntimeTracker.vue'
 import InventoryManager      from '@/views/InventoryManager.vue'
 import CashAdvanceHub        from '@/views/CashAdvanceHub.vue'
@@ -66,6 +67,12 @@ const routes = [
     name: 'ProductionLogger',
     component: ProductionLogger,
     meta: { title: 'Production', icon: 'factory', requiresSystemAuth: true, nav: true },
+  },
+  {
+    path: '/live-production',
+    name: 'LiveProductionDashboard',
+    component: LiveProductionDashboard,
+    meta: { title: 'Live Production', icon: 'monitoring', requiresSystemAuth: true, nav: true },
   },
   {
     path: '/daily-log',

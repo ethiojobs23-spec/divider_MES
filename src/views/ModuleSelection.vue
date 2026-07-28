@@ -56,6 +56,19 @@
         </div>
         <span class="material-symbols-rounded card-arrow">arrow_forward</span>
       </button>
+
+      <!-- Live Production Monitor -->
+      <button class="module-card card--blue" @click="go('/live-production')">
+        <div class="card-glow" />
+        <div class="card-action-badge" style="background: linear-gradient(135deg,#10b981,#6366f1)">LIVE</div>
+        <span class="material-symbols-rounded card-icon">monitoring</span>
+        <div class="card-body">
+          <p class="card-eyebrow">PRODUCTION</p>
+          <h2 class="card-title">Live Monitor</h2>
+          <p class="card-sub">Real-Time Output & Charts</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
       
       <!-- 3. Daily Production Log -->
       <button class="module-card card--blue" @click="go('/daily-log')">
