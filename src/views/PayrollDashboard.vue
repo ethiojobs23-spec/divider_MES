@@ -1,29 +1,41 @@
 <template>
   <AppLayout>
     <!-- Header Bar -->
-    <div class="payroll-header">
-      <div class="header-left">
-        <span class="material-symbols-rounded header-icon">account_balance_wallet</span>
-        <div>
-          <h1 class="header-title">Weekly Payroll Dashboard</h1>
-          <p class="header-sub">{{ currentWeek }} &bull; Auto-aggregated from production & HR ledger</p>
+    <div class="view-area">
+      <!-- Header / KPI Row -->
+      <div class="view-panel" style="flex: none; padding-bottom: 0; min-height: auto;">
+        <div class="panel-header flex justify-between items-start">
+          <div>
+            <h2 class="panel-title">Weekly Payroll Dashboard</h2>
+            <p class="panel-sub">{{ currentWeek }} &bull; Auto-aggregated from production & HR ledger</p>
+          </div>
+        </div>
+
+        <div class="kpi-grid grid grid-cols-1 md:grid-cols-3 gap-3 shrink-0">
+          <AnalyticsDataCard
+            title="Total Production"
+            :value="mesStore.weeklyAggregation.TOTAL + ' pcs'"
+            icon="inventory_2"
+            icon-bg="rgba(99,102,241,.15)"
+            icon-color="#a5b4fc"
+          />
+          <AnalyticsDataCard
+            title="Total Deductions"
+            :value="totalAllDeductions.toFixed(2) + ' ETB'"
+            icon="money_off"
+            icon-bg="rgba(245,158,11,.15)"
+            icon-color="#fbbf24"
+            :trend-up-is-bad="true"
+          />
+          <AnalyticsDataCard
+            title="Total Net Payouts"
+            :value="totalNetPayouts.toFixed(2) + ' ETB'"
+            icon="account_balance_wallet"
+            icon-bg="rgba(16,185,129,.15)"
+            icon-color="#34d399"
+          />
         </div>
       </div>
-      <div class="header-stats">
-        <div class="stat-chip">
-          <span>Total Production</span>
-          <strong>{{ mesStore.weeklyAggregation.TOTAL }} pcs</strong>
-        </div>
-        <div class="stat-chip">
-          <span>Total Deductions</span>
-          <strong class="stat-warn">{{ totalAllDeductions.toFixed(2) }} ETB</strong>
-        </div>
-        <div class="stat-chip">
-          <span>Total Net Payouts</span>
-          <strong class="stat-success">{{ totalNetPayouts.toFixed(2) }} ETB</strong>
-        </div>
-      </div>
-    </div>
 
     <!-- Tabs -->
     <div class="flex items-center gap-6 px-8 py-3 bg-slate-800 border-b border-indigo-500/20">
@@ -43,46 +55,47 @@
       </button>
     </div>
 
-    <div class="split-view flex flex-col md:flex-row" v-show="activeTab === 'pending'">
-      <!-- Left: Worker List -->
-      <div class="worker-list w-full md:w-[35%] md:max-w-[450px]">
-         <div 
-            v-for="worker in payrollStore.weeklyPayrollSummary" 
-            :key="worker.id" 
-            class="worker-card" 
-            :class="{ active: selectedWorkerId === worker.id }"
-            @click="selectedWorkerId = worker.id"
-         >
-            <div class="op-avatar-sm" :class="worker.color">{{ worker.avatar }}</div>
-            <div class="worker-info">
-              <p class="worker-name">{{ worker.name }}</p>
-              <p class="worker-role">{{ worker.role }}</p>
-            </div>
-            <div class="worker-status-amount">
-              <p class="worker-amount">{{ worker.netPayout.toFixed(2) }} ETB</p>
-              <span class="status-badge" :class="worker.payoutStatus.status">
-                {{ worker.payoutStatus.status.toUpperCase() }}
-              </span>
-            </div>
-         </div>
-      </div>
-
-      <!-- Right: Detailed Breakdown -->
-      <div class="detail-panel" v-if="selectedWorker">
-         <div class="detail-header">
-           <div>
-             <h2>{{ selectedWorker.name }} - Payroll Breakdown</h2>
-             <p v-if="selectedWorker.payoutStatus.reason" class="hold-reason-text">Reason: {{ selectedWorker.payoutStatus.reason }}</p>
+    <section class="view-panel" v-show="activeTab === 'pending'">
+      <div class="employee-layout flex flex-col md:flex-row">
+        <!-- Left: Worker List -->
+        <div class="operator-list w-full md:w-[260px] lg:w-[320px] max-h-64 md:max-h-none">
+           <div 
+              v-for="worker in payrollStore.weeklyPayrollSummary" 
+              :key="worker.id" 
+              class="op-card" 
+              :class="{ 'op-card--active': selectedWorkerId === worker.id }"
+              @click="selectedWorkerId = worker.id"
+           >
+              <div class="op-avatar-sm" :class="worker.color">{{ worker.avatar }}</div>
+              <div class="op-info">
+                <p class="op-name-sm">{{ worker.name }}</p>
+                <p class="op-role-sm">{{ worker.role }}</p>
+              </div>
+              <div class="worker-status-amount">
+                <p class="worker-amount">{{ worker.netPayout.toFixed(2) }} ETB</p>
+                <span class="row-badge" :class="worker.payoutStatus.status === 'approved' ? 'row-badge--green' : (worker.payoutStatus.status === 'held' ? 'row-badge--red' : 'row-badge--yellow')">
+                  {{ worker.payoutStatus.status.toUpperCase() }}
+                </span>
+              </div>
            </div>
-           <span class="status-stamp" :class="selectedWorker.payoutStatus.status">
-             {{ selectedWorker.payoutStatus.status === 'approved' ? 'PAID ✓' : (selectedWorker.payoutStatus.status === 'held' ? 'HELD ✋' : 'PENDING ⏳') }}
-           </span>
-         </div>
-         
-         <div class="breakdown-content" :class="{ 'is-locked': selectedWorker.payoutStatus.status === 'approved' }">
+        </div>
+
+        <!-- Right: Detailed Breakdown -->
+        <div class="profile-area" v-if="selectedWorker">
+           <div class="detail-header">
+             <div>
+               <h2 class="panel-title">{{ selectedWorker.name }} - Payroll Breakdown</h2>
+               <p v-if="selectedWorker.payoutStatus.reason" class="hold-reason-text">Reason: {{ selectedWorker.payoutStatus.reason }}</p>
+             </div>
+             <span class="status-stamp" :class="selectedWorker.payoutStatus.status">
+               {{ selectedWorker.payoutStatus.status === 'approved' ? 'PAID ✓' : (selectedWorker.payoutStatus.status === 'held' ? 'HELD ✋' : 'PENDING ⏳') }}
+             </span>
+           </div>
+           
+           <div class="breakdown-content" :class="{ 'is-locked': selectedWorker.payoutStatus.status === 'approved' }">
 
             <!-- Shift Submissions Breakdown -->
-            <div class="calculation-card" v-if="selectedWorkerProfile?.isPieceRate">
+              <div class="chart-card" v-if="selectedWorkerProfile?.isPieceRate">
               <h3>Shift Submissions & Piece-Rate</h3>
               <div v-if="shiftBreakdown.length" class="shift-rows">
                 <div
@@ -138,7 +151,7 @@
             </div>
 
             <!-- Attendance & Hourly -->
-            <div class="calculation-card" v-if="selectedWorkerProfile?.isHourly">
+              <div class="chart-card" v-if="selectedWorkerProfile?.isHourly">
               <h3>Attendance &amp; Hourly Pay</h3>
               <div class="calc-row">
                 <span>Days Attended</span>
@@ -159,7 +172,7 @@
             </div>
 
             <!-- Summary -->
-            <div class="calculation-card">
+              <div class="chart-card">
               <h3>Earnings Summary</h3>
               <div class="calc-row" v-if="selectedWorkerProfile?.isPieceRate">
                 <span>Piece-Rate Subtotal</span>
@@ -183,7 +196,7 @@
               </div>
             </div>
 
-            <div class="calculation-card deductions">
+              <div class="chart-card deductions">
               <h3>Deductions</h3>
               <div class="calc-row">
                 <span>Advances + Loans + Interest</span>
@@ -191,7 +204,7 @@
               </div>
             </div>
 
-            <div class="calculation-card net-payout">
+              <div class="chart-card net-payout">
               <h3>Net Payout</h3>
               <div class="net-amount">{{ selectedWorker.netPayout.toFixed(2) }} ETB</div>
             </div>
@@ -219,7 +232,8 @@
          <span class="material-symbols-rounded empty-icon">touch_app</span>
          <p>Select a worker to view breakdown</p>
       </div>
-    </div>
+      </div>
+    </section>
 
     <!-- Payment History View -->
     <div class="history-view w-full h-full overflow-y-auto p-4 md:p-8 bg-slate-900" v-show="activeTab === 'history'">
@@ -294,11 +308,13 @@
       :receiptData="currentReceiptData" 
       @close="isReceiptModalOpen = false" 
     />
+    </div>
   </AppLayout>
 </template>
 
 <script setup>
 import AppLayout from '@/components/layout/AppLayout.vue'
+import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
 import PaymentReceiptModal from '@/components/ui/PaymentReceiptModal.vue'
 import { ref, computed } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
@@ -391,122 +407,136 @@ function executeHold(reason) {
 <style scoped>
 
 
-/* Header */
-.payroll-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.25rem 2rem;
-  background: #1e293b;
-  border-bottom: 1px solid rgba(99,102,241,.2);
-  flex-shrink: 0;
-}
-.header-left   { display: flex; align-items: center; gap: 1rem; }
-.header-icon   { font-size: 2.5rem; color: #a5b4fc; }
-.header-title  { font-size: 1.4rem; font-weight: 800; color: #f1f5f9; margin:0; }
-.header-sub    { font-size: .85rem; color: #64748b; margin-top: .15rem; }
-.header-stats  { display: flex; gap: 1rem; }
-.stat-chip {
-  background: rgba(255,255,255,.05);
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: .65rem;
-  padding: .5rem 1rem;
-  text-align: right;
-}
-.stat-chip span    { display: block; font-size: .65rem; color: #64748b; letter-spacing: .06em; text-transform: uppercase; }
-.stat-chip strong  { font-size: 1.1rem; font-weight: 800; color: #34d399; }
-.stat-warn         { color: #fbbf24 !important; }
-.stat-success      { color: #10b981 !important; }
-
-/* Split View Layout */
-.split-view {
-  width: 100%;
-  height: 100%;
-  overflow-y: auto;
-  display: flex;
-}
-
-/* Left: Worker List */
-.worker-list {
-  width: 35%;
-  max-width: 450px;
-  background: #1e293b;
-  border-right: 1px solid rgba(99,102,241,.1);
-  overflow-y: auto;
+/* ══ Main view area ════════════════════════════════════════════════════════════ */
+.view-area {
+  flex: 1;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  background: #0f172a;
 }
 
-.worker-card {
+.view-panel {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  height: 100%;
+  padding: 1.25rem 1.5rem;
   gap: 1rem;
-  padding: 1.2rem;
-  border-bottom: 1px solid rgba(255,255,255,.05);
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.worker-card:hover {
-  background: rgba(255,255,255,.03);
-}
-.worker-card.active {
-  background: rgba(99,102,241,.1);
-  border-left: 4px solid #818cf8;
+  overflow: hidden;
 }
 
-.op-avatar-sm {
-  width: 3rem; height: 3rem;
-  border-radius: .75rem;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.2rem; font-weight: 800; color: #fff;
+.panel-header { flex-shrink: 0; }
+.panel-title {
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: #f1f5f9;
+  margin: 0;
+}
+.panel-sub { font-size: .7rem; color: #64748b; margin: .2rem 0 0; }
+
+/* ══ KPI Grid ════════════════════════════════════════════════════════════════ */
+.kpi-grid {
+  display: grid;
+  gap: .85rem;
   flex-shrink: 0;
 }
 
-.worker-info {
-  flex: 1;
+/* ══ Chart card (shared) ═════════════════════════════════════════════════════ */
+.chart-card {
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  overflow: hidden;
 }
-.worker-name { font-size: 1.1rem; font-weight: 700; color: #e2e8f0; margin:0; }
-.worker-role { font-size: .85rem; color: #64748b; margin:0; }
+.chart-card h3 {
+  color: #94a3b8;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 1.5rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding-bottom: 0.75rem;
+}
+
+/* ══ Employee layout ═════════════════════════════════════════════════════════ */
+.employee-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+}
+@media (max-width: 768px) {
+  .employee-layout {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.operator-list {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  overflow-y: auto;
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 1rem;
+  padding: .85rem .75rem;
+}
+
+.op-card {
+  display: flex; align-items: center; gap: .65rem; padding: .65rem;
+  border-radius: .65rem; border: 1px solid rgba(255,255,255,.05);
+  background: #0f172a; cursor: pointer; text-align: left;
+  transition: all .15s ease; -webkit-tap-highlight-color: transparent;
+}
+.op-card:hover { border-color: rgba(255,255,255,.1); background: rgba(255,255,255,.03); }
+.op-card--active { background: rgba(99,102,241,.15); border-color: rgba(99,102,241,.4); }
+
+.op-avatar-sm {
+  width: 2.25rem; height: 2.25rem; border-radius: .5rem;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .85rem; font-weight: 800; color: #fff; flex-shrink: 0;
+}
+.op-info { flex: 1; min-width: 0; }
+.op-name-sm  { font-size: .82rem; font-weight: 700; color: #f1f5f9; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.op-role-sm  { font-size: .62rem; color: #64748b; margin: 0; }
 
 .worker-status-amount {
   text-align: right;
 }
 .worker-amount {
-  font-size: 1.1rem;
+  font-size: .85rem;
   font-weight: 800;
   color: #10b981;
-  margin: 0 0 0.4rem 0;
+  margin: 0 0 0.3rem 0;
 }
-.status-badge {
-  font-size: 0.7rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-}
-.status-badge.pending { background: rgba(251,191,36,0.2); color: #fbbf24; }
-.status-badge.approved { background: rgba(16,185,129,0.2); color: #34d399; }
-.status-badge.held { background: rgba(239,68,68,0.2); color: #f87171; }
 
-/* Right: Detail Panel */
-.detail-panel {
-  flex: 1;
-  padding: 2rem;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+.row-badge {
+  display: inline-block;
+  padding: .12rem .5rem;
+  border-radius: .3rem;
+  font-size: .6rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
+.row-badge--green  { background: rgba(16,185,129,.15);  color: #34d399; }
+.row-badge--red    { background: rgba(239,68,68,.15);   color: #f87171; }
+.row-badge--yellow { background: rgba(245,158,11,.15);  color: #fbbf24; }
+.row-badge--neutral{ background: rgba(100,116,139,.15); color: #94a3b8; }
+
+/* Profile area */
+.profile-area { flex: 1; min-width: 0; overflow-y: auto; padding-right: 0.5rem; }
 
 .detail-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
-}
-.detail-header h2 {
-  font-size: 1.8rem;
-  color: #f8fafc;
-  margin: 0 0 0.5rem 0;
 }
 .hold-reason-text {
   color: #f87171;
@@ -535,22 +565,6 @@ function executeHold(reason) {
 .breakdown-content.is-locked {
   opacity: 0.6;
   pointer-events: none;
-}
-
-.calculation-card {
-  background: #1e293b;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 1rem;
-  padding: 1.5rem;
-}
-.calculation-card h3 {
-  color: #94a3b8;
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin: 0 0 1.5rem 0;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  padding-bottom: 0.75rem;
 }
 
 .calc-row {
