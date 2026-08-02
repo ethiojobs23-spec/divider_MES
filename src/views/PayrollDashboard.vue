@@ -25,7 +25,25 @@
       </div>
     </div>
 
-    <div class="split-view flex flex-col md:flex-row">
+    <!-- Tabs -->
+    <div class="flex items-center gap-6 px-8 py-3 bg-slate-800 border-b border-indigo-500/20">
+      <button 
+        @click="activeTab = 'pending'" 
+        class="pb-1 text-sm font-bold tracking-wide uppercase transition-colors duration-200 border-b-2"
+        :class="activeTab === 'pending' ? 'text-indigo-400 border-indigo-400' : 'text-slate-400 border-transparent hover:text-slate-300'"
+      >
+        Pending Payroll
+      </button>
+      <button 
+        @click="activeTab = 'history'" 
+        class="pb-1 text-sm font-bold tracking-wide uppercase transition-colors duration-200 border-b-2"
+        :class="activeTab === 'history' ? 'text-indigo-400 border-indigo-400' : 'text-slate-400 border-transparent hover:text-slate-300'"
+      >
+        Payment History
+      </button>
+    </div>
+
+    <div class="split-view flex flex-col md:flex-row" v-show="activeTab === 'pending'">
       <!-- Left: Worker List -->
       <div class="worker-list w-full md:w-[35%] md:max-w-[450px]">
          <div 
@@ -203,6 +221,46 @@
       </div>
     </div>
 
+    <!-- Payment History View -->
+    <div class="history-view w-full h-full overflow-y-auto p-4 md:p-8 bg-slate-900" v-show="activeTab === 'history'">
+      <div class="max-w-5xl mx-auto">
+        <h2 class="text-2xl font-bold text-slate-100 mb-6">Past Payroll Settlements</h2>
+        
+        <div class="bg-slate-800 border border-white/10 rounded-xl overflow-hidden shadow-xl">
+          <div class="table-scroll overflow-x-auto w-full">
+            <table class="w-full text-left border-collapse min-w-[600px]">
+              <thead class="bg-slate-900 border-b border-white/10">
+                <tr>
+                  <th class="p-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Date</th>
+                  <th class="p-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Worker</th>
+                  <th class="p-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Note</th>
+                  <th class="p-4 text-xs font-bold tracking-wider text-slate-400 uppercase text-right">Amount (ETB)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/5">
+                <tr v-for="entry in paymentHistory" :key="entry.id" class="hover:bg-white/5 transition-colors">
+                  <td class="p-4 text-sm text-slate-300 font-mono">{{ entry.timestamp.split('T')[0] }}</td>
+                  <td class="p-4 text-sm font-bold text-slate-100 flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
+                      {{ entry.operator.charAt(0) }}
+                    </div>
+                    {{ entry.operator }}
+                  </td>
+                  <td class="p-4 text-sm text-slate-400">{{ entry.note || `Payroll for ${entry.week}` }}</td>
+                  <td class="p-4 text-sm font-bold text-emerald-400 text-right">{{ Number(entry.amount).toFixed(2) }}</td>
+                </tr>
+                <tr v-if="!paymentHistory.length">
+                  <td colspan="4" class="p-8 text-center text-slate-500 font-medium">
+                    No payment history available yet.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Modals -->
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
       <div class="modal-content confirm-modal">
@@ -249,6 +307,8 @@ import { usePayrollStore } from '@/store/payrollStore.js'
 const mesStore = useMesStore()
 const payrollStore = usePayrollStore()
 
+const activeTab = ref('pending')
+
 const currentWeek = computed(() => mesStore.currentProductionWeek)
 
 const selectedWorkerId = ref(null)
@@ -275,6 +335,13 @@ const totalAllDeductions = computed(() => {
 })
 const totalNetPayouts = computed(() => {
   return payrollStore.weeklyPayrollSummary.reduce((sum, w) => sum + w.netPayout, 0)
+})
+
+// Payment History
+const paymentHistory = computed(() => {
+  return mesStore.cashEntries
+    .filter(e => e.type === 'payout')
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
 })
 
 // Modals
