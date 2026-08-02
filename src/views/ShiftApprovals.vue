@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <div class="sa-root">
       <header class="sa-header">
         <div>
@@ -200,12 +200,12 @@
         </div>
       </div>
     </div>
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
 import { ref, computed, reactive } from 'vue'
-import TabletLayout from '@/components/layout/TabletLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import { useMesStore } from '@/store/mesStore.js'
 
 const store = useMesStore()

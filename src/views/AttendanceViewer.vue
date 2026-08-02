@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <div class="attendance-viewer">
       <div class="header">
         <div class="header-title-block">
@@ -46,12 +46,12 @@
         </table>
       </div>
     </div>
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import TabletLayout from '@/components/layout/TabletLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
 import { useMesStore } from '@/store/mesStore.js'
 

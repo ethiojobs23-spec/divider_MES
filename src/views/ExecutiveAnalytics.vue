@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <div class="analytics-root">
 
       <!-- ══════════════════════════════════════════════════════════════════
@@ -45,7 +45,7 @@
           </div>
 
           <!-- KPI Row -->
-          <div class="kpi-grid">
+          <div class="kpi-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
             <AnalyticsDataCard
               title="Total Dividers Produced"
               :value="store.totalGoodAllTime.toLocaleString()"
@@ -123,10 +123,10 @@
             <p class="panel-sub">Tap an operator to expand their full profile</p>
           </div>
 
-          <div class="employee-layout">
+          <div class="employee-layout flex flex-col md:flex-row">
 
             <!-- Left: operator list -->
-            <div class="operator-list">
+            <div class="operator-list w-full md:w-[260px] max-h-64 md:max-h-none">
               <!-- Search -->
               <div class="search-wrap">
                 <span class="material-symbols-rounded search-icon">search</span>
@@ -297,7 +297,7 @@
           </div>
 
           <!-- Cost per unit KPIs -->
-          <div class="cpu-kpi-row">
+          <div class="cpu-kpi-row flex flex-col md:flex-row gap-3">
             <div class="cpu-kpi">
               <p class="cpu-label">Total Payroll Liability</p>
               <p class="cpu-value">ETB {{ totalPayrollLiability.toFixed(2) }}</p>
@@ -326,7 +326,7 @@
               </div>
             </div>
 
-            <div class="cost-table-wrap">
+            <div class="cost-table-wrap overflow-x-auto w-full">
               <table class="cost-table">
                 <thead>
                   <tr>
@@ -402,12 +402,12 @@
         Report compiled &amp; forwarded to Frezer
       </div>
     </Transition>
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import TabletLayout from '@/components/layout/TabletLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
 import { useMesStore } from '@/store/mesStore.js'
 

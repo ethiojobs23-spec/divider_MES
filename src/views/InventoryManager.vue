@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <!-- LEFT Sidebar: Material List -->
         <!-- MAIN: Numpad Adjustment -->
     <main class="inv-main">
@@ -61,11 +61,11 @@
         <p>Select a raw material from the sidebar</p>
       </div>
     </main>
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
-import TabletLayout from '@/components/layout/TabletLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import { ref } from 'vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import { useMesStore } from '@/store/mesStore.js'

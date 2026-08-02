@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <div class="emp-root">
 
       <!-- ══════════════════════════════════════════════════════════════════
@@ -57,10 +57,10 @@
               <p class="panel-sub">Select an operator · Manage current shift assignment and real-time status</p>
             </div>
 
-            <div class="employee-layout">
+            <div class="employee-layout flex flex-col md:flex-row">
 
               <!-- Left: operator list -->
-              <div class="operator-list">
+              <div class="operator-list w-full md:w-[260px] max-h-64 md:max-h-none">
                 <div class="search-wrap">
                   <span class="material-symbols-rounded search-icon">search</span>
                   <input
@@ -211,7 +211,7 @@
             </div>
 
             <!-- KPI Cards (same as ExecutiveAnalytics) -->
-            <div class="kpi-grid">
+            <div class="kpi-grid grid grid-cols-1 md:grid-cols-3 gap-3 shrink-0">
               <AnalyticsDataCard
                 title="Total Units (Today)"
                 value="1,402"
@@ -250,7 +250,7 @@
                 <div class="badge" style="margin-left:auto">Today</div>
               </div>
 
-              <div class="table-scroll">
+              <div class="table-scroll overflow-x-auto w-full">
                 <table class="data-table">
                   <thead>
                     <tr>
@@ -299,7 +299,7 @@
             </div>
 
             <!-- Balance KPIs -->
-            <div class="kpi-grid kpi-grid--2col">
+            <div class="kpi-grid kpi-grid--2col grid grid-cols-1 md:grid-cols-2 gap-3 shrink-0">
               <AnalyticsDataCard
                 title="Current Balance"
                 value="ETB 1,240"
@@ -318,7 +318,7 @@
             </div>
 
             <!-- Two-column layout: ledger + actions -->
-            <div class="fin-layout">
+            <div class="fin-layout flex flex-col md:flex-row gap-4 h-full min-h-0">
 
               <!-- Left: Transaction Ledger -->
               <div class="chart-card" style="flex:2;min-height:0">
@@ -334,7 +334,7 @@
                   </button>
                 </div>
 
-                <div class="table-scroll">
+                <div class="table-scroll overflow-x-auto w-full">
                   <table class="data-table">
                     <thead>
                       <tr>
@@ -431,12 +431,12 @@
       </Transition>
 
     </div>
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import TabletLayout from '@/components/layout/TabletLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
 import { useMesStore } from '@/store/mesStore.js'
 

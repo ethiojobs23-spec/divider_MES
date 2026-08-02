@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <!-- LEFT Sidebar -->
         <!-- MAIN: Stopwatch -->
     <main class="dt-main">
@@ -70,11 +70,11 @@
         </button>
       </div>
     </main>
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
-import TabletLayout from '@/components/layout/TabletLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
 

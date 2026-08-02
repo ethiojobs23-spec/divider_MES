@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <!-- ─── LEFT: Dispatch Config Sidebar ──────────────────────────── -->
         <!-- ─── RIGHT: Numpad + Dispatch Log ──────────────────────────── -->
     <main class="dispatch-main">
@@ -118,11 +118,11 @@
         </div>
       </Transition>
     </main>
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
-import TabletLayout from '@/components/layout/TabletLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import { ref, reactive, computed } from 'vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import { useMesStore } from '@/store/mesStore.js'

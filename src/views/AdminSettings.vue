@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <main class="admin-main">
       <!-- ─── TOP: Settings Nav Bar ─────────────────────────────── -->
       <nav class="settings-top-nav">
@@ -319,11 +319,11 @@
       </div>
 
     </main>
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
-import TabletLayout from '@/components/layout/TabletLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import { ref } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'

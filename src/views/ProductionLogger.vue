@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <div class="prod-layout">
       <!-- LEFT: Filter Sidebar -->
       <aside class="prod-sidebar">
@@ -127,12 +127,12 @@
         </Transition>
       </main>
     </div>
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
 import { ref, reactive, computed, watchEffect } from 'vue'
-import TabletLayout  from '@/components/layout/TabletLayout.vue'
+import AppLayout  from '@/components/layout/AppLayout.vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import { useMesStore } from '@/store/mesStore.js'
 

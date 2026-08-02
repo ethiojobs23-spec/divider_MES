@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <!-- MAIN: Input Area -->
     <main class="cash-main">
       <nav class="settings-top-nav">
@@ -124,11 +124,11 @@
       @confirm="executeAdminAction"
       @cancel="adminPin.show = false"
     />
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
-import TabletLayout from '@/components/layout/TabletLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import { ref, computed, reactive } from 'vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import PinModal from '@/components/ui/PinModal.vue'

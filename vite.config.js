@@ -42,7 +42,7 @@ export default defineConfig({
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'fullscreen',
-        orientation: 'landscape', // Lock orientation
+        orientation: 'any', // Allow portrait and landscape
         icons: [
           {
             src: '/favicon.svg',

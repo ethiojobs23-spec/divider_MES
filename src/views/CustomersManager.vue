@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <main class="cm-main">
       <header class="cm-header">
         <div>
@@ -84,11 +84,11 @@
         </div>
       </div>
     </main>
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
-import TabletLayout from '@/components/layout/TabletLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import { ref, computed } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
 

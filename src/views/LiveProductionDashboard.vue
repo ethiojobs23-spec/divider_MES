@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <div class="lpd-root">
 
       <!-- ── Header ─────────────────────────────────────────────── -->
@@ -199,12 +199,12 @@
       </div>
 
     </div>
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import TabletLayout from '@/components/layout/TabletLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import { useMesStore } from '@/store/mesStore.js'
 
 const store = useMesStore()

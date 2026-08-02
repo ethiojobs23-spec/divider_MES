@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <div class="cex-wrapper">
 
       <!-- ─── Header ─────────────────────────────────────────────────── -->
@@ -218,12 +218,12 @@
         </div>
       </Transition>
     </div>
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
 import { ref, reactive, computed } from 'vue'
-import TabletLayout  from '@/components/layout/TabletLayout.vue'
+import AppLayout  from '@/components/layout/AppLayout.vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import { useMesStore } from '@/store/mesStore.js'
 

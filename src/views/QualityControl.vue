@@ -1,5 +1,5 @@
 <template>
-    <TabletLayout>
+    <AppLayout>
     <!-- LEFT: Leaderboard -->
         <!-- RIGHT: Waste Timeline Feed -->
     <main class="qc-main">
@@ -132,12 +132,12 @@
         </TransitionGroup>
       </div>
     </main>
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import TabletLayout from '@/components/layout/TabletLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import { useMesStore } from '@/store/mesStore.js'
 
 const store = useMesStore()

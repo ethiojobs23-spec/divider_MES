@@ -11,7 +11,7 @@
       <button
         v-for="key in keys"
         :key="key"
-        class="numpad-key"
+        class="numpad-key h-16 md:h-20"
         :class="{
           'key--action': key === 'CLR' || key === 'DEL',
           'key--zero':   key === '0',
@@ -111,7 +111,6 @@ function handleKey(key) {
 }
 
 .numpad-key {
-  height: 5.5rem;
   font-size: 2.2rem;
   font-weight: 700;
   color: #e2e8f0;

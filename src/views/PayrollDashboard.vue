@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <!-- Header Bar -->
     <div class="payroll-header">
       <div class="header-left">
@@ -25,9 +25,9 @@
       </div>
     </div>
 
-    <div class="split-view">
+    <div class="split-view flex flex-col md:flex-row">
       <!-- Left: Worker List -->
-      <div class="worker-list">
+      <div class="worker-list w-full md:w-[35%] md:max-w-[450px]">
          <div 
             v-for="worker in payrollStore.weeklyPayrollSummary" 
             :key="worker.id" 
@@ -182,14 +182,14 @@
          <!-- Actions -->
          <div class="action-buttons">
             <button 
-              class="btn-massive btn-approve"
+              class="btn-massive btn-approve w-full md:w-auto"
               :disabled="selectedWorker.payoutStatus.status === 'approved'"
               @click="confirmApprove(selectedWorker)"
             >
               {{ selectedWorker.payoutStatus.status === 'approved' ? 'PAID ✓' : 'APPROVE & LOG PAYMENT' }}
             </button>
             <button 
-              class="btn-massive btn-hold"
+              class="btn-massive btn-hold w-full md:w-auto"
               :disabled="selectedWorker.payoutStatus.status === 'approved'"
               @click="openHoldMenu(selectedWorker)"
             >
@@ -229,11 +229,19 @@
         </div>
       </div>
     </div>
-  </TabletLayout>
+
+    <!-- Receipt Modal -->
+    <PaymentReceiptModal 
+      :isOpen="isReceiptModalOpen" 
+      :receiptData="currentReceiptData" 
+      @close="isReceiptModalOpen = false" 
+    />
+  </AppLayout>
 </template>
 
 <script setup>
-import TabletLayout from '@/components/layout/TabletLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
+import PaymentReceiptModal from '@/components/ui/PaymentReceiptModal.vue'
 import { ref, computed } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore.js'
@@ -272,6 +280,8 @@ const totalNetPayouts = computed(() => {
 // Modals
 const showConfirmModal = ref(false)
 const showHoldModal = ref(false)
+const isReceiptModalOpen = ref(false)
+const currentReceiptData = ref(null)
 const holdReasons = ['Missing Tools', 'Attendance Dispute', 'Loan Discrepancy', 'Quality Penalty']
 
 function confirmApprove(worker) {
@@ -281,7 +291,19 @@ function confirmApprove(worker) {
 
 async function executeApprove() {
   if (selectedWorker.value) {
+    // Generate receipt data first before we lose the pending state context (if it matters)
+    currentReceiptData.value = {
+      employeeName: selectedWorker.value.name,
+      date: new Date().toISOString(),
+      grossPay: selectedWorker.value.grossEarnings,
+      deductions: selectedWorker.value.totalDeduction,
+      netPayout: selectedWorker.value.netPayout
+    }
+    
     await payrollStore.approvePayout(selectedWorker.value.id, currentWeek.value)
+    
+    // Open receipt modal
+    isReceiptModalOpen.value = true
   }
   showConfirmModal.value = false
 }

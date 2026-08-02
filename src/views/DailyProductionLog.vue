@@ -1,5 +1,5 @@
 <template>
-  <TabletLayout>
+  <AppLayout>
     <div class="dpl-wrapper">
 
       <!-- ─── Page Header ──────────────────────────────────────────────── -->
@@ -42,10 +42,10 @@
       </header>
 
       <!-- ─── Main Body: Grid + Numpad ─────────────────────────────────── -->
-      <div class="dpl-body">
+      <div class="dpl-body flex flex-col lg:flex-row">
 
         <!-- Data Grid -->
-        <div class="grid-container">
+        <div class="grid-container w-full overflow-x-auto">
           <table class="ledger-table">
             <thead>
               <tr>
@@ -99,7 +99,7 @@
         </div>
 
         <!-- ─── Numpad Panel ─────────────────────────────────────────── -->
-        <div class="numpad-panel" :class="{ 'panel--open': !!activeCell }">
+        <div class="numpad-panel lg:h-full lg:w-0 w-full transition-all duration-300" :class="{ 'lg:w-[26rem] h-auto lg:h-full p-4 lg:p-0': !!activeCell, 'h-0 overflow-hidden lg:h-full': !activeCell }">
           <div v-if="activeCell" class="numpad-inner">
             <div class="numpad-context">
               <span class="ctx-badge ctx-placement">{{ activePlacement }}</span>
@@ -143,12 +143,12 @@
         </div>
       </Transition>
     </div>
-  </TabletLayout>
+  </AppLayout>
 </template>
 
 <script setup>
 import { ref, reactive, computed } from 'vue'
-import TabletLayout  from '@/components/layout/TabletLayout.vue'
+import AppLayout  from '@/components/layout/AppLayout.vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import { useMesStore } from '@/store/mesStore.js'
 
