@@ -1,103 +1,103 @@
 <template>
   <AppLayout>
-    <div class="h-full w-full flex flex-col bg-slate-900 text-slate-100 overflow-hidden relative">
-      
+    <div class="view-area">
       <!-- ── Header ── -->
-      <header class="flex-shrink-0 flex items-center gap-4 p-6 bg-slate-800 border-b border-rose-500/20">
-        <span class="material-symbols-rounded text-4xl text-rose-500">engineering</span>
-        <div>
-          <h1 class="text-2xl font-black tracking-wide">Machine Downtime & Maintenance</h1>
-          <p class="text-sm text-slate-400 font-medium">Log equipment failures and calculate financial impact in real-time</p>
+      <div class="view-panel" style="flex: none; padding-bottom: 0; min-height: auto;">
+        <div class="panel-header flex justify-between items-start">
+          <div>
+            <h2 class="panel-title">Machine Downtime & Maintenance</h2>
+            <p class="panel-sub">Log equipment failures and calculate financial impact in real-time</p>
+          </div>
         </div>
-      </header>
+      </div>
 
       <!-- ── Main Grid ── -->
-      <div class="flex-1 overflow-y-auto p-6">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 md:px-8 pb-4 mt-4" style="overflow-y: auto;">
+        
+        <!-- ── Left Panel: Active Issues & Reporting ── -->
+        <div class="flex flex-col gap-4">
           
-          <!-- ── Left Panel: Active Issues & Reporting ── -->
-          <div class="flex flex-col gap-6">
+          <!-- Report Form -->
+          <div class="chart-card">
+            <h3 style="color: #fb7185; border-bottom-color: rgba(225,29,72,0.2);">Report Machine Fault</h3>
             
-            <!-- Report Form -->
-            <div class="bg-slate-800 rounded-2xl p-6 border border-white/5 shadow-xl">
-              <h2 class="text-lg font-black uppercase tracking-widest text-slate-300 mb-6 flex items-center gap-2">
-                <span class="material-symbols-rounded text-rose-400">report</span>
-                Report Machine Fault
-              </h2>
-              
-              <div class="flex flex-col gap-5">
-                <!-- Machine Select -->
-                <div>
-                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Select Machine</label>
-                  <select v-model="selectedMachine" class="w-full bg-slate-900 border border-white/10 rounded-xl p-4 text-white font-bold appearance-none outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all">
-                    <option disabled value="">-- Choose Equipment --</option>
-                    <option v-for="m in downtimeStore.machines" :key="m.id" :value="m.id">
-                      {{ m.name }} (Cap: {{ m.hourly_capacity }}/hr)
-                    </option>
-                  </select>
-                </div>
-                
-                <!-- Category Select -->
-                <div>
-                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Fault Category</label>
-                  <select v-model="selectedCategory" class="w-full bg-slate-900 border border-white/10 rounded-xl p-4 text-white font-bold appearance-none outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all">
-                    <option disabled value="">-- Choose Category --</option>
-                    <option v-for="cat in downtimeStore.categories" :key="cat" :value="cat">
-                      {{ cat }}
-                    </option>
-                  </select>
-                </div>
-
-                <button 
-                  @click="submitReport"
-                  :disabled="!selectedMachine || !selectedCategory"
-                  class="mt-2 w-full flex items-center justify-center gap-3 p-5 rounded-xl font-black text-lg transition-all"
-                  :class="(selectedMachine && selectedCategory) ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 active:scale-95' : 'bg-slate-700 text-slate-500 cursor-not-allowed'"
-                >
-                  <span class="material-symbols-rounded">warning</span>
-                  REPORT MACHINE DOWN
-                </button>
+            <div class="flex flex-col gap-4">
+              <!-- Machine Select -->
+              <div class="form-group">
+                <label>Select Machine</label>
+                <select v-model="selectedMachine" class="custom-select">
+                  <option disabled value="">-- Choose Equipment --</option>
+                  <option v-for="m in downtimeStore.machines" :key="m.id" :value="m.id">
+                    {{ m.name }} (Cap: {{ m.hourly_capacity }}/hr)
+                  </option>
+                </select>
               </div>
+              
+              <!-- Category Select -->
+              <div class="form-group">
+                <label>Fault Category</label>
+                <select v-model="selectedCategory" class="custom-select">
+                  <option disabled value="">-- Choose Category --</option>
+                  <option v-for="cat in downtimeStore.categories" :key="cat" :value="cat">
+                    {{ cat }}
+                  </option>
+                </select>
+              </div>
+
+              <button 
+                @click="submitReport"
+                :disabled="!selectedMachine || !selectedCategory"
+                class="btn-action mt-2"
+                :class="(selectedMachine && selectedCategory) ? 'btn-action--danger' : 'btn-action--disabled'"
+              >
+                <span class="material-symbols-rounded">warning</span>
+                REPORT MACHINE DOWN
+              </button>
             </div>
+          </div>
 
-            <!-- Active Alerts -->
-            <div>
-              <h2 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
-                Active Critical Alerts ({{ downtimeStore.activeIssues.length }})
-              </h2>
-              
-              <div v-if="downtimeStore.activeIssues.length === 0" class="bg-slate-800/50 rounded-2xl p-8 border border-dashed border-white/10 flex flex-col items-center justify-center text-center">
-                <span class="material-symbols-rounded text-4xl text-emerald-500 mb-2">check_circle</span>
-                <p class="text-slate-400 font-bold">All machines operational</p>
+          <!-- Active Alerts -->
+          <div class="chart-card" style="flex: 1;">
+            <h3 style="color: #f87171; border-bottom-color: rgba(248,113,113,0.2);">
+              Active Critical Alerts ({{ downtimeStore.activeIssues.length }})
+            </h3>
+            
+            <div class="alerts-container">
+              <div v-if="downtimeStore.activeIssues.length === 0" class="empty-state">
+                <span class="material-symbols-rounded text-3xl text-emerald-500 mb-2">check_circle</span>
+                <p>All machines operational</p>
               </div>
               
-              <div v-else class="flex flex-col gap-4">
+              <div v-else class="flex flex-col gap-3">
                 <div 
                   v-for="issue in downtimeStore.activeIssues" 
                   :key="issue.id"
-                  class="bg-rose-950/30 border border-rose-500/50 rounded-2xl p-5 flex flex-col gap-4 relative overflow-hidden"
+                  class="alert-row-large"
                 >
                   <div class="absolute top-0 left-0 w-1 h-full bg-rose-500 animate-pulse"></div>
                   
-                  <div class="flex justify-between items-start">
+                  <div class="flex justify-between items-start mb-3">
                     <div>
-                      <h3 class="font-bold text-white text-lg">{{ getMachineName(issue.machine_id) }}</h3>
-                      <p class="text-rose-400 font-semibold text-sm">{{ issue.category }}</p>
+                      <h4 class="font-bold text-white text-lg m-0">{{ getMachineName(issue.machine_id) }}</h4>
+                      <p class="text-rose-400 font-semibold text-sm m-0 mt-1">{{ issue.category }}</p>
                     </div>
-                    <div class="bg-rose-500/20 text-rose-300 px-3 py-1 rounded-full text-xs font-black tracking-widest flex items-center gap-2">
-                      <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                    <div class="badge-danger animate-pulse">
                       DOWN
                     </div>
                   </div>
                   
-                  <div class="flex items-center gap-2 text-slate-300 bg-slate-900/50 px-3 py-2 rounded-lg">
-                    <span class="material-symbols-rounded text-lg text-slate-400">timer</span>
-                    <span class="font-mono font-bold">{{ getElapsedTime(issue.start_time) }}</span>
+                  <div class="flex items-center justify-between gap-2 mb-3 bg-slate-900/50 px-3 py-2 rounded-lg border border-white/5">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Elapsed Time</span>
+                    <div class="flex items-center gap-1 text-slate-300">
+                      <span class="material-symbols-rounded text-lg text-slate-400">timer</span>
+                      <span class="font-mono font-bold">{{ getElapsedTime(issue.start_time) }}</span>
+                    </div>
                   </div>
 
                   <button 
                     @click="resolveIssue(issue.id)"
-                    class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 transition-all"
+                    class="btn-action btn-action--success w-full"
+                    style="padding: 0.75rem;"
                   >
                     <span class="material-symbols-rounded">build_circle</span>
                     MARK RESOLVED
@@ -105,69 +105,67 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
 
+        <!-- ── Right Panel: Analytics & History ── -->
+        <div class="flex flex-col gap-4">
+          
+          <!-- Revenue Impact Card -->
+          <div class="chart-card overflow-hidden relative" style="background: linear-gradient(135deg, rgba(30,41,59,1) 0%, rgba(251,191,36,0.05) 100%); border-color: rgba(251,191,36,0.2);">
+            <div class="absolute -right-10 -bottom-10 opacity-5 pointer-events-none">
+              <span class="material-symbols-rounded" style="font-size: 15rem;">monitoring</span>
+            </div>
+            <h3 style="color: #fbbf24; border-bottom-color: rgba(251,191,36,0.2);">Estimated Lost Revenue (Week)</h3>
+            <div class="flex items-end gap-3 my-2">
+              <span class="text-5xl font-black font-mono text-amber-400">{{ formatCurrency(downtimeStore.weeklyLostRevenue) }}</span>
+              <span class="text-xl font-bold text-slate-500 mb-1">ETB</span>
+            </div>
+            <p class="text-xs text-slate-500 font-medium mt-2 max-w-sm m-0 line-height-tight">
+              Calculated dynamically based on machine capacities, total downtime minutes, and the standard average piece-rate.
+            </p>
           </div>
 
-          <!-- ── Right Panel: Analytics & History ── -->
-          <div class="flex flex-col gap-6">
+          <!-- Resolved History -->
+          <div class="chart-card flex-1">
+            <h3 style="color: #94a3b8; border-bottom-color: rgba(255,255,255,0.05);">
+              Maintenance History (Resolved)
+            </h3>
             
-            <!-- Revenue Impact Card -->
-            <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 border border-white/5 shadow-2xl relative overflow-hidden">
-              <div class="absolute -right-10 -bottom-10 opacity-5">
-                <span class="material-symbols-rounded" style="font-size: 15rem;">monitoring</span>
+            <div class="alerts-container">
+              <div v-if="downtimeStore.resolvedIssues.length === 0" class="empty-state">
+                No resolved maintenance logs for this week.
               </div>
-              <h2 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-2">Estimated Lost Revenue (Week)</h2>
-              <div class="flex items-end gap-3 mt-4">
-                <span class="text-5xl font-black font-mono text-amber-400">{{ formatCurrency(downtimeStore.weeklyLostRevenue) }}</span>
-                <span class="text-xl font-bold text-slate-500 mb-1">ETB</span>
-              </div>
-              <p class="text-xs text-slate-500 mt-4 max-w-sm">
-                Calculated dynamically based on machine hourly capacities, total downtime minutes, and the standard average piece-rate.
-              </p>
-            </div>
-
-            <!-- Resolved History -->
-            <div class="bg-slate-800 rounded-2xl p-6 border border-white/5 flex-1 flex flex-col min-h-[400px]">
-              <h2 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 border-b border-white/5 pb-4">
-                Maintenance History (Resolved)
-              </h2>
               
-              <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                <div v-if="downtimeStore.resolvedIssues.length === 0" class="text-center text-slate-500 font-medium py-10">
-                  No resolved maintenance logs for this week.
-                </div>
-                
-                <div v-else class="flex flex-col gap-4">
-                  <div 
-                    v-for="log in downtimeStore.resolvedIssues" 
-                    :key="log.id"
-                    class="flex flex-col gap-2 p-4 rounded-xl bg-slate-900/50 border border-white/5 hover:border-white/10 transition-colors"
-                  >
-                    <div class="flex justify-between items-start">
-                      <h3 class="font-bold text-emerald-400">{{ getMachineName(log.machine_id) }}</h3>
-                      <span class="text-xs font-bold text-slate-500 bg-slate-800 px-2 py-1 rounded">{{ log.category }}</span>
+              <div v-else class="flex flex-col gap-3">
+                <div 
+                  v-for="log in downtimeStore.resolvedIssues" 
+                  :key="log.id"
+                  class="alert-row-standard"
+                >
+                  <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-bold text-emerald-400 m-0">{{ getMachineName(log.machine_id) }}</h4>
+                    <span class="text-xs font-bold text-slate-400 bg-slate-900 px-2 py-1 rounded">{{ log.category }}</span>
+                  </div>
+                  
+                  <div class="flex flex-col gap-1 mt-1">
+                    <div class="flex justify-between items-center text-xs text-slate-400 bg-slate-900/40 px-2 py-1 rounded border border-white/5">
+                      <span class="uppercase tracking-widest font-bold text-[0.65rem]">Period</span>
+                      <span>{{ formatEastAfricaTime(log.start_time) }} &mdash; {{ formatEastAfricaTime(log.end_time) }}</span>
                     </div>
-                    
-                    <div class="flex flex-col gap-1 mt-2">
-                      <div class="flex items-center gap-2 text-xs text-slate-400">
-                        <span class="material-symbols-rounded text-[1rem]">calendar_clock</span>
-                        <span>{{ formatEastAfricaTime(log.start_time) }} &nbsp;&mdash;&nbsp; {{ formatEastAfricaTime(log.end_time) }}</span>
-                      </div>
-                      <div class="flex items-center gap-2 text-xs text-slate-400">
-                        <span class="material-symbols-rounded text-[1rem]">schedule</span>
-                        <span class="font-bold text-slate-300">Total Duration: {{ calculateTotalDuration(log.start_time, log.end_time) }}</span>
-                      </div>
+                    <div class="flex justify-between items-center text-xs text-slate-400 bg-slate-900/40 px-2 py-1 rounded border border-white/5 mt-1">
+                      <span class="uppercase tracking-widest font-bold text-[0.65rem]">Duration</span>
+                      <span class="font-bold text-slate-300">{{ calculateTotalDuration(log.start_time, log.end_time) }}</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-
           </div>
-          
+
         </div>
+        
       </div>
-      
     </div>
   </AppLayout>
 </template>
@@ -199,7 +197,6 @@ onUnmounted(() => {
 function submitReport() {
   if (selectedMachine.value && selectedCategory.value) {
     downtimeStore.reportDowntime(selectedMachine.value, selectedCategory.value)
-    // Reset form
     selectedMachine.value = ''
     selectedCategory.value = ''
   }
@@ -219,11 +216,11 @@ function getElapsedTime(isoStart) {
   const start = new Date(isoStart).getTime()
   const diffMinutes = Math.floor((Date.now() - start) / 60000)
   
-  if (diffMinutes < 60) return `Down for ${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`
+  if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`
   
   const h = Math.floor(diffMinutes / 60)
   const m = diffMinutes % 60
-  return `Down for ${h}h ${m}m`
+  return `${h}h ${m}m`
 }
 
 function calculateTotalDuration(isoStart, isoEnd) {
@@ -257,18 +254,182 @@ function formatCurrency(val) {
 </script>
 
 <style scoped>
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+/* ══ Main view area ════════════════════════════════════════════════════════════ */
+.view-area {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #0f172a;
 }
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 10px;
+
+.view-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 1.25rem 1.5rem;
+  gap: 1rem;
+  overflow: hidden;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+
+.panel-header { flex-shrink: 0; }
+.panel-title {
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: #f1f5f9;
+  margin: 0;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+.panel-sub { font-size: .7rem; color: #64748b; margin: .2rem 0 0; }
+
+/* ══ Chart card (shared) ═════════════════════════════════════════════════════ */
+.chart-card {
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  overflow: hidden;
+}
+.chart-card h3 {
+  color: #94a3b8;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 .5rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding-bottom: 0.75rem;
+}
+
+/* ══ Form elements ═══════════════════════════════════════════════════════════ */
+.form-group label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.4rem;
+}
+
+.custom-select {
+  width: 100%;
+  background: #0f172a;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  color: #f1f5f9;
+  font-weight: 700;
+  outline: none;
+  appearance: none;
+  transition: all 0.2s;
+}
+.custom-select:focus {
+  border-color: #f43f5e;
+}
+
+/* ══ Buttons ═════════════════════════════════════════════════════════════════ */
+.btn-action {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: none;
+  cursor: pointer;
+}
+.btn-action--disabled {
+  background: #334155;
+  color: #64748b;
+  cursor: not-allowed;
+}
+.btn-action--danger {
+  background: #e11d48;
+  color: white;
+}
+.btn-action--danger:active {
+  transform: scale(0.98);
+}
+.btn-action--success {
+  background: #10b981;
+  color: #064e3b;
+}
+.btn-action--success:active {
+  transform: scale(0.98);
+}
+
+/* ══ Alerts ══════════════════════════════════════════════════════════════════ */
+.alerts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  max-height: 400px;
+}
+.alerts-container::-webkit-scrollbar { width: 4px; }
+.alerts-container::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+.alerts-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+.empty-state {
+  text-align: center;
+  color: #64748b;
+  padding: 2rem 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.alert-row-large {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  background: rgba(225,29,72,0.1);
+  border: 1px solid rgba(225,29,72,0.3);
+  border-radius: 0.75rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.alert-row-standard {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem;
+  background: rgba(15,23,42,0.5);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 0.75rem;
+  transition: border-color 0.2s;
+}
+.alert-row-standard:hover {
+  border-color: rgba(255,255,255,0.15);
+}
+
+.badge-danger {
+  background: rgba(225,29,72,0.2);
+  color: #fb7185;
+  padding: 0.25rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border: 1px solid rgba(225,29,72,0.3);
+}
+
+/* Helpers */
+.line-height-tight {
+  line-height: 1.4;
 }
 </style>
