@@ -1,385 +1,277 @@
 <template>
-    <AppLayout>
-    <!-- LEFT: Leaderboard -->
-        <!-- RIGHT: Waste Timeline Feed -->
-    <main class="qc-main">
-      <!-- Header bar -->
-      <div class="qc-topbar">
-        <div class="topbar-left">
-          <span class="material-symbols-rounded" style="color:#f59e0b;font-size:1.5rem">analytics</span>
+  <AppLayout>
+    <div class="h-full w-full flex flex-col bg-slate-900 text-slate-100 overflow-hidden relative">
+      
+      <!-- ── Header ── -->
+      <header class="flex-shrink-0 flex items-center justify-between p-6 bg-slate-800 border-b border-amber-500/20">
+        <div class="flex items-center gap-4">
+          <span class="material-symbols-rounded text-4xl text-amber-500">verified_user</span>
           <div>
-            <h1 class="topbar-title">Quality Control — Waste Feed</h1>
-            <p class="topbar-sub">{{ store.currentProductionWeek }} &bull; {{ wasteEntries.length }} entries recorded</p>
+            <h1 class="text-2xl font-black tracking-wide">Quality Control & Waste Logging</h1>
+            <p class="text-sm text-slate-400 font-medium">Categorize defects to identify training and calibration needs</p>
           </div>
         </div>
-        <div class="topbar-stats">
-          <div class="stat-pill stat-pill--good">
-            <span class="material-symbols-rounded">check_circle</span>
-            <div>
-              <p class="stat-val">{{ store.totalGoodAllTime }}</p>
-              <p class="stat-lbl">Total Good</p>
+      </header>
+
+      <!-- ── Main Content Area ── -->
+      <div class="flex-1 overflow-y-auto p-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto h-full">
+          
+          <!-- ── Left Panel: Log Defect ── -->
+          <div class="flex flex-col gap-6">
+            <div class="bg-slate-800 rounded-2xl p-6 border border-white/5 shadow-xl flex flex-col h-full">
+              <h2 class="text-lg font-black uppercase tracking-widest text-slate-300 mb-6 flex items-center gap-2">
+                <span class="material-symbols-rounded text-amber-500">assignment_late</span>
+                Log Defective Output
+              </h2>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                <!-- Operator Select -->
+                <div>
+                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Operator</label>
+                  <select v-model="formData.operator_id" class="w-full bg-slate-900 border border-white/10 rounded-xl p-4 text-white font-bold appearance-none outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all">
+                    <option disabled value="">-- Select Operator --</option>
+                    <option v-for="op in mesStore.operators" :key="op.id" :value="op.id">
+                      {{ op.name }}
+                    </option>
+                  </select>
+                </div>
+                
+                <!-- Machine Select -->
+                <div>
+                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Machine Used</label>
+                  <select v-model="formData.machine_id" class="w-full bg-slate-900 border border-white/10 rounded-xl p-4 text-white font-bold appearance-none outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all">
+                    <option disabled value="">-- Select Machine --</option>
+                    <option v-for="m in downtimeStore.machines" :key="m.id" :value="m.id">
+                      {{ m.name }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Divider Type -->
+                <div>
+                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Divider Type</label>
+                  <div class="flex gap-2">
+                    <button 
+                      v-for="type in qcStore.dividerTypes" 
+                      :key="type"
+                      @click="formData.divider_type = type"
+                      class="flex-1 py-3 px-4 rounded-xl border font-bold transition-all"
+                      :class="formData.divider_type === type ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-white/10 text-slate-400'"
+                    >
+                      {{ type }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Defect Category -->
+                <div>
+                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Defect Type</label>
+                  <select v-model="formData.category" class="w-full bg-slate-900 border border-white/10 rounded-xl p-4 text-white font-bold appearance-none outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all">
+                    <option disabled value="">-- Select Flaw --</option>
+                    <option v-for="cat in qcStore.categories" :key="cat" :value="cat">
+                      {{ cat }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Virtual Numpad for Quantity -->
+              <div class="flex-1 flex flex-col justify-center items-center mt-2 border-t border-white/5 pt-6">
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 w-full text-center">
+                  Quantity of Defective Pieces
+                </label>
+                <VirtualNumpad 
+                  label="Defect Quantity"
+                  v-model="formData.quantity" 
+                  :maxLen="5" 
+                />
+              </div>
+
+              <!-- Action Button -->
+              <button 
+                @click="submitDefect"
+                :disabled="!isFormValid"
+                class="mt-6 w-full flex items-center justify-center gap-3 p-5 rounded-xl font-black text-lg transition-all"
+                :class="isFormValid ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/30 active:scale-95' : 'bg-slate-700 text-slate-500 cursor-not-allowed'"
+              >
+                <span class="material-symbols-rounded">delete_forever</span>
+                LOG WASTE & DEFECTS
+              </button>
             </div>
           </div>
-          <div class="stat-pill stat-pill--waste">
-            <span class="material-symbols-rounded">delete</span>
-            <div>
-              <p class="stat-val">{{ store.totalWasteAllTime }}</p>
-              <p class="stat-lbl">Total Waste</p>
+
+          <!-- ── Right Panel: Analytics & Alerts ── -->
+          <div class="flex flex-col gap-6">
+            
+            <!-- Operator Training Alerts -->
+            <div class="bg-slate-800 rounded-2xl border border-white/5 shadow-xl flex flex-col overflow-hidden">
+              <div class="p-6 border-b border-white/5 bg-slate-900/50">
+                <h2 class="text-sm font-black uppercase tracking-widest text-slate-300 flex items-center gap-2">
+                  <span class="material-symbols-rounded text-rose-400">group_off</span>
+                  Operator Training Alerts
+                </h2>
+                <p class="text-xs text-slate-500 font-medium mt-1">Total defects by operator across all machines.</p>
+              </div>
+              <div class="p-4 flex flex-col gap-3 max-h-[300px] overflow-y-auto custom-scrollbar">
+                <div v-if="qcStore.operatorDefectRates.length === 0" class="text-center text-slate-500 py-6">
+                  No operator defects logged yet.
+                </div>
+                <div 
+                  v-for="rate in qcStore.operatorDefectRates" 
+                  :key="'op-'+rate.operator_id"
+                  class="flex items-center justify-between p-4 rounded-xl bg-slate-900/80 border border-white/5"
+                  :class="{ 'border-rose-500/50 bg-rose-950/20': rate.training_required }"
+                >
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-inner" :class="rate.color || 'bg-slate-600'">
+                      {{ rate.avatar || rate.operator_name.charAt(0) }}
+                    </div>
+                    <div>
+                      <p class="font-bold text-white">{{ rate.operator_name }}</p>
+                      <p class="text-xs text-slate-400 font-medium">{{ rate.total_defects }} Total Defects</p>
+                    </div>
+                  </div>
+                  <div v-if="rate.training_required" class="bg-rose-500/20 border border-rose-500/30 text-rose-400 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                    <span class="material-symbols-rounded text-[1rem]">warning</span>
+                    Training Req
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-          <div
-            class="stat-pill"
-            :class="
-              store.overallWastePct >= store.wasteThresholds.critical ? 'stat-pill--critical' :
-              store.overallWastePct >= store.wasteThresholds.warn     ? 'stat-pill--warn' : 'stat-pill--ok'
-            "
-          >
-            <span class="material-symbols-rounded">percent</span>
-            <div>
-              <p class="stat-val">{{ store.overallWastePct }}%</p>
-              <p class="stat-lbl">Waste Rate</p>
+
+            <!-- Machine Maintenance Alerts -->
+            <div class="bg-slate-800 rounded-2xl border border-white/5 shadow-xl flex flex-col overflow-hidden flex-1">
+              <div class="p-6 border-b border-white/5 bg-slate-900/50">
+                <h2 class="text-sm font-black uppercase tracking-widest text-slate-300 flex items-center gap-2">
+                  <span class="material-symbols-rounded text-amber-500">build_circle</span>
+                  Machine Calibration Alerts
+                </h2>
+                <p class="text-xs text-slate-500 font-medium mt-1">Highlights equipment producing excessive 'Bent Edge' flaws.</p>
+              </div>
+              <div class="p-4 flex flex-col gap-3 max-h-[300px] overflow-y-auto custom-scrollbar">
+                <div v-if="qcStore.machineDefectRates.length === 0" class="text-center text-slate-500 py-6">
+                  No machine defects logged yet.
+                </div>
+                <div 
+                  v-for="rate in qcStore.machineDefectRates" 
+                  :key="'mac-'+rate.machine_id"
+                  class="flex flex-col gap-3 p-4 rounded-xl bg-slate-900/80 border border-white/5 relative overflow-hidden"
+                  :class="{ 'border-amber-500/50 bg-amber-950/20': rate.calibration_needed }"
+                >
+                  <div v-if="rate.calibration_needed" class="absolute top-0 left-0 w-1 h-full bg-amber-500 animate-pulse"></div>
+                  
+                  <div class="flex justify-between items-start">
+                    <div>
+                      <h3 class="font-bold text-white">{{ rate.machine_name }}</h3>
+                      <p class="text-xs text-slate-400 font-medium">Total Lifetime Defects: {{ rate.total_defects }}</p>
+                    </div>
+                    <div v-if="rate.calibration_needed" class="bg-amber-500/20 border border-amber-500/30 text-amber-400 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                      <span class="material-symbols-rounded text-[1rem]">handyman</span>
+                      Needs Calibration
+                    </div>
+                  </div>
+                  
+                  <div class="flex justify-between items-center bg-slate-800/50 px-3 py-2 rounded-lg border border-white/5 mt-1">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Bent Edges Created:</span>
+                    <span class="font-mono font-bold" :class="rate.calibration_needed ? 'text-amber-400' : 'text-slate-300'">{{ rate.bent_edge_count }}</span>
+                  </div>
+                </div>
+              </div>
             </div>
+
           </div>
+          
         </div>
       </div>
-
-      <!-- Timeline -->
-      <div class="timeline-feed">
-        <!-- Empty State -->
-        <div v-if="wasteEntries.length === 0" class="empty-feed">
-          <span class="material-symbols-rounded empty-icon">inventory</span>
-          <p>No waste entries logged yet.</p>
-          <p class="empty-sub">Entries appear here when operators save production with waste data.</p>
+      
+      <!-- Toast -->
+      <Transition name="toast">
+        <div v-if="toast.visible" class="absolute bottom-8 left-1/2 -translate-x-1/2 bg-amber-500 text-slate-900 font-bold px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 z-50">
+          <span class="material-symbols-rounded">check_circle</span>
+          {{ toast.message }}
         </div>
+      </Transition>
 
-        <TransitionGroup name="feed" tag="div" class="feed-list">
-          <div
-            v-for="entry in wasteEntries"
-            :key="entry.id"
-            class="feed-card"
-            :class="{
-              'feed-card--critical': entry.wastePercent >= store.wasteThresholds.critical,
-              'feed-card--warn':     entry.wastePercent >= store.wasteThresholds.warn && entry.wastePercent < store.wasteThresholds.critical,
-            }"
-          >
-            <!-- Alert Badge -->
-            <div
-              v-if="entry.wastePercent >= store.wasteThresholds.warn"
-              class="alert-badge"
-              :class="entry.wastePercent >= store.wasteThresholds.critical ? 'badge--critical' : 'badge--warn'"
-            >
-              <span class="material-symbols-rounded" style="font-size:1rem">{{ entry.wastePercent >= store.wasteThresholds.critical ? 'crisis_alert' : 'warning' }}</span>
-              {{ entry.wastePercent >= store.wasteThresholds.critical ? 'CRITICAL' : 'HIGH WASTE' }}
-            </div>
-
-            <!-- Entry Body -->
-            <div class="card-row">
-              <!-- Operator chip -->
-              <div class="card-op">
-                <div
-                  class="op-dot"
-                  :style="{ background: opColor(entry.operator) }"
-                >{{ entry.operator[0] }}</div>
-                <span class="op-name-sm">{{ entry.operator }}</span>
-              </div>
-
-              <!-- Product details -->
-              <div class="card-meta">
-                <span class="meta-badge">Type {{ entry.dividerType }}</span>
-                <span class="meta-badge">{{ entry.size }}</span>
-                <span class="meta-badge">{{ entry.placement }}</span>
-              </div>
-
-              <!-- Numbers -->
-              <div class="card-numbers">
-                <div class="num-item num-good">
-                  <span class="material-symbols-rounded" style="font-size:.9rem">check_circle</span>
-                  {{ entry.goodProduction }} pcs
-                </div>
-                <div class="num-item num-waste">
-                  <span class="material-symbols-rounded" style="font-size:.9rem">delete</span>
-                  {{ entry.wasteMaterial }} pcs
-                </div>
-              </div>
-
-              <!-- Waste % bar -->
-              <div class="card-bar-wrap">
-                <div class="bar-track">
-                  <div
-                    class="bar-fill"
-                    :class="{
-                      'bar--critical': entry.wastePercent >= store.wasteThresholds.critical,
-                      'bar--warn':     entry.wastePercent >= store.wasteThresholds.warn,
-                      'bar--ok':       entry.wastePercent < store.wasteThresholds.warn,
-                    }"
-                    :style="{ width: Math.min(100, entry.wastePercent) + '%' }"
-                  />
-                </div>
-                <span
-                  class="bar-pct"
-                  :class="{
-                    'pct--critical': entry.wastePercent >= store.wasteThresholds.critical,
-                    'pct--warn':     entry.wastePercent >= store.wasteThresholds.warn,
-                    'pct--ok':       entry.wastePercent < store.wasteThresholds.warn,
-                  }"
-                >{{ entry.wastePercent }}%</span>
-              </div>
-
-              <!-- Timestamp -->
-              <div class="card-time">{{ fmtTime(entry.timestamp) }}</div>
-            </div>
-          </div>
-        </TransitionGroup>
-      </div>
-    </main>
+    </div>
   </AppLayout>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { useMesStore } from '@/store/mesStore.js'
+import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
+import { useMesStore } from '@/store/mesStore'
+import { useDowntimeStore } from '@/store/downtimeStore'
+import { useQcStore } from '@/store/qcStore'
 
-const store = useMesStore()
+const mesStore = useMesStore()
+const downtimeStore = useDowntimeStore()
+const qcStore = useQcStore()
 
-// Only entries that have any waste data
-const wasteEntries = computed(() => {
-  return [...store.ledgerEntries]
-    .map(e => {
-      const good  = Number(e.goodProduction) || 0
-      const waste = Number(e.wasteMaterial)  || 0
-      const total = good + waste
-      return {
-        ...e,
-        wastePercent: total > 0 ? +((waste / total) * 100).toFixed(1) : 0,
-      }
-    })
-    .filter(e => e.wasteMaterial > 0 || e.goodProduction > 0)
-    .reverse()
+// Initialize dependencies
+onMounted(async () => {
+  if (mesStore.operators.length === 0) {
+    await mesStore.fetchInitialData()
+  }
 })
 
-// Avatar gradient fallback using op color CSS classes → inline style
-const OP_COLORS = {
-  Zelalem: '#059669', Aben: '#4f46e5', Teme: '#7c3aed',
-  Selam: '#d97706',   Biruk: '#e11d48', Meron: '#0891b2',
-}
-function opColor(name) { return OP_COLORS[name] ?? '#475569' }
+const formData = reactive({
+  operator_id: '',
+  machine_id: '',
+  divider_type: '',
+  category: '',
+  quantity: ''
+})
 
-function fmtTime(iso) {
-  return new Date(iso).toLocaleTimeString('en-GB', {
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  }) + ' — ' + new Date(iso).toLocaleDateString('en-GB', {
-    day: '2-digit', month: 'short',
-  })
+const isFormValid = computed(() => {
+  return formData.operator_id !== '' &&
+         formData.machine_id !== '' &&
+         formData.divider_type !== '' &&
+         formData.category !== '' &&
+         Number(formData.quantity) > 0
+})
+
+const toast = ref({ visible: false, message: '' })
+let toastTimer = null
+function showToast(msg) {
+  toast.value = { visible: true, message: msg }
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { toast.value.visible = false }, 3000)
+}
+
+function submitDefect() {
+  if (!isFormValid.value) return
+  
+  qcStore.logDefect({ ...formData })
+  
+  showToast(`Successfully logged ${formData.quantity} defective pieces.`)
+  
+  // Reset Form
+  formData.operator_id = ''
+  formData.machine_id = ''
+  formData.divider_type = ''
+  formData.category = ''
+  formData.quantity = ''
 }
 </script>
 
 <style scoped>
-
-
-/* ── Sidebar ───────────────────────────────────────────────────────────── */
-
-.sidebar-header { display: flex; align-items: center; gap: .6rem; }
-.sidebar-title  { font-size: 1rem; font-weight: 800; color: #f1f5f9; }
-.sidebar-sub    { font-size: .65rem; color: #64748b; letter-spacing: .06em; text-transform: uppercase; margin-top: -.4rem; }
-
-.leaderboard { display: flex; flex-direction: column; gap: .5rem; flex: 1; overflow-y: auto; }
-
-.lb-card {
-  display: flex;
-  align-items: center;
-  gap: .65rem;
-  padding: .7rem .8rem;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.07);
-  border-radius: .75rem;
-  transition: border-color .15s ease;
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
 }
-.lb-card--gold   { border-color: rgba(234,179,8,.4);  background: rgba(234,179,8,.07); }
-.lb-card--silver { border-color: rgba(148,163,184,.3); background: rgba(148,163,184,.05); }
-.lb-card--bronze { border-color: rgba(180,83,9,.3);   background: rgba(180,83,9,.05); }
-
-.lb-rank {
-  width: 1.8rem; height: 1.8rem;
-  border-radius: .35rem;
-  display: flex; align-items: center; justify-content: center;
-  font-size: .75rem; font-weight: 800; color: #94a3b8;
-  background: rgba(255,255,255,.06);
-  flex-shrink: 0;
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
 }
-.rank-0 { background: rgba(234,179,8,.2); color: #fbbf24; }
-.rank-1 { background: rgba(148,163,184,.15); color: #cbd5e1; }
-.rank-2 { background: rgba(180,83,9,.2); color: #fb923c; }
-.rank-icon { font-size: 1rem !important; }
-
-.lb-avatar {
-  width: 2rem; height: 2rem;
-  border-radius: .4rem;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: .8rem; color: #fff;
-  flex-shrink: 0;
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
 }
-.lb-info { flex: 1; min-width: 0; }
-.lb-name  { font-size: .85rem; font-weight: 700; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lb-stats { font-size: .62rem; color: #64748b; margin-top: .05rem; }
-
-.lb-pct {
-  font-size: .8rem; font-weight: 800;
-  padding: .2rem .5rem;
-  border-radius: .35rem;
-  flex-shrink: 0;
-}
-.pct--ok       { background: rgba(16,185,129,.15); color: #34d399; }
-.pct--warn     { background: rgba(245,158,11,.15); color: #fbbf24; }
-.pct--critical { background: rgba(239,68,68,.15);  color: #f87171; }
-
-.empty-lb { font-size: .75rem; color: #334155; text-align: center; padding: 1rem 0; }
-
-.threshold-legend {
-  display: flex; flex-direction: column; gap: .3rem;
-  background: rgba(255,255,255,.03);
-  border: 1px solid rgba(255,255,255,.07);
-  border-radius: .65rem;
-  padding: .65rem .75rem;
-}
-.legend-item { display: flex; align-items: center; gap: .5rem; font-size: .7rem; color: #64748b; }
-.dot { width: .55rem; height: .55rem; border-radius: 50%; flex-shrink: 0; }
-.dot--ok       { background: #10b981; }
-.dot--warn     { background: #f59e0b; }
-.dot--critical { background: #ef4444; }
-
-/* ── Main ──────────────────────────────────────────────────────────────── */
-.qc-main {
-  width: 100%;
-  height: 100%;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
-/* Topbar */
-.qc-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.5rem;
-  background: #1e293b;
-  border-bottom: 1px solid rgba(255,255,255,.07);
-  flex-shrink: 0;
-}
-.topbar-left  { display: flex; align-items: center; gap: .75rem; }
-.topbar-title { font-size: 1rem; font-weight: 800; color: #f1f5f9; }
-.topbar-sub   { font-size: .7rem; color: #64748b; margin-top: .1rem; }
-.topbar-stats { display: flex; gap: .6rem; }
-
-.stat-pill {
-  display: flex; align-items: center; gap: .5rem;
-  padding: .5rem .9rem;
-  border-radius: .65rem;
-  border: 1px solid rgba(255,255,255,.08);
-  background: rgba(255,255,255,.04);
-}
-.stat-pill .material-symbols-rounded { font-size: 1.25rem; }
-.stat-val  { font-size: .9rem; font-weight: 800; line-height: 1; }
-.stat-lbl  { font-size: .6rem; color: #64748b; text-transform: uppercase; letter-spacing: .06em; }
-.stat-pill--good     .stat-val { color: #34d399; }
-.stat-pill--good     .material-symbols-rounded { color: #34d399; }
-.stat-pill--waste    .stat-val { color: #f87171; }
-.stat-pill--waste    .material-symbols-rounded { color: #f87171; }
-.stat-pill--ok       .stat-val { color: #34d399; }
-.stat-pill--warn     .stat-val { color: #fbbf24; }
-.stat-pill--critical .stat-val { color: #f87171; }
-
-/* Timeline Feed */
-.timeline-feed {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1rem 1.25rem;
-}
-
-.empty-feed {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 100%; gap: .75rem; color: #334155;
-}
-.empty-icon { font-size: 3.5rem; }
-.empty-sub  { font-size: .75rem; color: #1e3a5f; text-align: center; max-width: 300px; }
-
-.feed-list { display: flex; flex-direction: column; gap: .65rem; }
-
-.feed-card {
-  background: #1e293b;
-  border: 1px solid rgba(255,255,255,.07);
-  border-radius: .85rem;
-  padding: .9rem 1.1rem;
-  position: relative;
-  transition: border-color .2s ease;
-}
-.feed-card--warn     { border-left: 3px solid #f59e0b; }
-.feed-card--critical { border-left: 3px solid #ef4444; background: rgba(239,68,68,.04); }
-
-.alert-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: .25rem;
-  font-size: .62rem;
-  font-weight: 800;
-  letter-spacing: .08em;
-  padding: .15rem .55rem;
-  border-radius: 999px;
-  margin-bottom: .5rem;
-}
-.badge--warn     { background: rgba(245,158,11,.2); color: #fbbf24; }
-.badge--critical { background: rgba(239,68,68,.2);  color: #f87171; }
-
-.card-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.card-op   { display: flex; align-items: center; gap: .45rem; min-width: 90px; }
-.op-dot    { width: 1.7rem; height: 1.7rem; border-radius: .35rem; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .75rem; color: #fff; flex-shrink: 0; }
-.op-name-sm { font-size: .82rem; font-weight: 700; color: #e2e8f0; }
-
-.card-meta  { display: flex; gap: .3rem; flex-wrap: wrap; }
-.meta-badge {
-  background: rgba(99,102,241,.12);
-  border: 1px solid rgba(99,102,241,.25);
-  color: #a5b4fc;
-  font-size: .65rem;
-  font-weight: 700;
-  padding: .15rem .45rem;
-  border-radius: .3rem;
-}
-
-.card-numbers { display: flex; gap: .75rem; margin-left: auto; }
-.num-item { display: flex; align-items: center; gap: .2rem; font-size: .82rem; font-weight: 700; }
-.num-good  { color: #34d399; }
-.num-waste { color: #f87171; }
-
-.card-bar-wrap {
-  display: flex; align-items: center; gap: .5rem; min-width: 120px;
-}
-.bar-track {
-  flex: 1; height: .45rem;
-  background: rgba(255,255,255,.08);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  transition: width .4s ease;
-}
-.bar--ok       { background: #10b981; }
-.bar--warn     { background: #f59e0b; }
-.bar--critical { background: #ef4444; }
-.bar-pct { font-size: .78rem; font-weight: 800; min-width: 2.5rem; text-align: right; }
-
-.card-time { font-size: .65rem; color: #475569; white-space: nowrap; margin-left: auto; }
-
-/* Transitions */
-.feed-enter-active { transition: all .3s ease; }
-.feed-enter-from   { opacity: 0; transform: translateY(-10px); }
+.toast-enter-active, .toast-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 20px); }
 </style>

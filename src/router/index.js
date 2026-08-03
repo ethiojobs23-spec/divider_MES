@@ -136,10 +136,10 @@ const routes = [
 
   // ── Operations ─────────────────────────────────────────────────────────
   {
-    path: '/quality',
+    path: '/quality-control',
     name: 'QualityControl',
     component: QualityControl,
-    meta: { title: 'Quality', icon: 'verified_user', requiresSystemAuth: true, nav: true },
+    meta: { title: 'Quality', icon: 'verified_user', requiresSystemAuth: true, requiresAdmin: true, nav: true },
   },
   {
     path: '/dispatch',
