@@ -359,7 +359,7 @@
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
 import PaymentReceiptModal from '@/components/ui/PaymentReceiptModal.vue'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore.js'
 
@@ -369,6 +369,16 @@ const payrollStore = usePayrollStore()
 const activeTab = ref('pending')
 
 const currentWeek = computed(() => mesStore.currentProductionWeek)
+
+onMounted(async () => {
+  await payrollStore.fetchLoans()
+  await payrollStore.fetchBonuses(currentWeek.value)
+})
+
+// Re-fetch bonuses if the week changes
+watch(currentWeek, async (newWeek) => {
+  await payrollStore.fetchBonuses(newWeek)
+})
 
 const selectedWorkerId = ref(null)
 const selectedWorker = computed(() => {
