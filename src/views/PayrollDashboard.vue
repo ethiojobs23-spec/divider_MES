@@ -197,9 +197,42 @@
             </div>
 
               <div class="chart-card deductions">
-              <h3>Deductions</h3>
-              <div class="calc-row">
-                <span>Advances + Loans + Interest</span>
+              <h3>
+                <span class="material-symbols-rounded" style="font-size:.9rem;vertical-align:middle;margin-right:.3rem;color:#f87171">account_balance</span>
+                Loan Installments
+              </h3>
+
+              <!-- Per-loan progress lines -->
+              <template v-if="selectedWorker.loanBreakdown && selectedWorker.loanBreakdown.length">
+                <div v-for="lb in selectedWorker.loanBreakdown" :key="lb.loanId" class="loan-progress-block">
+                  <div class="lp-header">
+                    <span class="lp-label">
+                      Payment {{ lb.totalInstallments - lb.weeksRemaining + 1 }} of {{ lb.totalInstallments }}
+                    </span>
+                    <span class="lp-installment deduction-val">
+                      - {{ lb.deduction.toFixed(2) }} ETB / week
+                    </span>
+                  </div>
+                  <div class="lp-track">
+                    <div
+                      class="lp-fill"
+                      :style="{ width: (((lb.totalDebt - lb.remaining) / lb.totalDebt) * 100).toFixed(1) + '%' }"
+                      :class="lb.remaining <= lb.deduction ? 'lp-fill--done' : ''"
+                    ></div>
+                  </div>
+                  <div class="lp-footer">
+                    <span class="lp-repaid">{{ (lb.totalDebt - lb.remaining).toFixed(2) }} ETB repaid</span>
+                    <span class="lp-remaining">{{ lb.remaining.toFixed(2) }} ETB left</span>
+                  </div>
+                </div>
+              </template>
+              <div v-else class="calc-row" style="color:#64748b;font-size:.78rem;">
+                No active installment loans this week
+              </div>
+
+              <div class="calc-divider-thin"></div>
+              <div class="calc-row" style="font-weight:700;">
+                <span>Total This-Week Deduction</span>
                 <span class="deduction-val">- {{ selectedWorker.totalDeduction.toFixed(2) }} ETB</span>
               </div>
             </div>
@@ -923,6 +956,51 @@ function executeHold(reason) {
 }
 .entry-mini-table td { padding: 0.4rem 0.6rem; color: #e2e8f0; }
 .tar { text-align: right !important; }
+
+/* ══ Loan Installment Progress Blocks ═══════════════════════════════════════ */
+.loan-progress-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.loan-progress-block:last-of-type { border-bottom: none; }
+
+.lp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.lp-label       { font-size: 0.72rem; font-weight: 700; color: #94a3b8; }
+.lp-installment { font-size: 0.78rem; font-weight: 800; }
+
+.lp-track {
+  height: 5px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.lp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+.lp-fill--done { background: linear-gradient(90deg, #10b981, #34d399); }
+
+.lp-footer {
+  display: flex;
+  justify-content: space-between;
+}
+.lp-repaid    { font-size: 0.62rem; color: #475569; }
+.lp-remaining { font-size: 0.62rem; font-weight: 700; color: #f87171; }
+
+.calc-divider-thin {
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+  margin: 0.5rem 0;
+}
 
 .no-shifts-note {
   display: flex; align-items: center; gap: 0.5rem;

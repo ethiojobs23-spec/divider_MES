@@ -2,7 +2,7 @@
  * payrollStore.js
  *
  * Piece-rate and hourly wage payroll engine for the Divider MES.
- * Integrates with Supabase to fetch and store loans and payout statuses.
+ * Supports installment-based loan deductions with per-week balance tracking.
  */
 
 import { defineStore } from 'pinia'
@@ -27,9 +27,9 @@ export const usePayrollStore = defineStore('payroll', () => {
 
   // ── Profiles ────────────────────────────────────────────────────────
   const workerProfiles = ref({})
-  const DEFAULT_PROFILE = { 
-    paymentMethod: 'Cash', accountInfo: '', baseInterestRate: 5, 
-    hourlyRate: HOURLY_MIN, isHourly: false, isPieceRate: true 
+  const DEFAULT_PROFILE = {
+    paymentMethod: 'Cash', accountInfo: '', baseInterestRate: 5,
+    hourlyRate: HOURLY_MIN, isHourly: false, isPieceRate: true
   }
 
   function getWorkerProfile(workerId) {
@@ -46,12 +46,9 @@ export const usePayrollStore = defineStore('payroll', () => {
   }
 
   // ── Bonuses ────────────────────────────────────────────────────────────────
-  // Keyed as { [workerId]: { amount, reason } } for the current week
   const bonuses = ref({})
 
-  function getBonusKey(workerId, week) {
-    return `${workerId}::${week}`
-  }
+  function getBonusKey(workerId, week) { return `${workerId}::${week}` }
 
   function getBonus(workerId, week) {
     return bonuses.value[getBonusKey(workerId, week)] ?? { amount: 0, reason: '' }
@@ -59,10 +56,7 @@ export const usePayrollStore = defineStore('payroll', () => {
 
   async function fetchBonuses(week) {
     try {
-      const { data, error } = await supabase
-        .from('mes_bonuses')
-        .select('*')
-        .eq('production_week', week)
+      const { data } = await supabase.from('mes_bonuses').select('*').eq('production_week', week)
       if (data) {
         for (const row of data) {
           const key = getBonusKey(row.operator_id, row.production_week)
@@ -70,7 +64,6 @@ export const usePayrollStore = defineStore('payroll', () => {
         }
       }
     } catch (err) {
-      // Table may not exist yet — fail silently
       console.warn('[PayrollStore] mes_bonuses table not found, bonus feature in local-only mode:', err.message)
     }
   }
@@ -78,11 +71,8 @@ export const usePayrollStore = defineStore('payroll', () => {
   async function setBonusForWorker(workerId, week, amount, reason) {
     const safeAmount = toDecimal2(Math.max(0, Number(amount) || 0))
     const key = getBonusKey(workerId, week)
-    // Optimistic local update
     bonuses.value = { ...bonuses.value, [key]: { amount: safeAmount, reason: reason || '' } }
-
     try {
-      // Upsert into Supabase (create table if it doesn't exist is handled gracefully)
       await supabase.from('mes_bonuses').upsert({
         operator_id: workerId,
         production_week: week,
@@ -94,83 +84,195 @@ export const usePayrollStore = defineStore('payroll', () => {
     }
   }
 
-  // ── Loans ────────────────────────────────────────────────────────────────
+  // ── Loans (installment-based) ────────────────────────────────────────────
+  /**
+   * Each loan object (in memory):
+   * {
+   *   id, workerId, week, status, issuedAt,
+   *   amount          — principal
+   *   interestRate    — %
+   *   totalDebt       — principal + interest
+   *   totalInstallments — how many weeks to repay
+   *   weeklyInstallment — totalDebt / totalInstallments
+   *   remainingBalance  — decremented on each payout approval
+   *   weeksRemaining    — remaining installment count
+   *   paidWeeks         — array of production_week strings already collected
+   * }
+   */
   const loans = ref([])
+
+  /** Map a raw Supabase row to the in-memory shape */
+  function _rowToLoan(row) {
+    const principal   = Number(row.principal)
+    const rate        = Number(row.interest_rate)
+    const totalDebt   = toDecimal2(principal + principal * (rate / 100))
+    const weeks       = Number(row.installment_weeks) || 1
+    const weekly      = toDecimal2(totalDebt / weeks)
+    const remaining   = toDecimal2(Number(row.remaining_balance ?? totalDebt))
+    const paidWeeks   = row.paid_weeks ? JSON.parse(row.paid_weeks) : []
+
+    return {
+      id:                row.id,
+      workerId:          row.operator_id,
+      week:              row.production_week,
+      amount:            principal,
+      interestRate:      rate,
+      status:            row.status,
+      issuedAt:          row.issued_at,
+      totalDebt,
+      totalInstallments: weeks,
+      weeklyInstallment: weekly,
+      remainingBalance:  remaining,
+      weeksRemaining:    Math.ceil(remaining / weekly),
+      paidWeeks,
+    }
+  }
 
   async function fetchLoans() {
     try {
-      const { data, error } = await supabase.from('mes_loans').select('*').eq('production_week', mesStore.currentProductionWeek)
-      if (data) {
-        loans.value = data.map(dbRow => ({
-          id: dbRow.id,
-          workerId: dbRow.operator_id,
-          week: dbRow.production_week,
-          amount: Number(dbRow.principal),
-          interestRate: Number(dbRow.interest_rate),
-          status: dbRow.status,
-          issuedAt: dbRow.issued_at
-        }))
-      }
+      const { data, error } = await supabase
+        .from('mes_loans')
+        .select('*')
+        .in('status', ['active', 'pending'])
+      if (error) throw error
+      if (data) loans.value = data.map(_rowToLoan)
     } catch (err) {
       console.error('[PayrollStore] Error fetching loans:', err)
     }
   }
 
-  async function requestLoan(workerId, week, amount, overrideRate = null) {
-    const profile = getWorkerProfile(workerId)
-    const principal = toDecimal2(Math.max(0, Number(amount) || 0))
+  /**
+   * Request (and immediately approve, creating an active installment loan).
+   * @param {number} installmentWeeks — number of weekly deductions (1-12)
+   */
+  async function requestLoan(workerId, week, amount, overrideRate = null, installmentWeeks = 1) {
+    const profile      = getWorkerProfile(workerId)
+    const principal    = toDecimal2(Math.max(0, Number(amount) || 0))
     const interestRate = toDecimal2(Math.max(0, Number(overrideRate ?? profile.baseInterestRate) || 0))
+    const safeWeeks    = Math.max(1, Math.min(12, Number(installmentWeeks) || 1))
 
     if (principal <= 0) return
 
+    const totalDebt    = toDecimal2(principal + principal * (interestRate / 100))
+    const weeklyAmt    = toDecimal2(totalDebt / safeWeeks)
+
     try {
       const payload = {
-        operator_id: workerId,
-        production_week: week,
-        principal: principal,
-        interest_rate: interestRate,
-        status: 'pending'
+        operator_id:        workerId,
+        production_week:    week,
+        principal,
+        interest_rate:      interestRate,
+        installment_weeks:  safeWeeks,
+        remaining_balance:  totalDebt,
+        paid_weeks:         JSON.stringify([]),
+        status:             'active',            // approved immediately by admin
       }
       const { data, error } = await supabase.from('mes_loans').insert(payload).select().single()
       if (error) throw error
 
-      loans.value.push({
-        id: data.id,
-        workerId: data.operator_id,
-        week: data.production_week,
-        amount: Number(data.principal),
-        interestRate: Number(data.interest_rate),
-        status: data.status,
-        issuedAt: data.issued_at
-      })
+      loans.value.push(_rowToLoan(data))
     } catch (err) {
       console.error('[PayrollStore] Error requesting loan:', err)
+      // Fallback: add locally if Supabase not ready
+      loans.value.push({
+        id:                `local-${Date.now()}`,
+        workerId,
+        week,
+        amount:            principal,
+        interestRate,
+        status:            'active',
+        issuedAt:          new Date().toISOString(),
+        totalDebt,
+        totalInstallments: safeWeeks,
+        weeklyInstallment: weeklyAmt,
+        remainingBalance:  totalDebt,
+        weeksRemaining:    safeWeeks,
+        paidWeeks:         [],
+      })
     }
   }
 
+  /**
+   * Returns the installment deductions for this worker for this week.
+   * - Only active loans whose remaining_balance > 0 AND this week not already collected.
+   * - Deducts the minimum of (weeklyInstallment, remainingBalance) to avoid over-deduction.
+   */
   function getLoanDeductions(workerId, week) {
-    const workerLoans = loans.value.filter(l => l.workerId === workerId && l.week === week && l.status === 'active')
-    let principal = 0
-    let interest  = 0
-    for (const loan of workerLoans) {
-      principal += loan.amount
-      interest  += loan.amount * (loan.interestRate / 100)
+    const activeLoans = loans.value.filter(
+      l => l.workerId === workerId &&
+           l.status === 'active' &&
+           l.remainingBalance > 0 &&
+           !l.paidWeeks.includes(week)
+    )
+
+    let totalInstallmentDeduction = 0
+    const breakdown = []
+
+    for (const loan of activeLoans) {
+      const thisWeekAmt = toDecimal2(Math.min(loan.weeklyInstallment, loan.remainingBalance))
+      totalInstallmentDeduction += thisWeekAmt
+      breakdown.push({
+        loanId:       loan.id,
+        deduction:    thisWeekAmt,
+        remaining:    toDecimal2(loan.remainingBalance - thisWeekAmt),
+        weeklyInstallment: loan.weeklyInstallment,
+        totalInstallments: loan.totalInstallments,
+        weeksRemaining: loan.weeksRemaining,
+        totalDebt:    loan.totalDebt,
+      })
     }
+
     return {
-      principal: toDecimal2(principal),
-      interest: toDecimal2(interest),
-      totalDeduction: toDecimal2(principal + interest),
+      totalDeduction: toDecimal2(totalInstallmentDeduction),
+      breakdown,
+    }
+  }
+
+  /**
+   * Called during payout approval — marks the installment as collected for this week
+   * and decrements remaining_balance in Supabase.
+   */
+  async function collectLoanInstallments(workerId, week) {
+    const activeLoans = loans.value.filter(
+      l => l.workerId === workerId &&
+           l.status === 'active' &&
+           l.remainingBalance > 0 &&
+           !l.paidWeeks.includes(week)
+    )
+
+    for (const loan of activeLoans) {
+      const thisWeekAmt   = toDecimal2(Math.min(loan.weeklyInstallment, loan.remainingBalance))
+      const newBalance    = toDecimal2(loan.remainingBalance - thisWeekAmt)
+      const newPaidWeeks  = [...loan.paidWeeks, week]
+      const newStatus     = newBalance <= 0 ? 'closed' : 'active'
+
+      // Optimistic local update
+      loan.remainingBalance = newBalance
+      loan.paidWeeks        = newPaidWeeks
+      loan.weeksRemaining   = newBalance <= 0 ? 0 : Math.ceil(newBalance / loan.weeklyInstallment)
+      loan.status           = newStatus
+
+      try {
+        await supabase
+          .from('mes_loans')
+          .update({
+            remaining_balance: newBalance,
+            paid_weeks:        JSON.stringify(newPaidWeeks),
+            status:            newStatus,
+          })
+          .eq('id', loan.id)
+      } catch (err) {
+        console.warn('[PayrollStore] Could not update loan balance in Supabase:', err.message)
+      }
     }
   }
 
   function getAdvanceDeductions(workerId, week) {
     const worker = mesStore.operators.find(o => o.id === workerId)
     if (!worker) return { totalDeduction: 0 }
-    
-    const workerAdvances = mesStore.cashEntries.filter(e => 
+    const workerAdvances = mesStore.cashEntries.filter(e =>
       e.operator === worker.name && e.week === week && e.type === 'advance'
     )
-    
     const total = workerAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0)
     return { totalDeduction: toDecimal2(total) }
   }
@@ -199,18 +301,15 @@ export const usePayrollStore = defineStore('payroll', () => {
 
   // ── Attendance Delegate ───────────────────────────────────────────────────
   function getDaysAttended(workerId, week) {
-    // We delegate attendance calculation to the attendanceStore which will query Supabase
     return attendanceStore.getDaysAttended(workerId, week)
   }
 
-  // ── Gross Earnings (piece-rate) ────────────────────────────────────────────
+  // ── Gross Earnings ────────────────────────────────────────────────────────
   function getGrossEarnings(workerId, week) {
     const profile = getWorkerProfile(workerId)
     if (!profile.isPieceRate) return 0
-    
     const worker = mesStore.operators.find(o => o.id === workerId)
     if (!worker) return 0
-    // Filter by both operator name AND week
     const entries = mesStore.ledgerEntries.filter(e =>
       e.operator === worker.name && (e.week === week || !week)
     )
@@ -218,7 +317,6 @@ export const usePayrollStore = defineStore('payroll', () => {
     for (const entry of entries) {
       const qty = Number(entry.goodProduction) || 0
       if (qty <= 0) continue
-      // Size stored as '9cm' in ledger, pieceRates key is '9cm'
       const rate = mesStore.pieceRates?.[entry.dividerType]?.[entry.size]?.[entry.placement] ?? 0
       gross += qty * rate
     }
@@ -229,14 +327,10 @@ export const usePayrollStore = defineStore('payroll', () => {
     const profile = getWorkerProfile(workerId)
     if (!profile.isHourly) return 0
     const rate = Math.min(HOURLY_MAX, Math.max(HOURLY_MIN, profile.hourlyRate))
-    // 8 hours per shift day, prorated by attendance
     const daysAttended = getDaysAttended(workerId, week)
-    const totalHours = daysAttended * 8
-    return toDecimal2(totalHours * rate)
+    return toDecimal2(daysAttended * 8 * rate)
   }
 
-  // ── Shift-based earnings breakdown ─────────────────────────────────────────────────
-  /** Returns an array of {date, entries[], shiftGood, shiftWaste, shiftEarnings, status} for this worker's shift submissions */
   function getShiftBreakdown(workerId, week) {
     const worker = mesStore.operators.find(o => o.id === workerId)
     if (!worker) return []
@@ -261,16 +355,20 @@ export const usePayrollStore = defineStore('payroll', () => {
       .sort((a, b) => new Date(a.date) - new Date(b.date))
   }
 
-  // ── Final Payout Calculation ─────────────────────────────────────────────────
+  // ── Final Payout Calculation ──────────────────────────────────────────────
   function calculateFinalPayout(workerId, week) {
     const daysAttended = getDaysAttended(workerId, week)
     const attendanceFactor = daysAttended > 0 ? toDecimal2(daysAttended / WORK_DAYS_PER_WEEK) : 0
 
     if (attendanceFactor === 0) {
-      return { grossPieceRate: 0, grossHourly: 0, attendanceFactor: 0, grossEarnings: 0, totalDeduction: 0, netPayout: 0, daysAttended: 0 }
+      return {
+        grossPieceRate: 0, grossHourly: 0, attendanceFactor: 0,
+        grossEarnings: 0, totalDeduction: 0, loanBreakdown: [],
+        bonus: 0, netPayout: 0, daysAttended: 0
+      }
     }
 
-    // Use approved shift submissions for piece-rate if available; fallback to raw ledger
+    // Piece-rate: prefer approved shift submissions, fallback to raw ledger
     const approvedShifts = mesStore.shiftSubmissions.filter(
       s => s.operator_id === workerId && s.target_name === 'approved'
     )
@@ -287,15 +385,21 @@ export const usePayrollStore = defineStore('payroll', () => {
       grossPieceRate = getGrossEarnings(workerId, week)
     }
 
-    const grossHourly = getHourlyEarnings(workerId, week)
+    const grossHourly   = getHourlyEarnings(workerId, week)
     const grossEarnings = toDecimal2((grossPieceRate + grossHourly) * attendanceFactor)
-    const { totalDeduction: loanDeductions } = getLoanDeductions(workerId, week)
+
+    // ── INSTALLMENT DEDUCTIONS: only this week's slice ──────────────────────
+    const { totalDeduction: loanDeductions, breakdown: loanBreakdown } = getLoanDeductions(workerId, week)
     const { totalDeduction: advanceDeductions } = getAdvanceDeductions(workerId, week)
     const totalDeduction = toDecimal2(loanDeductions + advanceDeductions)
-    const bonus = toDecimal2(getBonus(workerId, week).amount)
+
+    const bonus    = toDecimal2(getBonus(workerId, week).amount)
     const netPayout = toDecimal2(Math.max(0, grossEarnings - totalDeduction + bonus))
 
-    return { grossPieceRate, grossHourly, attendanceFactor, grossEarnings, totalDeduction, bonus, netPayout, daysAttended }
+    return {
+      grossPieceRate, grossHourly, attendanceFactor, grossEarnings,
+      totalDeduction, loanBreakdown, bonus, netPayout, daysAttended
+    }
   }
 
   // ── Payout Statuses ────────────────────────────────────────────────────────
@@ -304,26 +408,32 @@ export const usePayrollStore = defineStore('payroll', () => {
   function getPayoutStatus(workerId, week) {
     return payoutStatuses.value[week]?.[workerId] || { status: 'pending', reason: '' }
   }
+
   async function approvePayout(workerId, week) {
     const currentStatuses = { ...payoutStatuses.value }
     if (!currentStatuses[week]) currentStatuses[week] = {}
-    currentStatuses[week] = { 
-      ...currentStatuses[week], 
-      [workerId]: { status: 'approved', reason: '' } 
+    currentStatuses[week] = {
+      ...currentStatuses[week],
+      [workerId]: { status: 'approved', reason: '' }
     }
     payoutStatuses.value = currentStatuses
 
-    // Log the payout to the database ledger natively
+    // Collect loan installments for this week (decrements balances, closes paid-off loans)
+    await collectLoanInstallments(workerId, week)
+
+    // Log payout to ledger
     const payoutDetails = calculateFinalPayout(workerId, week)
     if (payoutDetails.netPayout > 0) {
-      const worker = mesStore.operators.find(o => o.id === workerId)
+      const worker    = mesStore.operators.find(o => o.id === workerId)
       const bonusInfo = getBonus(workerId, week)
-      const bonusNote = bonusInfo.amount > 0 ? ` + Bonus: ${bonusInfo.amount} ETB (${bonusInfo.reason || 'Performance'})` : ''
+      const bonusNote = bonusInfo.amount > 0
+        ? ` + Bonus: ${bonusInfo.amount} ETB (${bonusInfo.reason || 'Performance'})`
+        : ''
       await mesStore.addCashEntry({
         operator: worker?.name || 'Unknown',
-        type: 'payout',
-        amount: payoutDetails.netPayout,
-        note: `Weekly Payroll Settlement for ${week}${bonusNote}`
+        type:     'payout',
+        amount:   payoutDetails.netPayout,
+        note:     `Weekly Payroll Settlement for ${week}${bonusNote}`
       })
     }
   }
@@ -331,9 +441,9 @@ export const usePayrollStore = defineStore('payroll', () => {
   function holdPayout(workerId, week, reason) {
     const currentStatuses = { ...payoutStatuses.value }
     if (!currentStatuses[week]) currentStatuses[week] = {}
-    currentStatuses[week] = { 
-      ...currentStatuses[week], 
-      [workerId]: { status: 'held', reason: reason || 'Disputed' } 
+    currentStatuses[week] = {
+      ...currentStatuses[week],
+      [workerId]: { status: 'held', reason: reason || 'Disputed' }
     }
     payoutStatuses.value = currentStatuses
   }
@@ -349,9 +459,11 @@ export const usePayrollStore = defineStore('payroll', () => {
 
   return {
     fetchLoans, workerProfiles, getWorkerProfile, setWorkerProfile,
-    loans, requestLoan, getLoanDeductions, getAdvanceDeductions, approveLoan, rejectLoan,
+    loans, requestLoan, getLoanDeductions, getAdvanceDeductions,
+    collectLoanInstallments, approveLoan, rejectLoan,
     getDaysAttended,
-    getGrossEarnings, getHourlyEarnings, calculateFinalPayout, getShiftBreakdown, weeklyPayrollSummary,
+    getGrossEarnings, getHourlyEarnings, calculateFinalPayout,
+    getShiftBreakdown, weeklyPayrollSummary,
     payoutStatuses, getPayoutStatus, approvePayout, holdPayout,
     bonuses, getBonus, fetchBonuses, setBonusForWorker,
     PLACEMENT_KEYS, HOURLY_MIN, HOURLY_MAX, toDecimal2,
