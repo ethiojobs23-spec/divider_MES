@@ -137,6 +137,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { routes } from '@/router/index.js'
 import { useMesStore }        from '@/store/mesStore.js'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
@@ -147,7 +148,7 @@ const router   = useRouter()
 const mesStore = useMesStore()
 const sysAuth  = useSystemAuthStore()
 
-const isMobileMenuOpen = ref(false)
+const { isMobileMenuOpen } = storeToRefs(sysAuth)
 
 // ─── Smart Back Navigation (never wipes Pinia state) ─────────────────────
 function goBack() {

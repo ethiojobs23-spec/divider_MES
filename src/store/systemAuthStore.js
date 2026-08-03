@@ -18,6 +18,7 @@ export const useSystemAuthStore = defineStore('systemAuth', () => {
   const shiftStartedAt    = ref(null)    // ISO string, set on unlock
 
   const hasAdminAccess    = ref(false)   // granted after secondary PinAuth
+  const isMobileMenuOpen  = ref(false)   // Global mobile drawer state
 
   // ── Computed ─────────────────────────────────────────────────────────────
   const shiftDuration = computed(() => {
@@ -41,8 +42,8 @@ export const useSystemAuthStore = defineStore('systemAuth', () => {
         return { success: false, message: 'Invalid PIN. Access denied.' }
       }
       
-      // Verify role (allow both admin and System Admin)
-      if (mode === 'admin' && operator.role !== 'admin' && operator.role !== 'System Admin') {
+      // Verify role (allow admin, System Admin, and manager)
+      if (mode === 'admin' && operator.role !== 'admin' && operator.role !== 'System Admin' && operator.role !== 'manager') {
         return { success: false, message: 'Admin privileges required.' }
       }
       
@@ -81,6 +82,7 @@ export const useSystemAuthStore = defineStore('systemAuth', () => {
     shiftStartedAt,
     hasAdminAccess,
     shiftDuration,
+    isMobileMenuOpen,
     unlockSystem,
     grantAdminAccess,
     lockSystem,

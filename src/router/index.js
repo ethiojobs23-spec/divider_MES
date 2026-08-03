@@ -218,16 +218,15 @@ router.beforeEach((to) => {
 
   // 3. Employee role restrictions
   if (sysAuth.currentRole === 'employee') {
-    const allowedRoutes = ['EmployeeDashboard', 'CashAdvanceHub']
-    if (!allowedRoutes.includes(to.name)) {
-      return { name: 'EmployeeDashboard' }
+    if (to.path !== '/my-portal') {
+      return { path: '/my-portal' }
     }
   }
 
   // 4. Admin-gated routes → PIN challenge (then return)
   if (to.meta.requiresAdmin && sysAuth.isSystemUnlocked) {
     // If they logged in as Admin initially, automatically grant secondary access
-    if (sysAuth.currentRole === 'admin') {
+    if (sysAuth.currentRole === 'admin' || sysAuth.currentRole === 'manager') {
       sysAuth.grantAdminAccess()
     }
     
@@ -237,6 +236,12 @@ router.beforeEach((to) => {
   }
 
   return true
+})
+router.afterEach(() => {
+  if (getActivePinia()) {
+    const sysAuth = useSystemAuthStore()
+    if (sysAuth) sysAuth.isMobileMenuOpen = false
+  }
 })
 
 export default router

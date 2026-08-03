@@ -212,7 +212,7 @@ function cancelNumpad() {
 
 async function confirmEntry() {
   if (!activeCell.value) return
-  const qty = parseInt(numpadValue.value, 10) || 0
+  const qty = Number(numpadValue.value) || 0
 
   // Also persist to Supabase
   if (qty > 0) {

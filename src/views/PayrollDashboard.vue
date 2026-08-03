@@ -554,7 +554,7 @@ function keypadClear() {
 
 function keypadApply() {
   if (!selectedWorkerId.value) return
-  const amount = parseFloat(keypadBuffer.value) || 0
+  const amount = Number(keypadBuffer.value) || 0
   payrollStore.setBonusForWorker(selectedWorkerId.value, currentWeek.value, amount, currentBonus.value.reason || '')
   keypadBuffer.value = ''
 }
@@ -562,7 +562,7 @@ function keypadApply() {
 function onBonusAmountInput(event) {
   if (!selectedWorkerId.value) return
   keypadBuffer.value = event.target.value
-  const amount = parseFloat(event.target.value) || 0
+  const amount = Number(event.target.value) || 0
   const reason = currentBonus.value.reason || ''
   payrollStore.setBonusForWorker(selectedWorkerId.value, currentWeek.value, amount, reason)
 }
