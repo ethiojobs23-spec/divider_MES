@@ -56,9 +56,9 @@
     </div>
 
     <section class="view-panel" v-show="activeTab === 'pending'">
-      <div class="employee-layout flex flex-col md:flex-row">
+      <div class="employee-layout">
         <!-- Left: Worker List -->
-        <div class="operator-list w-full md:w-[260px] lg:w-[320px] max-h-64 md:max-h-none">
+        <div class="operator-list max-h-64 md:max-h-none">
            <div 
               v-for="worker in payrollStore.weeklyPayrollSummary" 
               :key="worker.id" 
@@ -236,7 +236,7 @@
     </section>
 
     <!-- Payment History View -->
-    <div class="history-view w-full h-full overflow-y-auto p-4 md:p-8 bg-slate-900" v-show="activeTab === 'history'">
+    <div class="history-view w-full flex-1 min-h-0 overflow-y-auto p-4 md:p-8 bg-slate-900" v-show="activeTab === 'history'">
       <div class="max-w-5xl mx-auto">
         <h2 class="text-2xl font-bold text-slate-100 mb-6">Past Payroll Settlements</h2>
         
@@ -419,7 +419,8 @@ function executeHold(reason) {
 .view-panel {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   padding: 1.25rem 1.5rem;
   gap: 1rem;
   overflow: hidden;
