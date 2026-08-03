@@ -204,45 +204,75 @@
               </div>
             </div>
 
-            <!-- ── Bonus Card ─────────────────────────────────────────── -->
-            <div class="chart-card bonus-card" :class="{ 'bonus-locked': selectedWorker.payoutStatus.status === 'approved' }">
-              <h3>
-                <span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;color:#fbbf24;margin-right:.35rem">workspace_premium</span>
-                Performance Bonus
-              </h3>
-              <div class="bonus-body">
-                <div class="bonus-input-row">
-                  <label class="bonus-label">Bonus Amount (ETB)</label>
-                  <div class="bonus-input-wrap">
-                    <span class="bonus-prefix">+ ETB</span>
+            <!-- ── Bonus Row (card + keypad side-by-side) ─────────────── -->
+            <div class="bonus-row" :class="{ 'bonus-locked': selectedWorker.payoutStatus.status === 'approved' }">
+
+              <!-- Left: Bonus Card -->
+              <div class="chart-card bonus-card">
+                <h3>
+                  <span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;color:#fbbf24;margin-right:.35rem">workspace_premium</span>
+                  Performance Bonus
+                </h3>
+                <div class="bonus-body">
+                  <div class="bonus-input-row">
+                    <label class="bonus-label">Bonus Amount (ETB)</label>
+                    <div class="bonus-input-wrap">
+                      <span class="bonus-prefix">+ ETB</span>
+                      <input
+                        class="bonus-input"
+                        type="number"
+                        min="0"
+                        step="10"
+                        placeholder="0.00"
+                        :disabled="selectedWorker.payoutStatus.status === 'approved'"
+                        :value="bonusInputDisplay"
+                        @input="onBonusAmountInput($event)"
+                        @focus="bonusInputActive = true"
+                        @blur="bonusInputActive = false"
+                      />
+                    </div>
+                  </div>
+                  <div class="bonus-input-row">
+                    <label class="bonus-label">Reason / Note</label>
                     <input
-                      class="bonus-input"
-                      type="number"
-                      min="0"
-                      step="10"
-                      placeholder="0.00"
+                      class="bonus-reason-input"
+                      type="text"
+                      placeholder="e.g. Perfect attendance, hit 5,000 pcs target…"
                       :disabled="selectedWorker.payoutStatus.status === 'approved'"
-                      :value="currentBonus.amount || ''"
-                      @input="onBonusAmountInput($event)"
+                      :value="currentBonus.reason || ''"
+                      @input="onBonusReasonInput($event)"
                     />
                   </div>
+                  <p v-if="currentBonus.amount > 0" class="bonus-preview">
+                    🏆 <strong>+{{ Number(currentBonus.amount).toFixed(2) }} ETB</strong> bonus will be added to net payout
+                  </p>
                 </div>
-                <div class="bonus-input-row">
-                  <label class="bonus-label">Reason / Note</label>
-                  <input
-                    class="bonus-reason-input"
-                    type="text"
-                    placeholder="e.g. Perfect attendance, hit 5,000 pcs target…"
-                    :disabled="selectedWorker.payoutStatus.status === 'approved'"
-                    :value="currentBonus.reason || ''"
-                    @input="onBonusReasonInput($event)"
-                  />
-                </div>
-                <p v-if="currentBonus.amount > 0" class="bonus-preview">
-                  🏆 <strong>+{{ Number(currentBonus.amount).toFixed(2) }} ETB</strong> bonus will be added to net payout
-                </p>
               </div>
+
+              <!-- Right: Numeric Keypad -->
+              <div class="bonus-keypad">
+                <div class="keypad-display">
+                  <span class="keypad-prefix">ETB</span>
+                  <span class="keypad-value">{{ bonusInputDisplay || '0' }}</span>
+                </div>
+                <div class="keypad-grid">
+                  <button v-for="k in ['7','8','9','4','5','6','1','2','3']" :key="k"
+                    class="kp-btn" @click="keypadPress(k)">{{ k }}</button>
+                  <button class="kp-btn kp-btn--wide" @click="keypadPress('0')">0</button>
+                  <button class="kp-btn kp-btn--dot" @click="keypadPress('.')">.</button>
+                  <button class="kp-btn kp-btn--back" @click="keypadBackspace()">
+                    <span class="material-symbols-rounded" style="font-size:1.1rem">backspace</span>
+                  </button>
+                  <button class="kp-btn kp-btn--clear" @click="keypadClear()">CLR</button>
+                  <button class="kp-btn kp-btn--apply" @click="keypadApply()">
+                    <span class="material-symbols-rounded" style="font-size:1.1rem">check</span>
+                    SET
+                  </button>
+                </div>
+              </div>
+
             </div>
+
 
               <div class="chart-card net-payout">
               <h3>Net Payout</h3>
@@ -412,8 +442,47 @@ const currentBonus = computed(() => {
   return payrollStore.getBonus(selectedWorkerId.value, currentWeek.value)
 })
 
+// Keypad state — string buffer so we can build "250.50" digit by digit
+const keypadBuffer = ref('')
+const bonusInputActive = ref(false)
+
+// What the input field shows: keypad buffer if non-empty, else the stored amount
+const bonusInputDisplay = computed(() =>
+  keypadBuffer.value !== '' ? keypadBuffer.value : (currentBonus.value.amount || '')
+)
+
+// Reset keypad buffer whenever the selected worker changes
+watch(selectedWorkerId, () => { keypadBuffer.value = '' })
+
+function keypadPress(key) {
+  if (!selectedWorkerId.value) return
+  if (key === '.') {
+    if (keypadBuffer.value.includes('.')) return  // only one decimal
+    if (keypadBuffer.value === '') keypadBuffer.value = '0'
+  }
+  keypadBuffer.value += key
+}
+
+function keypadBackspace() {
+  keypadBuffer.value = keypadBuffer.value.slice(0, -1)
+}
+
+function keypadClear() {
+  keypadBuffer.value = ''
+  if (!selectedWorkerId.value) return
+  payrollStore.setBonusForWorker(selectedWorkerId.value, currentWeek.value, 0, currentBonus.value.reason || '')
+}
+
+function keypadApply() {
+  if (!selectedWorkerId.value) return
+  const amount = parseFloat(keypadBuffer.value) || 0
+  payrollStore.setBonusForWorker(selectedWorkerId.value, currentWeek.value, amount, currentBonus.value.reason || '')
+  keypadBuffer.value = ''
+}
+
 function onBonusAmountInput(event) {
   if (!selectedWorkerId.value) return
+  keypadBuffer.value = event.target.value
   const amount = parseFloat(event.target.value) || 0
   const reason = currentBonus.value.reason || ''
   payrollStore.setBonusForWorker(selectedWorkerId.value, currentWeek.value, amount, reason)
@@ -974,4 +1043,119 @@ function executeHold(reason) {
   padding-top: 0.25rem;
   font-weight: 600;
 }
+
+/* ══ Bonus Row — card + keypad side-by-side ══════════════════════════════════ */
+.bonus-row {
+  display: flex;
+  gap: 0.85rem;
+  align-items: stretch;
+}
+.bonus-row.bonus-locked {
+  opacity: 0.55;
+  pointer-events: none;
+}
+.bonus-row .bonus-card {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .bonus-row { flex-direction: column; }
+}
+
+/* ══ Numeric Keypad ══════════════════════════════════════════════════════════ */
+.bonus-keypad {
+  width: 220px;
+  flex-shrink: 0;
+  background: #1e293b;
+  border: 1px solid rgba(251,191,36,0.2);
+  border-radius: 1rem;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.keypad-display {
+  background: #0f172a;
+  border: 1px solid rgba(251,191,36,0.25);
+  border-radius: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+.keypad-prefix {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #fbbf24;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.keypad-value {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #f1f5f9;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.keypad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+}
+
+.kp-btn {
+  height: 2.6rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, transform 0.07s, border-color 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  font-family: inherit;
+}
+.kp-btn:hover  { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.14); }
+.kp-btn:active { transform: scale(0.93); background: rgba(255,255,255,0.1); }
+
+/* 0 spans 1 col, dot and backspace share the row */
+.kp-btn--dot  { color: #94a3b8; }
+.kp-btn--back {
+  background: rgba(239,68,68,0.08);
+  border-color: rgba(239,68,68,0.18);
+  color: #f87171;
+}
+.kp-btn--back:hover { background: rgba(239,68,68,0.15); }
+
+/* CLR and SET span full row below */
+.kp-btn--clear {
+  grid-column: span 1;
+  background: rgba(239,68,68,0.1);
+  border-color: rgba(239,68,68,0.2);
+  color: #f87171;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+}
+.kp-btn--clear:hover { background: rgba(239,68,68,0.2); }
+
+.kp-btn--apply {
+  grid-column: span 2;
+  gap: 0.3rem;
+  background: linear-gradient(135deg, rgba(251,191,36,0.2), rgba(251,191,36,0.1));
+  border-color: rgba(251,191,36,0.35);
+  color: #fbbf24;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.kp-btn--apply:hover  { background: linear-gradient(135deg, rgba(251,191,36,0.3), rgba(251,191,36,0.18)); border-color: #fbbf24; }
+.kp-btn--apply:active { transform: scale(0.95); }
 </style>
+
