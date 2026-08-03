@@ -37,48 +37,72 @@
         </div>
       </div>
 
-    <!-- ── Physical Cash Requirements ─────────────────────────────────── -->
-    <div class="cash-denom-card" v-if="cashDenominations.totalCash > 0">
-      <div class="cash-denom-header">
-        <div class="cash-denom-title">
-          <span class="material-symbols-rounded" style="color:#fbbf24;font-size:1.2rem">payments</span>
-          Physical Cash Requirements
-          <span class="cash-week-badge">{{ currentWeek }}</span>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 md:px-8 pb-4">
+      <!-- ── Physical Cash Requirements ─────────────────────────────────── -->
+      <div class="cash-denom-card" v-if="cashDenominations.totalCash > 0" style="margin: 0; height: 100%;">
+        <div class="cash-denom-header">
+          <div class="cash-denom-title">
+            <span class="material-symbols-rounded" style="color:#fbbf24;font-size:1.2rem">payments</span>
+            Physical Cash Requirements
+            <span class="cash-week-badge">{{ currentWeek }}</span>
+          </div>
+          <div class="cash-denom-meta">
+            <span class="cash-total-label">Total to Withdraw:</span>
+            <span class="cash-total-value">{{ cashDenominations.totalCash.toFixed(2) }} ETB</span>
+            <button class="btn-bank-slip" @click="printBankSlip">
+              <span class="material-symbols-rounded" style="font-size:1rem">print</span>
+              Print Bank Slip
+            </button>
+          </div>
         </div>
-        <div class="cash-denom-meta">
-          <span class="cash-total-label">Total to Withdraw:</span>
-          <span class="cash-total-value">{{ cashDenominations.totalCash.toFixed(2) }} ETB</span>
-          <button class="btn-bank-slip" @click="printBankSlip">
-            <span class="material-symbols-rounded" style="font-size:1rem">print</span>
-            Print Bank Slip
-          </button>
+        <div class="denom-table-wrap">
+          <table class="denom-table">
+            <thead>
+              <tr>
+                <th>Note</th>
+                <th>Count</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in cashDenominations.breakdown"
+                :key="row.denom"
+                class="denom-row"
+                :class="row.count > 0 ? 'denom-row--active' : 'denom-row--zero'"
+              >
+                <td class="denom-note"><span class="note-chip">{{ row.denom }} ETB</span></td>
+                <td class="denom-count">× {{ row.count }}</td>
+                <td class="denom-subtotal">{{ (row.denom * row.count).toFixed(2) }} ETB</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="approved-workers-note">
+            <span class="material-symbols-rounded" style="font-size:.9rem;color:#34d399">group</span>
+            {{ cashDenominations.approvedCount }} approved payout{{ cashDenominations.approvedCount !== 1 ? 's' : '' }} this week
+          </div>
         </div>
       </div>
-      <div class="denom-table-wrap">
-        <table class="denom-table">
-          <thead>
-            <tr>
-              <th>Note</th>
-              <th>Count</th>
-              <th>Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="row in cashDenominations.breakdown"
-              :key="row.denom"
-              class="denom-row"
-              :class="row.count > 0 ? 'denom-row--active' : 'denom-row--zero'"
-            >
-              <td class="denom-note"><span class="note-chip">{{ row.denom }} ETB</span></td>
-              <td class="denom-count">× {{ row.count }}</td>
-              <td class="denom-subtotal">{{ (row.denom * row.count).toFixed(2) }} ETB</td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="approved-workers-note">
-          <span class="material-symbols-rounded" style="font-size:.9rem;color:#34d399">group</span>
-          {{ cashDenominations.approvedCount }} approved payout{{ cashDenominations.approvedCount !== 1 ? 's' : '' }} this week
+
+      <!-- ── Digital Disbursements ──────────────────────────────────────── -->
+      <div class="chart-card digital-disbursements-card" v-if="digitalDisbursementsCount > 0" style="margin: 0; height: 100%;">
+        <div class="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-rounded text-blue-400 text-xl">account_balance</span>
+            <span class="text-lg font-bold text-white">Digital Disbursements</span>
+          </div>
+          <span class="bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full text-xs font-bold">{{ currentWeek }}</span>
+        </div>
+        <div class="flex flex-col flex-1 justify-center">
+          <div class="text-center mb-6">
+            <p class="text-slate-300 font-medium text-sm">{{ digitalSummaryText }}</p>
+          </div>
+          <div class="mt-auto">
+            <button class="bg-blue-600 hover:bg-blue-500 text-white font-black py-4 px-6 rounded-xl flex items-center justify-center gap-3 w-full shadow-lg shadow-blue-600/30 transition-all active:scale-95 uppercase tracking-widest text-sm" @click="generateDigitalPayrollCSV">
+              <span class="material-symbols-rounded">download</span>
+              EXPORT CBE/TELEBIRR CSV
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -669,6 +693,42 @@ function printBankSlip() {
   )
   win.document.close()
   win.print()
+}
+
+// ── Digital CSV Export ─────────────────────────────────────────────────────
+const digitalWorkers = computed(() => {
+  return payrollStore.weeklyPayrollSummary.filter(w => w.payoutStatus.status === 'approved' && w.payment_preference && w.payment_preference !== 'Cash')
+})
+
+const digitalDisbursementsCount = computed(() => digitalWorkers.value.length)
+
+const digitalSummaryText = computed(() => {
+  const cbe = digitalWorkers.value.filter(w => w.payment_preference === 'CBE').length
+  const telebirr = digitalWorkers.value.filter(w => w.payment_preference === 'Telebirr').length
+  return `${cbe} Workers via CBE  |  ${telebirr} Workers via Telebirr`
+})
+
+function generateDigitalPayrollCSV() {
+  if (digitalWorkers.value.length === 0) return
+
+  let csvContent = "Beneficiary_Name,Account_Number,Amount,Bank_Type\n"
+  
+  digitalWorkers.value.forEach(worker => {
+    const name = worker.name || 'Unknown'
+    const account = worker.account_number || 'MISSING_ACCOUNT'
+    const amount = worker.netPayout.toFixed(2)
+    const bank = worker.payment_preference
+    csvContent += `"${name}","${account}","${amount}","${bank}"\n`
+  })
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.setAttribute("href", url)
+  link.setAttribute("download", `payroll_digital_export_${currentWeek.value.replace(/[^a-zA-Z0-9]/g, '_')}.csv`)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 // Modals

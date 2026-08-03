@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
+import { useInventoryStore } from './inventoryStore'
 import { useAttendanceStore } from './attendanceStore'
 
 export const useMesStore = defineStore('mes', () => {
@@ -13,7 +14,12 @@ export const useMesStore = defineStore('mes', () => {
       // 1. Fetch active operators and customers
       const { data: ops } = await supabase.from('mes_operators').select('*').eq('is_active', true)
       if (ops) {
-        operators.value = ops.filter(o => o.role !== 'customer')
+        operators.value = ops.filter(o => o.role !== 'customer').map((o, idx) => {
+          // Mock digital banking fields
+          const pref = idx % 3 === 0 ? 'Cash' : (idx % 3 === 1 ? 'Telebirr' : 'CBE')
+          const acct = pref === 'Telebirr' ? '+251911000000' : (pref === 'CBE' ? '1000123456789' : null)
+          return { ...o, payment_preference: pref, account_number: acct }
+        })
         clients.value = ops.filter(o => o.role === 'customer')
       }
 
@@ -207,6 +213,10 @@ export const useMesStore = defineStore('mes', () => {
       const invItem = inventory.value.find(i => i.divider_type === data.dividerType)
       if (invItem) invItem.available += effectiveQty
       else inventory.value.push({ divider_type: data.dividerType, available: effectiveQty })
+
+      // Auto-deduct raw materials
+      const inventoryStore = useInventoryStore()
+      inventoryStore.deductForProduction(data.dividerType, effectiveQty)
 
       return { ok: true, overtime, effectiveQty, rawQty: baseQty }
     } catch (err) {
