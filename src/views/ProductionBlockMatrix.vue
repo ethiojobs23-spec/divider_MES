@@ -37,9 +37,12 @@
           <thead>
             <tr>
               <th class="type-header">Type</th>
-              <th v-for="block in blocks" :key="block.key" class="block-header">
+              <th v-for="block in blocks" :key="block.key" class="block-header" :class="{ 'weekend-header': block.key === 'FS' }">
                 <div class="block-header-inner">
-                  <span class="block-label">{{ block.label }}</span>
+                  <span class="block-label">
+                    {{ block.label }}
+                    <span v-if="block.key === 'FS'" class="material-symbols-rounded weekend-icon" title="Weekend Overtime Multiplier (1.5x)">bolt</span>
+                  </span>
                   <span class="block-days">{{ block.days }}</span>
                 </div>
               </th>
@@ -59,7 +62,7 @@
                 :key="block.key"
                 class="block-cell"
                 @click="openEditor(type, block.key)"
-                :class="{ 'cell--has-data': hasData(type, block.key) }"
+                :class="{ 'cell--has-data': hasData(type, block.key), 'weekend-cell': block.key === 'FS' }"
               >
                 <div class="cell-fields">
                   <div class="field-row field-pp">
@@ -102,7 +105,7 @@
           <tfoot>
             <tr class="col-totals-row">
               <td class="type-cell totals-label">TOTAL</td>
-              <td v-for="block in blocks" :key="block.key" class="block-cell totals-col">
+              <td v-for="block in blocks" :key="block.key" class="block-cell totals-col" :class="{ 'weekend-cell': block.key === 'FS' }">
                 <div class="field-row">
                   <span class="field-key">Q=</span>
                   <span class="field-val">{{ getColQTotal(block.key) }}</span>
@@ -354,7 +357,18 @@ function saveCell() {
 .week-nav-btn:hover { background: rgba(99,102,241,.25); }
 .week-label { font-size: .75rem; font-weight: 700; color: #a5b4fc; min-width: 6rem; text-align: center; }
 
-/* ── Matrix Scroll ───────────────────────────────────────────────────────── */
+.block-label { font-size: 1rem; font-weight: 800; color: #f1f5f9; display: flex; align-items: center; justify-content: center; gap: 0.2rem; }
+.block-days  { font-size: 0.65rem; color: #94a3b8; letter-spacing: 0.05em; }
+
+/* ── Weekend Highlight ── */
+.weekend-header { background: rgba(245, 158, 11, 0.1) !important; border-top: 2px solid #fbbf24 !important; }
+.weekend-header .block-label { color: #fbbf24; }
+.weekend-header .block-days { color: rgba(251, 191, 36, 0.7); }
+.weekend-icon { font-size: 1.1rem; color: #fbbf24; }
+.weekend-cell { background: rgba(245, 158, 11, 0.03); border-right: 1px solid rgba(245, 158, 11, 0.15) !important; border-left: 1px solid rgba(245, 158, 11, 0.15) !important; }
+.weekend-cell:hover { background: rgba(245, 158, 11, 0.08) !important; }
+
+/* ── Rows ────────────────────────────────────────────────────────────────── */
 .matrix-scroll {
   flex: 1;
   overflow: auto;

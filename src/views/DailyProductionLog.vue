@@ -8,7 +8,13 @@
           <span class="material-symbols-rounded header-icon">edit_note</span>
           <div>
             <h1 class="header-title">የተሰራ ስራ የምመዘግበት</h1>
-            <p class="header-sub">Daily Production Log · {{ currentWeekLabel }}</p>
+            <div class="flex items-center gap-2">
+              <p class="header-sub">Daily Production Log · {{ currentWeekLabel }}</p>
+              <span v-if="store.isWeekendOvertime()" class="overtime-badge">
+                <span class="material-symbols-rounded" style="font-size:0.8rem">bolt</span>
+                OVERTIME MULTIPLIER ACTIVE (1.5x)
+              </span>
+            </div>
           </div>
         </div>
 
@@ -210,17 +216,20 @@ async function confirmEntry() {
 
   // Also persist to Supabase
   if (qty > 0) {
-    const ok = await store.submitProductionLog({
+    const result = await store.submitProductionLog({
       dividerType:    activeCell.value.col,
       placement:      activePlacement.value,
       size:           activeSize.value,
       goodProduction: qty,
       wasteMaterial:  0,
     })
-    showToast(ok
-      ? `✓ Logged ${qty} pcs · ${activeCell.value.day} / Type ${activeCell.value.col}`
-      : `⚠ Saved locally but sync failed`
-    )
+    if (result.ok) {
+      let msg = `✓ Logged ${result.rawQty} pcs · ${activeCell.value.day} / Type ${activeCell.value.col}`
+      if (result.overtime) msg += ` (1.5x OT -> ${result.effectiveQty} effective)`
+      showToast(msg)
+    } else {
+      showToast(`⚠ Saved locally but sync failed`)
+    }
   } else {
     showToast(`Cleared ${activeCell.value.day} / Type ${activeCell.value.col}`)
   }
@@ -279,6 +288,21 @@ function showToast(msg) {
   line-height: 1.2;
 }
 .header-sub { font-size: .65rem; color: #64748b; letter-spacing: .07em; }
+
+.overtime-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
 
 /* ── Toggle Clusters ─────────────────────────────────────────────────────── */
 .toggle-cluster {

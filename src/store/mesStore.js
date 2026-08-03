@@ -168,8 +168,24 @@ export const useMesStore = defineStore('mes', () => {
     }
   }
 
+  // ── Overtime Helper ──────────────────────────────────────────────
+  const OVERTIME_MULTIPLIER = 1.5
+
+  /** Returns true if today is Saturday (6) or Sunday (0) */
+  function isWeekendOvertime() {
+    const day = new Date().getDay()
+    return day === 0 || day === 6
+  }
+
   async function submitProductionLog(data) {
     try {
+      const overtime = isWeekendOvertime()
+      const baseQty  = data.goodProduction || 0
+      // Apply 1.5× multiplier on weekends to reflect higher piece-rate earnings
+      const effectiveQty = overtime
+        ? Math.round(baseQty * OVERTIME_MULTIPLIER)
+        : baseQty
+
       const payload = {
         operator_id: data.operator_id || (activeOperator.value ? activeOperator.value.id : null),
         production_week: currentProductionWeek.value,
@@ -177,8 +193,9 @@ export const useMesStore = defineStore('mes', () => {
         divider_type: data.dividerType,
         placement_style: data.placement,
         size_cm: parseInt(data.size),
-        qty_produced: data.goodProduction || 0,
-        qty_waste: data.wasteMaterial || 0
+        qty_produced: effectiveQty,
+        qty_waste: data.wasteMaterial || 0,
+        is_overtime: overtime,
       }
 
       const { data: savedRow, error } = await supabase.from('mes_production_logs').insert(payload).select().single()
@@ -188,13 +205,13 @@ export const useMesStore = defineStore('mes', () => {
       
       // Update local inventory immediately
       const invItem = inventory.value.find(i => i.divider_type === data.dividerType)
-      if (invItem) invItem.available += payload.qty_produced
-      else inventory.value.push({ divider_type: data.dividerType, available: payload.qty_produced })
+      if (invItem) invItem.available += effectiveQty
+      else inventory.value.push({ divider_type: data.dividerType, available: effectiveQty })
 
-      return true
+      return { ok: true, overtime, effectiveQty, rawQty: baseQty }
     } catch (err) {
       console.error('[Store] Production log failed:', err)
-      return false
+      return { ok: false, overtime: false, effectiveQty: 0, rawQty: 0 }
     }
   }
 
@@ -594,7 +611,7 @@ export const useMesStore = defineStore('mes', () => {
     operators, activeOperator, clockedInOperators,
     isOperatorClockedIn, clockIn, clockOut, setOperator,
     currentProductionWeek, setProductionWeek,
-    ledgerEntries, submitProductionLog, weeklyAggregation,
+    ledgerEntries, submitProductionLog, weeklyAggregation, isWeekendOvertime,
     inventory,
     cashEntries, addCashEntry, approveCashEntry, rejectCashEntry, totalAdvances, totalExpenses,
     dispatchLogs, clients, addClient, addDispatch, totalDispatched,
