@@ -42,6 +42,14 @@
                 <span>Loan Deductions</span>
                 <span>-{{ formatCurrency(receiptData.deductions) }}</span>
               </div>
+
+              <div v-if="receiptData.bonus > 0" class="flex justify-between items-center text-amber-600 print:text-black">
+                <span>
+                  🏆 Bonus
+                  <span v-if="receiptData.bonusReason" class="text-xs italic opacity-70">({{ receiptData.bonusReason }})</span>
+                </span>
+                <span>+{{ formatCurrency(receiptData.bonus) }}</span>
+              </div>
             </div>
 
             <!-- Net Total -->

@@ -45,6 +45,55 @@ export const usePayrollStore = defineStore('payroll', () => {
     workerProfiles.value[workerId] = { ...getWorkerProfile(workerId), ...incoming }
   }
 
+  // ── Bonuses ────────────────────────────────────────────────────────────────
+  // Keyed as { [workerId]: { amount, reason } } for the current week
+  const bonuses = ref({})
+
+  function getBonusKey(workerId, week) {
+    return `${workerId}::${week}`
+  }
+
+  function getBonus(workerId, week) {
+    return bonuses.value[getBonusKey(workerId, week)] ?? { amount: 0, reason: '' }
+  }
+
+  async function fetchBonuses(week) {
+    try {
+      const { data, error } = await supabase
+        .from('mes_bonuses')
+        .select('*')
+        .eq('production_week', week)
+      if (data) {
+        for (const row of data) {
+          const key = getBonusKey(row.operator_id, row.production_week)
+          bonuses.value[key] = { amount: Number(row.amount), reason: row.reason || '' }
+        }
+      }
+    } catch (err) {
+      // Table may not exist yet — fail silently
+      console.warn('[PayrollStore] mes_bonuses table not found, bonus feature in local-only mode:', err.message)
+    }
+  }
+
+  async function setBonusForWorker(workerId, week, amount, reason) {
+    const safeAmount = toDecimal2(Math.max(0, Number(amount) || 0))
+    const key = getBonusKey(workerId, week)
+    // Optimistic local update
+    bonuses.value = { ...bonuses.value, [key]: { amount: safeAmount, reason: reason || '' } }
+
+    try {
+      // Upsert into Supabase (create table if it doesn't exist is handled gracefully)
+      await supabase.from('mes_bonuses').upsert({
+        operator_id: workerId,
+        production_week: week,
+        amount: safeAmount,
+        reason: reason || ''
+      }, { onConflict: 'operator_id,production_week' })
+    } catch (err) {
+      console.warn('[PayrollStore] Could not persist bonus to Supabase:', err.message)
+    }
+  }
+
   // ── Loans ────────────────────────────────────────────────────────────────
   const loans = ref([])
 
@@ -243,9 +292,10 @@ export const usePayrollStore = defineStore('payroll', () => {
     const { totalDeduction: loanDeductions } = getLoanDeductions(workerId, week)
     const { totalDeduction: advanceDeductions } = getAdvanceDeductions(workerId, week)
     const totalDeduction = toDecimal2(loanDeductions + advanceDeductions)
-    const netPayout = toDecimal2(Math.max(0, grossEarnings - totalDeduction))
+    const bonus = toDecimal2(getBonus(workerId, week).amount)
+    const netPayout = toDecimal2(Math.max(0, grossEarnings - totalDeduction + bonus))
 
-    return { grossPieceRate, grossHourly, attendanceFactor, grossEarnings, totalDeduction, netPayout, daysAttended }
+    return { grossPieceRate, grossHourly, attendanceFactor, grossEarnings, totalDeduction, bonus, netPayout, daysAttended }
   }
 
   // ── Payout Statuses ────────────────────────────────────────────────────────
@@ -267,11 +317,13 @@ export const usePayrollStore = defineStore('payroll', () => {
     const payoutDetails = calculateFinalPayout(workerId, week)
     if (payoutDetails.netPayout > 0) {
       const worker = mesStore.operators.find(o => o.id === workerId)
+      const bonusInfo = getBonus(workerId, week)
+      const bonusNote = bonusInfo.amount > 0 ? ` + Bonus: ${bonusInfo.amount} ETB (${bonusInfo.reason || 'Performance'})` : ''
       await mesStore.addCashEntry({
         operator: worker?.name || 'Unknown',
         type: 'payout',
         amount: payoutDetails.netPayout,
-        note: `Weekly Payroll Settlement for ${week}`
+        note: `Weekly Payroll Settlement for ${week}${bonusNote}`
       })
     }
   }
@@ -301,6 +353,7 @@ export const usePayrollStore = defineStore('payroll', () => {
     getDaysAttended,
     getGrossEarnings, getHourlyEarnings, calculateFinalPayout, getShiftBreakdown, weeklyPayrollSummary,
     payoutStatuses, getPayoutStatus, approvePayout, holdPayout,
+    bonuses, getBonus, fetchBonuses, setBonusForWorker,
     PLACEMENT_KEYS, HOURLY_MIN, HOURLY_MAX, toDecimal2,
   }
 })

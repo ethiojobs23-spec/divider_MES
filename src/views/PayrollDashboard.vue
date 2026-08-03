@@ -204,9 +204,52 @@
               </div>
             </div>
 
+            <!-- ── Bonus Card ─────────────────────────────────────────── -->
+            <div class="chart-card bonus-card" :class="{ 'bonus-locked': selectedWorker.payoutStatus.status === 'approved' }">
+              <h3>
+                <span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle;color:#fbbf24;margin-right:.35rem">workspace_premium</span>
+                Performance Bonus
+              </h3>
+              <div class="bonus-body">
+                <div class="bonus-input-row">
+                  <label class="bonus-label">Bonus Amount (ETB)</label>
+                  <div class="bonus-input-wrap">
+                    <span class="bonus-prefix">+ ETB</span>
+                    <input
+                      class="bonus-input"
+                      type="number"
+                      min="0"
+                      step="10"
+                      placeholder="0.00"
+                      :disabled="selectedWorker.payoutStatus.status === 'approved'"
+                      :value="currentBonus.amount || ''"
+                      @input="onBonusAmountInput($event)"
+                    />
+                  </div>
+                </div>
+                <div class="bonus-input-row">
+                  <label class="bonus-label">Reason / Note</label>
+                  <input
+                    class="bonus-reason-input"
+                    type="text"
+                    placeholder="e.g. Perfect attendance, hit 5,000 pcs target…"
+                    :disabled="selectedWorker.payoutStatus.status === 'approved'"
+                    :value="currentBonus.reason || ''"
+                    @input="onBonusReasonInput($event)"
+                  />
+                </div>
+                <p v-if="currentBonus.amount > 0" class="bonus-preview">
+                  🏆 <strong>+{{ Number(currentBonus.amount).toFixed(2) }} ETB</strong> bonus will be added to net payout
+                </p>
+              </div>
+            </div>
+
               <div class="chart-card net-payout">
               <h3>Net Payout</h3>
-              <div class="net-amount">{{ selectedWorker.netPayout.toFixed(2) }} ETB</div>
+              <div class="net-amount">{{ (selectedWorker.netPayout + (currentBonus.amount || 0)).toFixed(2) }} ETB</div>
+              <p v-if="currentBonus.amount > 0" class="net-bonus-note">
+                Includes {{ Number(currentBonus.amount).toFixed(2) }} ETB bonus
+              </p>
             </div>
          </div>
 
@@ -353,6 +396,26 @@ const totalNetPayouts = computed(() => {
   return payrollStore.weeklyPayrollSummary.reduce((sum, w) => sum + w.netPayout, 0)
 })
 
+// ── Bonus ──────────────────────────────────────────────────────────────────
+const currentBonus = computed(() => {
+  if (!selectedWorkerId.value) return { amount: 0, reason: '' }
+  return payrollStore.getBonus(selectedWorkerId.value, currentWeek.value)
+})
+
+function onBonusAmountInput(event) {
+  if (!selectedWorkerId.value) return
+  const amount = parseFloat(event.target.value) || 0
+  const reason = currentBonus.value.reason || ''
+  payrollStore.setBonusForWorker(selectedWorkerId.value, currentWeek.value, amount, reason)
+}
+
+function onBonusReasonInput(event) {
+  if (!selectedWorkerId.value) return
+  const reason = event.target.value || ''
+  const amount = currentBonus.value.amount || 0
+  payrollStore.setBonusForWorker(selectedWorkerId.value, currentWeek.value, amount, reason)
+}
+
 // Payment History
 const paymentHistory = computed(() => {
   return mesStore.cashEntries
@@ -374,12 +437,14 @@ function confirmApprove(worker) {
 
 async function executeApprove() {
   if (selectedWorker.value) {
-    // Generate receipt data first before we lose the pending state context (if it matters)
+    const bonus = payrollStore.getBonus(selectedWorker.value.id, currentWeek.value)
     currentReceiptData.value = {
       employeeName: selectedWorker.value.name,
       date: new Date().toISOString(),
       grossPay: selectedWorker.value.grossEarnings,
       deductions: selectedWorker.value.totalDeduction,
+      bonus: bonus.amount || 0,
+      bonusReason: bonus.reason || '',
       netPayout: selectedWorker.value.netPayout
     }
     
@@ -784,5 +849,119 @@ function executeHold(reason) {
   display: flex; align-items: center; gap: 0.5rem;
   color: #475569; font-size: 0.85rem; padding: 0.75rem;
   background: rgba(255,255,255,0.02); border-radius: 0.5rem;
+}
+
+/* ══ Bonus Card ══════════════════════════════════════════════════════════════ */
+.bonus-card {
+  border-color: rgba(251, 191, 36, 0.2) !important;
+  background: linear-gradient(135deg, #1e293b 70%, rgba(251,191,36,0.04)) !important;
+  transition: border-color 0.2s;
+}
+.bonus-card h3 {
+  border-bottom-color: rgba(251, 191, 36, 0.15) !important;
+  margin-bottom: 1rem !important;
+}
+.bonus-locked {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.bonus-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.bonus-input-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.bonus-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #64748b;
+}
+
+.bonus-input-wrap {
+  display: flex;
+  align-items: center;
+  background: #0f172a;
+  border: 1px solid rgba(251,191,36,0.3);
+  border-radius: 0.6rem;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.bonus-input-wrap:focus-within {
+  border-color: #fbbf24;
+  box-shadow: 0 0 0 2px rgba(251,191,36,0.12);
+}
+
+.bonus-prefix {
+  padding: 0.65rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #fbbf24;
+  background: rgba(251,191,36,0.08);
+  border-right: 1px solid rgba(251,191,36,0.2);
+  white-space: nowrap;
+}
+
+.bonus-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #f1f5f9;
+  font-size: 1.1rem;
+  font-weight: 800;
+  padding: 0.65rem 0.75rem;
+  font-family: inherit;
+  width: 100%;
+}
+.bonus-input::placeholder { color: #334155; }
+.bonus-input::-webkit-inner-spin-button,
+.bonus-input::-webkit-outer-spin-button { opacity: 0.4; }
+
+.bonus-reason-input {
+  width: 100%;
+  background: #0f172a;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  color: #e2e8f0;
+  font-size: 0.82rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.bonus-reason-input:focus { border-color: rgba(251,191,36,0.4); }
+.bonus-reason-input::placeholder { color: #334155; }
+
+.bonus-preview {
+  background: rgba(251,191,36,0.08);
+  border: 1px solid rgba(251,191,36,0.2);
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.82rem;
+  color: #fbbf24;
+  margin: 0;
+  animation: bonusPulse 0.3s ease-out;
+}
+@keyframes bonusPulse {
+  from { transform: scale(0.97); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.net-bonus-note {
+  font-size: 0.72rem;
+  color: #fbbf24;
+  text-align: right;
+  margin: 0;
+  padding-top: 0.25rem;
+  font-weight: 600;
 }
 </style>
