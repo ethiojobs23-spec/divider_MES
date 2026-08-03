@@ -11,7 +11,7 @@
       <button
         v-for="key in keys"
         :key="key"
-        class="numpad-key h-16 md:h-20"
+        class="numpad-key"
         :class="{
           'key--action': key === 'CLR' || key === 'DEL',
           'key--zero':   key === '0',
@@ -111,7 +111,7 @@ function handleKey(key) {
 }
 
 .numpad-key {
-  font-size: 2.2rem;
+  font-size: 1.6rem;
   font-weight: 700;
   color: #e2e8f0;
   background: #1e293b;
@@ -124,6 +124,23 @@ function handleKey(key) {
   transition: background .1s ease, transform .08s ease;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  /* Mobile-first: 48px min-height ensures thumb-safe touch targets */
+  min-height: 3rem;
+  height: 3.5rem;
+}
+@media (min-width: 640px) {
+  .numpad-key {
+    font-size: 2.2rem;
+    height: 4rem;
+    min-height: 4rem;
+  }
+}
+@media (min-width: 768px) {
+  .numpad-key {
+    font-size: 2.2rem;
+    height: 5rem;
+    min-height: 5rem;
+  }
 }
 .numpad-key:hover  { background: #334155; }
 .numpad-key:active { transform: scale(.95); background: #475569; }

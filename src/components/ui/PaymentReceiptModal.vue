@@ -7,9 +7,9 @@
     leave-from-class="opacity-100"
     leave-to-class="opacity-0"
   >
-    <div v-if="isOpen" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 print:bg-transparent print:p-0 print:block">
-      <!-- Receipt Card -->
-      <div class="bg-slate-50 w-full max-w-md rounded-xl shadow-2xl overflow-hidden print:shadow-none print:rounded-none print:max-w-none print:w-full print:bg-white">
+    <div v-if="isOpen" class="fixed inset-0 z-50 bg-black/80 flex items-end sm:items-center justify-center print:bg-transparent print:p-0 print:block">
+      <!-- Receipt Card: bottom-sheet on mobile, centered card on sm+ -->
+      <div class="bg-slate-50 w-full sm:max-w-md sm:rounded-xl rounded-t-2xl shadow-2xl overflow-hidden print:shadow-none print:rounded-none print:max-w-none print:w-full print:bg-white sm:m-4">
         
         <!-- Receipt Content -->
         <div class="p-6 md:p-8 text-slate-900 print:text-black print:p-0">

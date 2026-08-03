@@ -108,17 +108,17 @@
     </div>
 
     <!-- Tabs -->
-    <div class="flex items-center gap-6 px-8 py-3 bg-slate-800 border-b border-indigo-500/20">
+    <div class="flex items-center gap-4 sm:gap-6 px-4 sm:px-8 py-3 bg-slate-800 border-b border-indigo-500/20 overflow-x-auto">
       <button 
         @click="activeTab = 'pending'" 
-        class="pb-1 text-sm font-bold tracking-wide uppercase transition-colors duration-200 border-b-2"
+        class="pb-1 text-sm font-bold tracking-wide uppercase transition-colors duration-200 border-b-2 whitespace-nowrap flex-shrink-0"
         :class="activeTab === 'pending' ? 'text-indigo-400 border-indigo-400' : 'text-slate-400 border-transparent hover:text-slate-300'"
       >
         Pending Payroll
       </button>
       <button 
         @click="activeTab = 'history'" 
-        class="pb-1 text-sm font-bold tracking-wide uppercase transition-colors duration-200 border-b-2"
+        class="pb-1 text-sm font-bold tracking-wide uppercase transition-colors duration-200 border-b-2 whitespace-nowrap flex-shrink-0"
         :class="activeTab === 'history' ? 'text-indigo-400 border-indigo-400' : 'text-slate-400 border-transparent hover:text-slate-300'"
       >
         Payment History
@@ -193,6 +193,8 @@
                   </div>
                   <!-- Entry detail rows -->
                   <div v-if="expandedShift === shift.date" class="shift-entries">
+                    <!-- overflow-x-auto so wide table scrolls only inside, never breaks layout -->
+                    <div class="w-full overflow-x-auto">
                     <table class="entry-mini-table">
                       <thead><tr><th>Type</th><th>Placement</th><th>Size</th><th>Good Pcs</th><th>Rate</th><th class="tar">Earnings</th></tr></thead>
                       <tbody>
@@ -206,6 +208,7 @@
                         </tr>
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -390,6 +393,7 @@
          <div class="action-buttons">
             <button 
               class="btn-massive btn-approve w-full md:w-auto"
+              style="min-height: 3.5rem;"
               :disabled="selectedWorker.payoutStatus.status === 'approved'"
               @click="confirmApprove(selectedWorker)"
             >
@@ -397,6 +401,7 @@
             </button>
             <button 
               class="btn-massive btn-hold w-full md:w-auto"
+              style="min-height: 3.5rem;"
               :disabled="selectedWorker.payoutStatus.status === 'approved'"
               @click="openHoldMenu(selectedWorker)"
             >
@@ -451,14 +456,14 @@
       </div>
     </div>
 
-    <!-- Modals -->
+    <!-- Modals: bottom-sheet on mobile, centered on sm+ -->
     <div v-if="showConfirmModal" class="modal-overlay" @click.self="showConfirmModal = false">
       <div class="modal-content confirm-modal">
         <h3>Confirm Payment</h3>
         <p>Are you sure you want to approve the payment of <strong>{{ selectedWorker.netPayout.toFixed(2) }} ETB</strong> for <strong>{{ selectedWorker.name }}</strong>?</p>
         <div class="modal-actions">
-          <button class="btn-cancel" @click="showConfirmModal = false">CANCEL</button>
-          <button class="btn-confirm" @click="executeApprove">YES, APPROVE</button>
+          <button class="btn-cancel w-full sm:w-auto" @click="showConfirmModal = false">CANCEL</button>
+          <button class="btn-confirm w-full sm:w-auto" @click="executeApprove">YES, APPROVE</button>
         </div>
       </div>
     </div>
@@ -468,12 +473,12 @@
         <h3>Hold / Dispute Payment</h3>
         <p>Select reason for holding payment for <strong>{{ selectedWorker.name }}</strong>:</p>
         <div class="hold-reasons">
-          <button v-for="reason in holdReasons" :key="reason" class="reason-btn" @click="executeHold(reason)">
+          <button v-for="reason in holdReasons" :key="reason" class="reason-btn w-full" @click="executeHold(reason)">
             {{ reason }}
           </button>
         </div>
         <div class="modal-actions">
-          <button class="btn-cancel" @click="showHoldModal = false">CANCEL</button>
+          <button class="btn-cancel w-full sm:w-auto" @click="showHoldModal = false">CANCEL</button>
         </div>
       </div>
     </div>
