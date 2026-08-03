@@ -1,346 +1,274 @@
 <template>
   <AppLayout>
-    <!-- LEFT Sidebar -->
-        <!-- MAIN: Stopwatch -->
-    <main class="dt-main">
-      <Transition name="toast">
-        <div v-if="toast.visible" class="toast" :class="'toast-' + toast.type">
-          <span class="material-symbols-rounded">{{ toast.icon }}</span>
-          {{ toast.message }}
-        </div>
-      </Transition>
+    <div class="h-full w-full flex flex-col bg-slate-900 text-slate-100 overflow-hidden relative">
       
-      <!-- Active Downtime Banner -->
-      <div v-if="store.activeDowntime" class="active-banner">
-        <span class="material-symbols-rounded pulse">warning</span>
-        LINE STOPPED – {{ store.activeDowntime.reason }}
-      </div>
-
-      <!-- Stopwatch Face -->
-      <div class="stopwatch-ring" :class="{ 'ring--active': running }">
-        <svg class="ring-svg" viewBox="0 0 220 220">
-          <circle cx="110" cy="110" r="100" class="ring-track" />
-          <circle
-            cx="110" cy="110" r="100"
-            class="ring-progress"
-            :stroke-dashoffset="ringOffset"
-            :class="store.activeDowntime ? 'ring-progress--danger' : 'ring-progress--idle'"
-          />
-        </svg>
-        <div class="stopwatch-inner">
-          <span class="sw-label">{{ store.activeDowntime ? 'DOWNTIME' : 'STANDBY' }}</span>
-          <span class="sw-time">{{ formattedTime }}</span>
-          <span class="sw-reason">{{ store.activeDowntime?.reason || '—' }}</span>
+      <!-- ── Header ── -->
+      <header class="flex-shrink-0 flex items-center gap-4 p-6 bg-slate-800 border-b border-rose-500/20">
+        <span class="material-symbols-rounded text-4xl text-rose-500">engineering</span>
+        <div>
+          <h1 class="text-2xl font-black tracking-wide">Machine Downtime & Maintenance</h1>
+          <p class="text-sm text-slate-400 font-medium">Log equipment failures and calculate financial impact in real-time</p>
         </div>
-      </div>
+      </header>
 
-      <!-- Action Buttons -->
-      <div v-if="!store.activeDowntime" class="dt-setup">
-        <h3 class="setup-title">Select Stoppage Reason</h3>
-        <div class="reasons-grid">
-          <button
-            v-for="r in reasons"
-            :key="r.code"
-            class="reason-btn"
-            :class="{ 'reason-btn--active': selectedReason?.code === r.code }"
-            @click="selectedReason = r"
-          >
-            <span class="material-symbols-rounded reason-icon">{{ r.icon }}</span>
-            {{ r.label }}
-          </button>
+      <!-- ── Main Grid ── -->
+      <div class="flex-1 overflow-y-auto p-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
+          
+          <!-- ── Left Panel: Active Issues & Reporting ── -->
+          <div class="flex flex-col gap-6">
+            
+            <!-- Report Form -->
+            <div class="bg-slate-800 rounded-2xl p-6 border border-white/5 shadow-xl">
+              <h2 class="text-lg font-black uppercase tracking-widest text-slate-300 mb-6 flex items-center gap-2">
+                <span class="material-symbols-rounded text-rose-400">report</span>
+                Report Machine Fault
+              </h2>
+              
+              <div class="flex flex-col gap-5">
+                <!-- Machine Select -->
+                <div>
+                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Select Machine</label>
+                  <select v-model="selectedMachine" class="w-full bg-slate-900 border border-white/10 rounded-xl p-4 text-white font-bold appearance-none outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all">
+                    <option disabled value="">-- Choose Equipment --</option>
+                    <option v-for="m in downtimeStore.machines" :key="m.id" :value="m.id">
+                      {{ m.name }} (Cap: {{ m.hourly_capacity }}/hr)
+                    </option>
+                  </select>
+                </div>
+                
+                <!-- Category Select -->
+                <div>
+                  <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Fault Category</label>
+                  <select v-model="selectedCategory" class="w-full bg-slate-900 border border-white/10 rounded-xl p-4 text-white font-bold appearance-none outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all">
+                    <option disabled value="">-- Choose Category --</option>
+                    <option v-for="cat in downtimeStore.categories" :key="cat" :value="cat">
+                      {{ cat }}
+                    </option>
+                  </select>
+                </div>
+
+                <button 
+                  @click="submitReport"
+                  :disabled="!selectedMachine || !selectedCategory"
+                  class="mt-2 w-full flex items-center justify-center gap-3 p-5 rounded-xl font-black text-lg transition-all"
+                  :class="(selectedMachine && selectedCategory) ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 active:scale-95' : 'bg-slate-700 text-slate-500 cursor-not-allowed'"
+                >
+                  <span class="material-symbols-rounded">warning</span>
+                  REPORT MACHINE DOWN
+                </button>
+              </div>
+            </div>
+
+            <!-- Active Alerts -->
+            <div>
+              <h2 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-4 flex items-center gap-2">
+                Active Critical Alerts ({{ downtimeStore.activeIssues.length }})
+              </h2>
+              
+              <div v-if="downtimeStore.activeIssues.length === 0" class="bg-slate-800/50 rounded-2xl p-8 border border-dashed border-white/10 flex flex-col items-center justify-center text-center">
+                <span class="material-symbols-rounded text-4xl text-emerald-500 mb-2">check_circle</span>
+                <p class="text-slate-400 font-bold">All machines operational</p>
+              </div>
+              
+              <div v-else class="flex flex-col gap-4">
+                <div 
+                  v-for="issue in downtimeStore.activeIssues" 
+                  :key="issue.id"
+                  class="bg-rose-950/30 border border-rose-500/50 rounded-2xl p-5 flex flex-col gap-4 relative overflow-hidden"
+                >
+                  <div class="absolute top-0 left-0 w-1 h-full bg-rose-500 animate-pulse"></div>
+                  
+                  <div class="flex justify-between items-start">
+                    <div>
+                      <h3 class="font-bold text-white text-lg">{{ getMachineName(issue.machine_id) }}</h3>
+                      <p class="text-rose-400 font-semibold text-sm">{{ issue.category }}</p>
+                    </div>
+                    <div class="bg-rose-500/20 text-rose-300 px-3 py-1 rounded-full text-xs font-black tracking-widest flex items-center gap-2">
+                      <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                      DOWN
+                    </div>
+                  </div>
+                  
+                  <div class="flex items-center gap-2 text-slate-300 bg-slate-900/50 px-3 py-2 rounded-lg">
+                    <span class="material-symbols-rounded text-lg text-slate-400">timer</span>
+                    <span class="font-mono font-bold">{{ getElapsedTime(issue.start_time) }}</span>
+                  </div>
+
+                  <button 
+                    @click="resolveIssue(issue.id)"
+                    class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 transition-all"
+                  >
+                    <span class="material-symbols-rounded">build_circle</span>
+                    MARK RESOLVED
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ── Right Panel: Analytics & History ── -->
+          <div class="flex flex-col gap-6">
+            
+            <!-- Revenue Impact Card -->
+            <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-8 border border-white/5 shadow-2xl relative overflow-hidden">
+              <div class="absolute -right-10 -bottom-10 opacity-5">
+                <span class="material-symbols-rounded" style="font-size: 15rem;">monitoring</span>
+              </div>
+              <h2 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-2">Estimated Lost Revenue (Week)</h2>
+              <div class="flex items-end gap-3 mt-4">
+                <span class="text-5xl font-black font-mono text-amber-400">{{ formatCurrency(downtimeStore.weeklyLostRevenue) }}</span>
+                <span class="text-xl font-bold text-slate-500 mb-1">ETB</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-4 max-w-sm">
+                Calculated dynamically based on machine hourly capacities, total downtime minutes, and the standard average piece-rate.
+              </p>
+            </div>
+
+            <!-- Resolved History -->
+            <div class="bg-slate-800 rounded-2xl p-6 border border-white/5 flex-1 flex flex-col min-h-[400px]">
+              <h2 class="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 border-b border-white/5 pb-4">
+                Maintenance History (Resolved)
+              </h2>
+              
+              <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                <div v-if="downtimeStore.resolvedIssues.length === 0" class="text-center text-slate-500 font-medium py-10">
+                  No resolved maintenance logs for this week.
+                </div>
+                
+                <div v-else class="flex flex-col gap-4">
+                  <div 
+                    v-for="log in downtimeStore.resolvedIssues" 
+                    :key="log.id"
+                    class="flex flex-col gap-2 p-4 rounded-xl bg-slate-900/50 border border-white/5 hover:border-white/10 transition-colors"
+                  >
+                    <div class="flex justify-between items-start">
+                      <h3 class="font-bold text-emerald-400">{{ getMachineName(log.machine_id) }}</h3>
+                      <span class="text-xs font-bold text-slate-500 bg-slate-800 px-2 py-1 rounded">{{ log.category }}</span>
+                    </div>
+                    
+                    <div class="flex flex-col gap-1 mt-2">
+                      <div class="flex items-center gap-2 text-xs text-slate-400">
+                        <span class="material-symbols-rounded text-[1rem]">calendar_clock</span>
+                        <span>{{ formatEastAfricaTime(log.start_time) }} &nbsp;&mdash;&nbsp; {{ formatEastAfricaTime(log.end_time) }}</span>
+                      </div>
+                      <div class="flex items-center gap-2 text-xs text-slate-400">
+                        <span class="material-symbols-rounded text-[1rem]">schedule</span>
+                        <span class="font-bold text-slate-300">Total Duration: {{ calculateTotalDuration(log.start_time, log.end_time) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          
         </div>
-        
-        <button
-          class="dt-btn dt-btn--start"
-          :disabled="!selectedReason"
-          @click="startDowntime"
-        >
-          <span class="material-symbols-rounded">stop_circle</span>
-          FLAG STOPPAGE
-        </button>
       </div>
       
-      <div v-else class="dt-actions">
-        <button
-          class="dt-btn dt-btn--resolve"
-          @click="resolveDowntime"
-        >
-          <span class="material-symbols-rounded">check_circle</span>
-          RESOLVE ISSUE
-        </button>
-      </div>
-    </main>
+    </div>
   </AppLayout>
 </template>
 
 <script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useMesStore } from '@/store/mesStore.js'
+import { useDowntimeStore } from '@/store/downtimeStore'
 
-const store = useMesStore()
+const downtimeStore = useDowntimeStore()
 
-const reasons = [
-  { code: 'MAT',  label: 'Material Shortage',   icon: 'inventory' },
-  { code: 'EQP',  label: 'Equipment Failure',    icon: 'build' },
-  { code: 'POW',  label: 'Power Outage',          icon: 'bolt' },
-  { code: 'QC',   label: 'Quality Hold',          icon: 'verified' },
-  { code: 'MNT',  label: 'Maintenance',           icon: 'engineering' },
-  { code: 'OPR',  label: 'Operator Unavailable',  icon: 'person_off' },
-  { code: 'OTH',  label: 'Other / Unknown',       icon: 'help' },
-]
+const selectedMachine = ref('')
+const selectedCategory = ref('')
 
-const selectedReason = ref(null)
-
-const toast = ref({ visible: false, message: '', type: 'info', icon: 'info' })
-function showToast(msg, type = 'info', icon = 'info') {
-  toast.value = { visible: true, message: msg, type, icon }
-  setTimeout(() => { toast.value.visible = false }, 4000)
-}
-
-// Stopwatch
-const elapsed = ref(0)
-let timer = null
-
-function tick() {
-  if (store.activeDowntime) {
-    elapsed.value = Date.now() - new Date(store.activeDowntime.startTime).getTime()
-  }
-}
+// Reactive trigger for live elapsed time updates
+const now = ref(Date.now())
+let timerInterval = null
 
 onMounted(() => {
-  if (store.activeDowntime) {
-    elapsed.value = Date.now() - new Date(store.activeDowntime.startTime).getTime()
+  timerInterval = setInterval(() => {
+    now.value = Date.now()
+  }, 60000) // Update every minute
+})
+
+onUnmounted(() => {
+  clearInterval(timerInterval)
+})
+
+function submitReport() {
+  if (selectedMachine.value && selectedCategory.value) {
+    downtimeStore.reportDowntime(selectedMachine.value, selectedCategory.value)
+    // Reset form
+    selectedMachine.value = ''
+    selectedCategory.value = ''
   }
-  timer = setInterval(tick, 1000)
-})
-onUnmounted(() => clearInterval(timer))
-
-const running = computed(() => !!store.activeDowntime)
-
-const formattedTime = computed(() => {
-  const s = Math.floor(elapsed.value / 1000)
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  const sec = s % 60
-  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
-})
-
-const CIRCUMFERENCE = 2 * Math.PI * 100 // r=100
-const ringOffset = computed(() => {
-  if (!store.activeDowntime) return CIRCUMFERENCE
-  // Fill ring every 30 min cycle
-  const pct = Math.min(1, elapsed.value / (30 * 60 * 1000))
-  return CIRCUMFERENCE * (1 - pct)
-})
-
-async function startDowntime() {
-  if (!selectedReason.value) return
-  elapsed.value = 0
-  await store.startDowntime(selectedReason.value.label)
-  showToast('SYSTEM ALERT: Line Stoppage Triggered - ' + selectedReason.value.label, 'danger', 'warning')
 }
 
-async function resolveDowntime() {
-  await store.resolveDowntime()
-  elapsed.value = 0
-  selectedReason.value = null
-  showToast('SYSTEM ALERT: Line Stoppage Resolved', 'success', 'check_circle')
+function resolveIssue(logId) {
+  downtimeStore.resolveDowntime(logId)
 }
 
-const recentSessions = computed(() =>
-  [...store.downtimeSessions].reverse().slice(0, 6)
-)
-
-function fmtDuration(ms) {
-  const s = Math.floor(ms / 1000)
-  const m = Math.floor(s / 60)
-  const sec = s % 60
-  return `${m}m ${sec}s`
+function getMachineName(id) {
+  const m = downtimeStore.machines.find(m => m.id === id)
+  return m ? m.name : 'Unknown Machine'
 }
 
-function fmtTime(iso) {
-  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+function getElapsedTime(isoStart) {
+  const _trigger = now.value // Force reactivity
+  const start = new Date(isoStart).getTime()
+  const diffMinutes = Math.floor((Date.now() - start) / 60000)
+  
+  if (diffMinutes < 60) return `Down for ${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`
+  
+  const h = Math.floor(diffMinutes / 60)
+  const m = diffMinutes % 60
+  return `Down for ${h}h ${m}m`
+}
+
+function calculateTotalDuration(isoStart, isoEnd) {
+  const start = new Date(isoStart).getTime()
+  const end = new Date(isoEnd).getTime()
+  const diffMinutes = Math.floor((end - start) / 60000)
+  
+  if (diffMinutes < 60) return `${diffMinutes} minutes`
+  const h = Math.floor(diffMinutes / 60)
+  const m = diffMinutes % 60
+  return `${h}h ${m}m`
+}
+
+function formatEastAfricaTime(isoString) {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  return new Intl.DateTimeFormat('en-ET', {
+    timeZone: 'Africa/Addis_Ababa',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }).format(date)
+}
+
+function formatCurrency(val) {
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val)
 }
 </script>
 
 <style scoped>
-
-
-/* Sidebar */
-
-.sidebar-section { display: flex; flex-direction: column; gap: .5rem; }
-.sidebar-section.flex-1 { flex: 1; overflow: hidden; }
-.section-title {
-  font-size: .65rem; font-weight: 700; color: #64748b;
-  text-transform: uppercase; letter-spacing: .1em;
-  padding-bottom: .3rem; border-bottom: 1px solid rgba(255,255,255,.06);
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
 }
-
-.reason-list { display: flex; flex-direction: column; gap: .4rem; }
-.reason-btn {
-  display: flex; align-items: center; gap: .7rem;
-  padding: .85rem .9rem;
-  background: #0f172a;
-  border: 1px solid rgba(255,255,255,.08);
-  color: #94a3b8;
-  border-radius: .65rem;
-  font-size: .9rem; font-weight: 600;
-  cursor: pointer;
-  transition: all .13s ease;
-  text-align: left;
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
 }
-.reason-btn:hover         { background: #1e293b; color: #e2e8f0; }
-.reason-btn--active       { background: rgba(239,68,68,.15); border-color: #ef4444; color: #fca5a5; }
-.reason-btn--disabled     { opacity: .4; pointer-events: none; }
-.reason-icon              { font-size: 1.1rem; }
-
-.session-list { display: flex; flex-direction: column; gap: .4rem; overflow-y: auto; flex: 1; }
-.session-item {
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.07);
-  border-radius: .5rem;
-  padding: .5rem .75rem;
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
 }
-.session-reason { font-size: .8rem; font-weight: 700; color: #e2e8f0; }
-.session-meta   { font-size: .65rem; color: #64748b; margin-top: .1rem; }
-.empty-hint     { font-size: .75rem; color: #334155; text-align: center; padding: 1rem 0; }
-
-/* Main */
-.dt-main {
-  width: 100%;
-  height: 100%;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 2rem;
-  position: relative;
-  gap: 2rem;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
-
-/* Toast */
-.toast {
-  position: fixed;
-  top: 2rem; left: 50%; transform: translateX(-50%);
-  background: #1e293b; color: #f8fafc;
-  padding: 1rem 2rem; border-radius: 99px;
-  font-weight: 700; font-size: 1.1rem;
-  display: flex; align-items: center; gap: .75rem;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-  z-index: 1000;
-  border: 1px solid rgba(255,255,255,0.1);
-}
-.toast-danger { background: #7f1d1d; border-color: #ef4444; color: #fecaca; }
-.toast-success { background: #064e3b; border-color: #10b981; color: #a7f3d0; }
-.toast-enter-active, .toast-leave-active { transition: all .3s ease; }
-.toast-enter-from, .toast-leave-to       { opacity: 0; transform: translate(-50%, -1rem); }
-
-.active-banner {
-  position: absolute; top: 1.25rem; left: 50%; transform: translateX(-50%);
-  background: rgba(239,68,68,.15);
-  border: 1px solid rgba(239,68,68,.4);
-  color: #fca5a5;
-  padding: .5rem 1.5rem;
-  border-radius: 999px;
-  font-size: .85rem;
-  font-weight: 700;
-  letter-spacing: .06em;
-  display: flex; align-items: center; gap: .5rem;
-  white-space: nowrap;
-}
-
-/* Stopwatch */
-.stopwatch-ring {
-  position: relative;
-  width: min(42vh, 380px);
-  height: min(42vh, 380px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.ring-svg   { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
-.ring-track { fill: none; stroke: rgba(255,255,255,.06); stroke-width: 8; }
-.ring-progress {
-  fill: none;
-  stroke-width: 8;
-  stroke-linecap: round;
-  stroke-dasharray: 628; /* 2*PI*100 */
-  transition: stroke-dashoffset 1s linear;
-}
-.ring-progress--danger { stroke: #ef4444; }
-.ring-progress--idle   { stroke: #334155; }
-
-.stopwatch-inner {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .25rem;
-}
-.sw-label { font-size: .65rem; font-weight: 700; letter-spacing: .12em; color: #64748b; text-transform: uppercase; }
-.sw-time  { font-size: clamp(2.2rem, 5vw, 3.5rem); font-weight: 900; color: #f1f5f9; letter-spacing: .05em; font-variant-numeric: tabular-nums; }
-.sw-reason { font-size: .8rem; color: #f87171; font-weight: 600; }
-
-.ring--active .sw-time { color: #fca5a5; }
-
-.dt-setup {
-  display: flex; flex-direction: column; align-items: center; gap: 1.5rem;
-  width: 100%; max-width: 600px;
-}
-.setup-title {
-  font-size: 1.2rem; font-weight: 800; color: #cbd5e1; margin: 0; text-transform: uppercase; letter-spacing: 0.1em;
-}
-
-.reasons-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.75rem;
-  width: 100%;
-}
-.reason-btn {
-  display: flex; flex-direction: column; align-items: center; gap: .7rem;
-  padding: 1.5rem;
-  background: #1e293b;
-  border: 2px solid rgba(255,255,255,.05);
-  color: #94a3b8;
-  border-radius: 1rem;
-  font-size: 1rem; font-weight: 700;
-  cursor: pointer;
-  transition: all .2s ease;
-  text-align: center;
-}
-.reason-btn:hover { background: rgba(255,255,255,0.05); color: #e2e8f0; border-color: rgba(255,255,255,0.1); }
-.reason-btn--active { background: rgba(239,68,68,.15); border-color: #ef4444; color: #fca5a5; }
-.reason-icon { font-size: 2rem; }
-
-/* Actions */
-.dt-actions { display: flex; justify-content: center; margin-top: 1rem; }
-.dt-btn {
-  height: 4.5rem;
-  min-width: 20rem;
-  font-size: 1.2rem;
-  font-weight: 800;
-  letter-spacing: .1em;
-  border: none;
-  border-radius: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .75rem;
-  cursor: pointer;
-  transition: all .15s ease;
-}
-.dt-btn:disabled { opacity: .35; cursor: not-allowed; }
-.dt-btn--start   { background: linear-gradient(135deg,#dc2626,#ef4444); color: #fff; box-shadow: 0 10px 25px rgba(239,68,68,0.2); }
-.dt-btn--resolve { background: linear-gradient(135deg,#059669,#10b981); color: #fff; box-shadow: 0 10px 25px rgba(16,185,129,0.2); }
-.dt-btn:not(:disabled):hover  { filter: brightness(1.1); transform: translateY(-2px); }
-.dt-btn:not(:disabled):active { transform: translateY(0) scale(.97); }
-
-/* Pulse animation */
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: .4; }
-}
-.pulse { animation: pulse 1.2s ease infinite; }
 </style>

@@ -91,7 +91,7 @@ const routes = [
     path: '/downtime',
     name: 'DowntimeTracker',
     component: DowntimeTracker,
-    meta: { title: 'Downtime', icon: 'timer_off', requiresSystemAuth: true, nav: true },
+    meta: { title: 'Downtime', icon: 'timer_off', requiresSystemAuth: true, requiresAdmin: true, nav: true },
   },
   {
     path: '/attendance-log',
