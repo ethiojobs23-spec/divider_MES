@@ -91,4 +91,9 @@ export const useQcStore = defineStore('qcStore', () => {
     operatorDefectRates,
     machineDefectRates
   }
+}, {
+  persist: {
+    key: 'divider-qc-logs',
+    pick: ['defect_logs'],
+  },
 })

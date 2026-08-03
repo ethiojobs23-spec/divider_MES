@@ -46,4 +46,9 @@ export const useInventoryStore = defineStore('inventoryStore', () => {
     deductForProduction,
     lowStockAlerts
   }
+}, {
+  persist: {
+    key: 'divider-inventory',
+    pick: ['materials'],
+  },
 })

@@ -634,4 +634,21 @@ export const useMesStore = defineStore('mes', () => {
     downtimeSessions, activeDowntime, startDowntime, resolveDowntime, logDowntime,
     shiftSubmissions, submitShift, approveShift, rejectShift, setOperatorWorkTypes,
   }
+}, {
+  persist: {
+    key: 'divider-mes-core',
+    // Only persist the fields that must survive a power-cut or offline reboot.
+    // Computed getters, loading flags, and functions are excluded automatically.
+    pick: [
+      'currentProductionWeek',
+      'ledgerEntries',
+      'cashEntries',
+      'shiftSubmissions',
+      'pieceRates',
+      'wasteThresholds',
+      'systemConfig',
+      'inventory',
+      'operators',
+    ],
+  },
 })
