@@ -10,7 +10,7 @@ import KioskLogin            from '@/views/KioskLogin.vue'
 import ProductionLogger      from '@/views/ProductionLogger.vue'
 import LiveProductionDashboard from '@/views/LiveProductionDashboard.vue'
 import DowntimeTracker       from '@/views/DowntimeTracker.vue'
-import InventoryManager      from '@/views/InventoryManager.vue'
+import InventoryDashboard    from '@/views/InventoryDashboard.vue'
 import CashAdvanceHub        from '@/views/CashAdvanceHub.vue'
 import PayrollDashboard      from '@/views/PayrollDashboard.vue'
 import QualityControl        from '@/views/QualityControl.vue'
@@ -103,8 +103,8 @@ const routes = [
   // ── Inventory ──────────────────────────────────────────────────────────
   {
     path: '/inventory',
-    name: 'InventoryManager',
-    component: InventoryManager,
+    name: 'InventoryDashboard',
+    component: InventoryDashboard,
     meta: { title: 'Inventory', icon: 'inventory_2', requiresSystemAuth: true, requiresAdmin: true, nav: true },
   },
 
