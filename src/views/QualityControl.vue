@@ -12,8 +12,9 @@
       </div>
 
       <!-- ── Main Grid ── -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 md:px-8 pb-4 mt-4" style="overflow-y: auto;">
-        
+      <div class="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 pb-10 pt-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+          
         <!-- ── Left Panel: Log Defect ── -->
         <div class="chart-card">
           <h3>Log Defective Output</h3>
@@ -257,16 +258,17 @@ function submitDefect() {
 }
 .panel-sub { font-size: .7rem; color: #64748b; margin: .2rem 0 0; }
 
-/* ══ Chart card (shared) ═════════════════════════════════════════════════════ */
+/* ══ Chart card ══════════════════════════════════════════════════════════════ */
 .chart-card {
   background: #1e293b;
   border: 1px solid rgba(255,255,255,.07);
-  border-radius: 1rem;
-  padding: 1rem 1.1rem;
+  border-radius: 1.25rem;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: .75rem;
-  overflow: hidden;
+  gap: 1.25rem;
+  overflow: visible;
+  position: relative;
 }
 .chart-card h3 {
   color: #94a3b8;
