@@ -561,7 +561,8 @@ export const useMesStore = defineStore('mes', () => {
 
   async function approveShift(submissionId, adminPin) {
     // Validate admin pin
-    const admin = operators.value.find(o => o.role === 'admin' && String(o.pin_code) === String(adminPin))
+    const adminRoles = ['admin', 'System Admin', 'manager', 'Supervisor']
+    const admin = operators.value.find(o => adminRoles.includes(o.role) && String(o.pin_code) === String(adminPin))
     if (!admin) return { ok: false, reason: 'Invalid Admin PIN' }
     try {
       const { error } = await supabase.from('mes_financial_ledger')
@@ -578,7 +579,8 @@ export const useMesStore = defineStore('mes', () => {
   }
 
   async function rejectShift(submissionId, adminPin, reason) {
-    const admin = operators.value.find(o => o.role === 'admin' && String(o.pin_code) === String(adminPin))
+    const adminRoles = ['admin', 'System Admin', 'manager', 'Supervisor']
+    const admin = operators.value.find(o => adminRoles.includes(o.role) && String(o.pin_code) === String(adminPin))
     if (!admin) return { ok: false, reason: 'Invalid Admin PIN' }
     try {
       const { error } = await supabase.from('mes_financial_ledger')

@@ -227,7 +227,8 @@ function requireAdminPin(actionLabel, fn) {
 }
 
 async function executeAdminAction(pin) {
-  const admin = store.operators.find(o => String(o.pin_code) === String(pin) && o.role === 'admin')
+  const adminRoles = ['admin', 'System Admin', 'manager', 'Supervisor']
+  const admin = store.operators.find(o => String(o.pin_code) === String(pin) && adminRoles.includes(o.role))
   if (!admin) {
     adminPin.error = 'Invalid Admin PIN. Try again.'
     return
