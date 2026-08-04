@@ -13,16 +13,26 @@ export const useMesStore = defineStore('mes', () => {
     isLoading.value = true
     try {
       // 1. Fetch active operators and customers
-      const { data: ops } = await supabase.from('mes_operators').select('*').eq('is_active', true)
-      if (ops) {
-        operators.value = ops.filter(o => o.role !== 'customer').map((o, idx) => {
-          // Mock digital banking fields
-          const pref = idx % 3 === 0 ? 'Cash' : (idx % 3 === 1 ? 'Telebirr' : 'CBE')
-          const acct = pref === 'Telebirr' ? '+251911000000' : (pref === 'CBE' ? '1000123456789' : null)
-          return { ...o, payment_preference: pref, account_number: acct }
-        })
-        clients.value = ops.filter(o => o.role === 'customer')
-      }
+      const { data: ops, error: opsErr } = await supabase.from('mes_operators').select('*').neq('role', 'customer')
+      if (opsErr) throw opsErr
+
+      // Fetch Customers
+      const { data: clientsData, error: clientsErr } = await supabase.from('mes_customers').select('*')
+      if (clientsErr) throw clientsErr
+
+      operators.value = ops.map((o, idx) => {
+        return {
+          ...o,
+          color: o.color || `bg-${['blue','emerald','indigo','purple','rose','amber','teal'][idx % 7]}-500`
+        }
+      })
+      clients.value = (clientsData || []).map(c => ({
+        ...c,
+        name: c.company_name,
+        full_name: c.contact_person,
+        avatar: c.company_name.charAt(0).toUpperCase(),
+        color: 'bg-emerald-500'
+      }))
 
       // 2. Fetch all-time production and dispatch to compute inventory
       const { data: allProd } = await supabase.from('mes_production_logs').select('divider_type, qty_produced')
@@ -400,24 +410,22 @@ export const useMesStore = defineStore('mes', () => {
 
   async function addClient(customerData) {
     try {
-      // Generate a highly unique 4-character pin for customers (e.g. C + 3 random alphanumerics)
-      const randomPin = ('C' + Math.random().toString(36).substr(2, 3)).toUpperCase()
-      
       const payload = {
-        name: customerData.name,
-        full_name: customerData.contact_person || '',
+        company_name: customerData.name,
+        contact_person: customerData.contact_person || '',
         phone_number: customerData.phone_number || '',
         address: customerData.address || '',
-        email: customerData.email || '',
-        role: 'customer',
-        pin_code: randomPin, // unused for customers, but required unique
-        is_active: true,
-        color: 'bg-emerald-500',
-        avatar: customerData.name.charAt(0).toUpperCase()
+        email: customerData.email || ''
       }
-      const { data, error } = await supabase.from('mes_operators').insert(payload).select().single()
+      const { data, error } = await supabase.from('mes_customers').insert(payload).select().single()
       if (error) throw error
-      clients.value.push(data)
+      clients.value.push({
+        ...data,
+        name: data.company_name,
+        full_name: data.contact_person,
+        avatar: data.company_name.charAt(0).toUpperCase(),
+        color: 'bg-emerald-500'
+      })
       return true
     } catch (err) {
       console.error('[Store] Add client failed:', err)
