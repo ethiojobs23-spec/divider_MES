@@ -440,11 +440,18 @@ const daysAttended = computed(() => {
   return payrollStore.getDaysAttended(sysAuth.currentEmployeeId, currentWeek.value)
 })
 
-const estimatedEarnings = computed(() => {
+const grossPiece = computed(() => {
   if (!sysAuth.currentEmployeeId) return 0
-  const grossPiece = payrollStore.getGrossEarnings(sysAuth.currentEmployeeId, currentWeek.value)
-  const grossHourly = payrollStore.getHourlyEarnings(sysAuth.currentEmployeeId, currentWeek.value)
-  return grossPiece + grossHourly
+  return payrollStore.getGrossEarnings(sysAuth.currentEmployeeId, currentWeek.value)
+})
+
+const grossHourly = computed(() => {
+  if (!sysAuth.currentEmployeeId) return 0
+  return payrollStore.getHourlyEarnings(sysAuth.currentEmployeeId, currentWeek.value)
+})
+
+const estimatedEarnings = computed(() => {
+  return Number(grossPiece.value) + Number(grossHourly.value)
 })
 
 // ── Cash Loan ──
@@ -557,7 +564,8 @@ async function clockOut() {
 }
 
 async function handleAdminOverride(pin) {
-  const admin = mesStore.operators.find(o => String(o.pin_code) === String(pin) && (o.role === 'System Admin' || o.role === 'Supervisor'))
+  const adminRoles = ['admin', 'System Admin', 'manager', 'Supervisor']
+  const admin = mesStore.operators.find(o => String(o.pin_code) === String(pin) && adminRoles.includes(o.role))
   if (!admin) {
     adminOverrideModal.value.error = 'Invalid Admin/Supervisor PIN. Try again.'
     return
