@@ -21,6 +21,14 @@
             <OperatorAvatar :avatar="c.avatar" :name="c.name" :color="c.color" size="md" />
             <div class="info">
               <h3>{{ c.name }}</h3>
+              <p v-if="c.full_name || c.phone_number" class="customer-details">
+                <span v-if="c.full_name" class="material-symbols-rounded">person</span> {{ c.full_name }}
+                <span v-if="c.phone_number" class="material-symbols-rounded" style="margin-left: 8px;">call</span> {{ c.phone_number }}
+              </p>
+              <p v-if="c.address || c.email" class="customer-details">
+                <span v-if="c.address" class="material-symbols-rounded">location_on</span> {{ c.address }}
+                <span v-if="c.email" class="material-symbols-rounded" style="margin-left: 8px;">mail</span> {{ c.email }}
+              </p>
               <p>Customer ID: {{ c.id }}</p>
             </div>
           </div>
@@ -53,15 +61,31 @@
       
       <!-- Modals -->
       <div v-if="showAddModal" class="modal-overlay">
-        <div class="modal-content">
+        <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
           <h2>Add New Customer</h2>
           <div class="input-group">
-            <label>Customer/Company Name</label>
-            <input v-model="newCustomerName" type="text" placeholder="e.g. Addis Ababa Main Depot" />
+            <label>Customer/Company Name <span style="color:#ef4444">*</span></label>
+            <input v-model="newCustomer.name" type="text" placeholder="e.g. Addis Ababa Main Depot" />
+          </div>
+          <div class="input-group">
+            <label>Contact Person</label>
+            <input v-model="newCustomer.contact_person" type="text" placeholder="e.g. Abebe Kebede" />
+          </div>
+          <div class="input-group">
+            <label>Phone Number</label>
+            <input v-model="newCustomer.phone_number" type="tel" placeholder="09..." />
+          </div>
+          <div class="input-group">
+            <label>Email Address</label>
+            <input v-model="newCustomer.email" type="email" placeholder="contact@company.com" />
+          </div>
+          <div class="input-group">
+            <label>Address / Location</label>
+            <input v-model="newCustomer.address" type="text" placeholder="e.g. Piassa, Addis Ababa" />
           </div>
           <div class="modal-actions">
             <button class="btn-cancel" @click="showAddModal = false">Cancel</button>
-            <button class="btn-save" :disabled="!newCustomerName.trim() || isSaving" @click="saveCustomer">
+            <button class="btn-save" :disabled="!newCustomer.name.trim() || isSaving" @click="saveCustomer">
               {{ isSaving ? 'Saving...' : 'Add Customer' }}
             </button>
           </div>
@@ -69,15 +93,14 @@
       </div>
 
       <div v-if="selectedCustomer" class="modal-overlay">
-        <div class="modal-content">
-          <h2>Log Payment from {{ selectedCustomer.name }}</h2>
-          <div class="input-group">
-            <label>Amount (ETB)</label>
-            <input v-model.number="paymentAmount" type="number" placeholder="0" />
+        <div class="modal-content" style="max-width: 400px; padding: 1.5rem;">
+          <h2 style="margin-bottom: 1.5rem;">Log Payment from {{ selectedCustomer.name }}</h2>
+          <div class="input-group" style="margin-bottom: 0;">
+            <VirtualNumpad v-model="paymentAmount" label="Payment Amount (ETB)" :allowDecimal="true" />
           </div>
-          <div class="modal-actions">
+          <div class="modal-actions" style="margin-top: 1.5rem;">
             <button class="btn-cancel" @click="selectedCustomer = null">Cancel</button>
-            <button class="btn-save" :disabled="paymentAmount <= 0 || isSaving" @click="savePayment">
+            <button class="btn-save" :disabled="Number(paymentAmount) <= 0 || isSaving" @click="savePayment">
               {{ isSaving ? 'Saving...' : 'Confirm Payment' }}
             </button>
           </div>
@@ -91,6 +114,7 @@
 import { ref, computed } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
+import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import { useMesStore } from '@/store/mesStore.js'
 
 const store = useMesStore()
@@ -115,16 +139,22 @@ const customersWithStats = computed(() => {
 })
 
 const showAddModal = ref(false)
-const newCustomerName = ref('')
+const newCustomer = ref({
+  name: '',
+  contact_person: '',
+  phone_number: '',
+  email: '',
+  address: ''
+})
 const isSaving = ref(false)
 
 async function saveCustomer() {
-  if (!newCustomerName.value.trim()) return
+  if (!newCustomer.value.name.trim()) return
   isSaving.value = true
-  const ok = await store.addClient(newCustomerName.value.trim())
+  const ok = await store.addClient({ ...newCustomer.value })
   isSaving.value = false
   if (ok) {
-    newCustomerName.value = ''
+    newCustomer.value = { name: '', contact_person: '', phone_number: '', email: '', address: '' }
     showAddModal.value = false
   } else {
     alert("Failed to add customer")
@@ -140,12 +170,13 @@ function openPaymentModal(customer) {
 }
 
 async function savePayment() {
-  if (paymentAmount.value <= 0) return
+  const amount = Number(paymentAmount.value)
+  if (amount <= 0) return
   isSaving.value = true
   const ok = await store.addCashEntry({
     operator: selectedCustomer.value.name,
     type: 'client_payment',
-    amount: paymentAmount.value,
+    amount: amount,
     note: `Payment from ${selectedCustomer.value.name}`
   })
   isSaving.value = false
@@ -215,6 +246,18 @@ async function savePayment() {
 }
 .info h3 { color: #f1f5f9; font-size: 1.2rem; font-weight: 700; margin-bottom: 0.25rem; }
 .info p { color: #64748b; font-size: 0.8rem; }
+.customer-details {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.customer-details span {
+  font-size: 1rem;
+  color: #6366f1;
+}
 
 .stats-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;

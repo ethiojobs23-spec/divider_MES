@@ -398,18 +398,22 @@ export const useMesStore = defineStore('mes', () => {
     dispatchLogs.value.reduce((s, d) => s + (Number(d.quantity) || 0), 0)
   )
 
-  async function addClient(name) {
+  async function addClient(customerData) {
     try {
       // Generate a highly unique 4-character pin for customers (e.g. C + 3 random alphanumerics)
       const randomPin = ('C' + Math.random().toString(36).substr(2, 3)).toUpperCase()
       
       const payload = {
-        name,
+        name: customerData.name,
+        full_name: customerData.contact_person || '',
+        phone_number: customerData.phone_number || '',
+        address: customerData.address || '',
+        email: customerData.email || '',
         role: 'customer',
         pin_code: randomPin, // unused for customers, but required unique
         is_active: true,
         color: 'bg-emerald-500',
-        avatar: name.charAt(0).toUpperCase()
+        avatar: customerData.name.charAt(0).toUpperCase()
       }
       const { data, error } = await supabase.from('mes_operators').insert(payload).select().single()
       if (error) throw error
