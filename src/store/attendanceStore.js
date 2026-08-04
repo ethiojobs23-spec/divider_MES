@@ -8,6 +8,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useMesStore } from './mesStore'
+import { syncManager } from '@/services/syncManager'
 
 function parseWindowTime(hhMM) {
   const match = String(hhMM).match(/^(\d{1,2}):(\d{2})$/)
@@ -96,17 +97,23 @@ export const useAttendanceStore = defineStore('attendance', () => {
         status: val.allowed ? 'on_time' : 'late'
       }
       
-      const { data, error } = await supabase.from('mes_attendance').insert(payload).select().single()
-      if (error) throw error
-      
+      // Optimistic UI Update
       clockInLog.value.push({
-        operatorId: data.operator_id,
-        timestamp: data.clock_in,
-        clockOut: data.clock_out,
-        status: data.status,
-        shiftDate: data.shift_date,
-        week: data.production_week
+        operatorId: payload.operator_id,
+        timestamp: payload.clock_in,
+        clockOut: null,
+        status: payload.status,
+        shiftDate: payload.shift_date,
+        week: payload.production_week
       })
+
+      if (navigator.onLine) {
+        supabase.from('mes_attendance').insert(payload).catch(() => {
+          syncManager.enqueue({ action: 'insert', table: 'mes_attendance', payload })
+        })
+      } else {
+        syncManager.enqueue({ action: 'insert', table: 'mes_attendance', payload })
+      }
     } catch (err) {
       console.error('[AttendanceStore] Error recording clock in:', err)
     }

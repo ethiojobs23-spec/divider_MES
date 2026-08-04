@@ -40,12 +40,23 @@
  * propagation; we do our own structured logging instead.
  */
 
-import { ref, onErrorCaptured } from 'vue'
+import { ref, onErrorCaptured, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useMesStore } from '@/store/mesStore.js'
+import { useAttendanceStore } from '@/store/attendanceStore.js'
 
 const router      = useRouter()
 const hasCrashed  = ref(false)
 const crashMessage = ref('')
+
+onMounted(() => {
+  const mesStore = useMesStore()
+  const attStore = useAttendanceStore()
+  if (navigator.onLine) {
+    mesStore.fetchInitialData()
+    attStore.fetchAttendance()
+  }
+})
 
 // ─── Global Error Boundary ─────────────────────────────────────────────────
 onErrorCaptured((err, instance, info) => {

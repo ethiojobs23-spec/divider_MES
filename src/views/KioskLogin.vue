@@ -161,14 +161,29 @@ async function handleClockIn() {
 async function handleClockOut() {
   const op = modal.value.operator
   mesStore.clockOut(op)
-  // Log clock-out time in attendance
-  try {
-    const { supabase } = await import('@/lib/supabaseClient')
-    await supabase.from('mes_attendance')
-      .update({ clock_out: new Date().toISOString() })
-      .eq('operator_id', op.id)
-      .is('clock_out', null)
-  } catch (e) { /* non-critical, ignore */ }
+  
+  const now = new Date().toISOString()
+  
+  // Optimistic UI update in attendanceStore
+  const lastLog = attendanceStore.clockInLog.find(l => l.operatorId === op.id && !l.clockOut)
+  if (lastLog) lastLog.clockOut = now
+
+  const payload = { clock_out: now }
+  const match = { operator_id: op.id, clock_out: null }
+
+  if (navigator.onLine) {
+    import('@/lib/supabaseClient').then(({ supabase }) => {
+      supabase.from('mes_attendance').update(payload).match(match).catch(() => {
+        import('@/services/syncManager').then(({ syncManager }) => {
+          syncManager.enqueue({ action: 'update', table: 'mes_attendance', payload, match })
+        })
+      })
+    })
+  } else {
+    import('@/services/syncManager').then(({ syncManager }) => {
+      syncManager.enqueue({ action: 'update', table: 'mes_attendance', payload, match })
+    })
+  }
   closeModal()
 }
 

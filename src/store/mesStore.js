@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useInventoryStore } from './inventoryStore'
 import { useAttendanceStore } from './attendanceStore'
+import { syncManager } from '@/services/syncManager'
 
 export const useMesStore = defineStore('mes', () => {
   // ─── Initializing Data ─────────────────────────────────────────────────────
@@ -204,10 +205,25 @@ export const useMesStore = defineStore('mes', () => {
         is_overtime: overtime,
       }
 
-      const { data: savedRow, error } = await supabase.from('mes_production_logs').insert(payload).select().single()
-      if (error) throw error
+      // Optimistic UI update
+      const tempId = Date.now()
+      const optimisticRow = { id: tempId, created_at: new Date().toISOString(), ...payload }
+      ledgerEntries.value.push(mapSupabaseLedgerToLocal(optimisticRow))
 
-      ledgerEntries.value.push(mapSupabaseLedgerToLocal(savedRow))
+      if (navigator.onLine) {
+        supabase.from('mes_production_logs').insert(payload).select().single().then(({ data: savedRow, error }) => {
+          if (!error && savedRow) {
+            const entry = ledgerEntries.value.find(e => e.id === tempId)
+            if (entry) entry.id = savedRow.id
+          } else {
+            syncManager.enqueue({ action: 'insert', table: 'mes_production_logs', payload })
+          }
+        }).catch(() => {
+          syncManager.enqueue({ action: 'insert', table: 'mes_production_logs', payload })
+        })
+      } else {
+        syncManager.enqueue({ action: 'insert', table: 'mes_production_logs', payload })
+      }
       
       // Update local inventory immediately
       const invItem = inventory.value.find(i => i.divider_type === data.dividerType)
@@ -269,11 +285,24 @@ export const useMesStore = defineStore('mes', () => {
         transaction_date: new Date().toISOString().split('T')[0],
         notes: entry.note
       }
-      
-      const { data: savedRow, error } = await supabase.from('mes_financial_ledger').insert(payload).select().single()
-      if (error) throw error
+      const tempId = Date.now()
+      const optimisticRow = { id: tempId, created_at: new Date().toISOString(), ...payload }
+      cashEntries.value.push(mapSupabaseCashToLocal(optimisticRow))
 
-      cashEntries.value.push(mapSupabaseCashToLocal(savedRow))
+      if (navigator.onLine) {
+        supabase.from('mes_financial_ledger').insert(payload).select().single().then(({ data: savedRow, error }) => {
+          if (!error && savedRow) {
+            const entry = cashEntries.value.find(e => e.id === tempId)
+            if (entry) entry.id = savedRow.id
+          } else {
+            syncManager.enqueue({ action: 'insert', table: 'mes_financial_ledger', payload })
+          }
+        }).catch(() => {
+          syncManager.enqueue({ action: 'insert', table: 'mes_financial_ledger', payload })
+        })
+      } else {
+        syncManager.enqueue({ action: 'insert', table: 'mes_financial_ledger', payload })
+      }
       return true
     } catch (err) {
       console.error('[Store] Cash log failed:', err)
@@ -334,13 +363,24 @@ export const useMesStore = defineStore('mes', () => {
         dispatched_by: activeOperator.value?.name ?? 'Manager',
         dispatch_date: new Date().toISOString().split('T')[0],
       }
-      const { data: savedRow, error } = await supabase
-        .from('mes_dispatch_logs')
-        .insert(payload)
-        .select()
-        .single()
-      if (error) throw error
-      dispatchLogs.value.unshift(mapSupabaseDispatchToLocal(savedRow))
+      const tempId = Date.now()
+      const optimisticRow = { id: tempId, created_at: new Date().toISOString(), ...payload }
+      dispatchLogs.value.unshift(mapSupabaseDispatchToLocal(optimisticRow))
+
+      if (navigator.onLine) {
+        supabase.from('mes_dispatch_logs').insert(payload).select().single().then(({ data: savedRow, error }) => {
+          if (!error && savedRow) {
+            const entry = dispatchLogs.value.find(e => e.id === tempId)
+            if (entry) entry.id = savedRow.id
+          } else {
+            syncManager.enqueue({ action: 'insert', table: 'mes_dispatch_logs', payload })
+          }
+        }).catch(() => {
+          syncManager.enqueue({ action: 'insert', table: 'mes_dispatch_logs', payload })
+        })
+      } else {
+        syncManager.enqueue({ action: 'insert', table: 'mes_dispatch_logs', payload })
+      }
       
       // Update local inventory state to reflect the dispatch immediately
       const invItem = inventory.value.find(i => i.divider_type === data.dividerType)
@@ -549,9 +589,15 @@ export const useMesStore = defineStore('mes', () => {
         transaction_date: today,
         notes: JSON.stringify(details)
       }
-      const { data, error } = await supabase.from('mes_financial_ledger').insert(payload).select().single()
-      if (error) throw error
-      shiftSubmissions.value.push({ ...data, details })
+      shiftSubmissions.value.push({ id: Date.now(), ...payload, details })
+      
+      if (navigator.onLine) {
+        supabase.from('mes_financial_ledger').insert(payload).catch(() => {
+          syncManager.enqueue({ action: 'insert', table: 'mes_financial_ledger', payload })
+        })
+      } else {
+        syncManager.enqueue({ action: 'insert', table: 'mes_financial_ledger', payload })
+      }
       return { ok: true, totalGood, totalWaste, totalEarnings: totalEarnings.toFixed(2) }
     } catch (err) {
       console.error('[Store] Shift submit failed:', err)
