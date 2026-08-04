@@ -19,6 +19,10 @@
           <span class="material-symbols-rounded snav-icon">tune</span>
           <span class="snav-label">System</span>
         </button>
+        <button class="snav-item" :class="{'snav-item--active': activeTab === 'profile'}" @click="activeTab = 'profile'">
+          <span class="material-symbols-rounded snav-icon">person</span>
+          <span class="snav-label">My Profile</span>
+        </button>
       </nav>
 
 
@@ -317,6 +321,63 @@
           </div>
         </div>
       </div>
+      
+      <!-- ══════════════════════════════════════════════════════════════
+           TAB 4: MY PROFILE
+      ══════════════════════════════════════════════════════════════ -->
+      <div v-if="activeTab === 'profile'" class="tab-panel" style="max-width: 600px; margin: 0 auto;">
+        <div class="panel-header" style="justify-content: center; text-align: center; margin-bottom: 2rem;">
+          <h2 class="panel-title">Admin Profile</h2>
+        </div>
+        
+        <div v-if="adminOperator" class="production-list-card">
+          <!-- Avatar Preview & Upload -->
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem; margin-bottom: 2rem;">
+            <OperatorAvatar :avatar="profileForm.avatar" :name="adminOperator.name" :color="adminOperator.color" size="xl" />
+            
+            <div style="position: relative;">
+              <input type="file" accept="image/*" @change="handleAvatarSelected" style="position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer;" :disabled="isUploadingAvatar" />
+              <button class="nav-btn" style="pointer-events: none; justify-content: center; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span class="material-symbols-rounded">{{ isUploadingAvatar ? 'hourglass_empty' : 'upload' }}</span>
+                {{ isUploadingAvatar ? 'Uploading...' : 'Change Picture' }}
+              </button>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+              <label style="color: #94a3b8; font-size: 0.85rem; font-weight: 600;">Full Name</label>
+              <input v-model="profileForm.full_name" type="text" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 0.75rem; border-radius: 0.5rem; width: 100%;" placeholder="Enter full name" />
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+              <label style="color: #94a3b8; font-size: 0.85rem; font-weight: 600;">Phone Number</label>
+              <input v-model="profileForm.phone_number" type="tel" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 0.75rem; border-radius: 0.5rem; width: 100%;" placeholder="09..." />
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+              <label style="color: #94a3b8; font-size: 0.85rem; font-weight: 600;">Date of Birth</label>
+              <input v-model="profileForm.dob" type="date" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 0.75rem; border-radius: 0.5rem; width: 100%;" />
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 0.25rem; margin-top: 1rem;">
+              <label style="color: #94a3b8; font-size: 0.85rem; font-weight: 600;">Confirm PIN to Save</label>
+              <input v-model="profileForm.pinConfirm" type="password" maxlength="4" inputmode="numeric" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 0.75rem; border-radius: 0.5rem; width: 100%;" placeholder="Enter your 4-digit PIN" />
+            </div>
+          </div>
+
+          <div style="margin-top: 2rem;">
+            <button style="width: 100%; background: #6366f1; color: white; padding: 1rem; border-radius: 0.5rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" @click="saveProfile" :disabled="isSavingProfile || !profileForm.pinConfirm">
+              <span class="material-symbols-rounded">save</span>
+              {{ isSavingProfile ? 'Saving...' : 'Save Profile' }}
+            </button>
+            <p v-if="profileMessage" style="text-align: center; margin-top: 1rem; font-size: 0.85rem;" :style="{ color: profileMessage.includes('Error') || profileMessage.includes('Incorrect') ? '#ef4444' : '#10b981' }">{{ profileMessage }}</p>
+          </div>
+        </div>
+        <div v-else style="text-align: center; padding: 3rem; color: #94a3b8;">
+          Cannot load admin profile. Please login again.
+        </div>
+      </div>
 
     </main>
   </AppLayout>
@@ -324,13 +385,16 @@
 
 <script setup>
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { ref } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
+import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 import EmployeeManager from '@/components/EmployeeManager.vue'
+import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 
 const store = useMesStore()
 const attStore = useAttendanceStore()
+const sysAuth = useSystemAuthStore()
 
 // ─── Nav state ──────────────────────────────────────────────────────────────
 const activeTab    = ref('employees')
@@ -386,6 +450,85 @@ async function applyChanges() {
     savedTimer = setTimeout(() => { saved.value = false }, 2500)
   } else {
     alert("Failed to save settings.")
+  }
+}
+
+// ─── Profile Logic ──────────────────────────────────────────────────────────
+const adminOperator = computed(() => {
+  return store.operators.find(o => o.id === sysAuth.currentEmployeeId)
+})
+
+const profileForm = ref({ full_name: '', phone_number: '', dob: '', avatar: '', pinConfirm: '' })
+const isUploadingAvatar = ref(false)
+const isSavingProfile = ref(false)
+const profileMessage = ref('')
+
+function loadProfileData() {
+  if (adminOperator.value) {
+    profileForm.value.full_name = adminOperator.value.full_name || adminOperator.value.name
+    profileForm.value.phone_number = adminOperator.value.phone_number || ''
+    profileForm.value.dob = adminOperator.value.dob || ''
+    profileForm.value.avatar = adminOperator.value.avatar || ''
+  }
+}
+
+onMounted(() => loadProfileData())
+watch(adminOperator, () => loadProfileData())
+
+async function handleAvatarSelected(event) {
+  const file = event.target.files[0]
+  if (!file) return
+  isUploadingAvatar.value = true
+  profileMessage.value = ''
+  try {
+    const { supabase } = await import('@/lib/supabaseClient')
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${adminOperator.value.id}_${Date.now()}.${fileExt}`
+    const filePath = `public/${fileName}`
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file)
+    if (uploadError) throw uploadError
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
+    profileForm.value.avatar = data.publicUrl
+    profileMessage.value = 'Avatar uploaded successfully! Click Save Profile to apply.'
+  } catch (error) {
+    console.error('Avatar upload failed:', error)
+    profileMessage.value = 'Error uploading avatar: ' + error.message
+  } finally {
+    isUploadingAvatar.value = false
+  }
+}
+
+async function saveProfile() {
+  if (!adminOperator.value) return
+  if (String(profileForm.value.pinConfirm) !== String(adminOperator.value.pin_code)) {
+    profileMessage.value = 'Incorrect PIN. Profile not saved.'
+    setTimeout(() => { profileMessage.value = '' }, 3000)
+    return
+  }
+  isSavingProfile.value = true
+  profileMessage.value = ''
+  try {
+    const { supabase } = await import('@/lib/supabaseClient')
+    const payload = {
+      full_name: profileForm.value.full_name,
+      phone_number: profileForm.value.phone_number,
+      dob: profileForm.value.dob || null,
+      avatar: profileForm.value.avatar
+    }
+    if (payload.full_name && payload.full_name !== adminOperator.value.name) {
+      payload.name = payload.full_name
+    }
+    const { error } = await supabase.from('mes_operators').update(payload).eq('id', adminOperator.value.id)
+    if (error) throw error
+    profileMessage.value = 'Profile updated successfully!'
+    profileForm.value.pinConfirm = ''
+    store.fetchInitialData()
+  } catch (error) {
+    console.error('Profile save failed:', error)
+    profileMessage.value = 'Error saving profile: ' + error.message
+  } finally {
+    isSavingProfile.value = false
+    setTimeout(() => { profileMessage.value = '' }, 3000)
   }
 }
 </script>
