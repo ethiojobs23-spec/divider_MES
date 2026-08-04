@@ -134,4 +134,8 @@ export const useAttendanceStore = defineStore('attendance', () => {
     clockingWindows,
     clockInLog, fetchAttendance, validateClockTime, recordClockIn, updateWindow, getDaysAttended
   }
+}, {
+  persist: {
+    key: 'divider-attendance-store',
+  },
 })

@@ -651,6 +651,8 @@ export const useMesStore = defineStore('mes', () => {
       'systemConfig',
       'inventory',
       'operators',
+      'clockedInOperators',
+      'activeOperator'
     ],
   },
 })
