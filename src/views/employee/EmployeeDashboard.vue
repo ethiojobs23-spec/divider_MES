@@ -789,9 +789,7 @@ async function saveProfile() {
       dob: profileForm.value.dob || null,
       avatar: profileForm.value.avatar
     }
-    if (payload.full_name && payload.full_name !== employee.value.name) {
-      payload.name = payload.full_name
-    }
+
     const { error } = await supabase.from('mes_operators').update(payload).eq('id', employee.value.id)
     if (error) throw error
     profileMessage.value = 'Profile updated successfully!'

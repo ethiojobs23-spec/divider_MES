@@ -106,6 +106,28 @@
                       </div>
                     </div>
 
+                    <!-- Contact Information -->
+                    <div class="metric-section">
+                      <p class="section-title">
+                        <span class="material-symbols-rounded">contact_mail</span>
+                        Contact Information
+                      </p>
+                      <div class="metric-row">
+                        <div class="metric-item">
+                          <span class="m-label">Full Name</span>
+                          <span class="m-value" style="font-size: 0.9rem; color: #f1f5f9;">{{ selectedOp.full_name || 'N/A' }}</span>
+                        </div>
+                        <div class="metric-item">
+                          <span class="m-label">Phone</span>
+                          <span class="m-value" style="font-size: 0.9rem; color: #f1f5f9;">{{ selectedOp.phone_number || 'N/A' }}</span>
+                        </div>
+                        <div class="metric-item">
+                          <span class="m-label">Date of Birth</span>
+                          <span class="m-value" style="font-size: 0.9rem; color: #f1f5f9;">{{ selectedOp.dob || 'N/A' }}</span>
+                        </div>
+                      </div>
+                    </div>
+
                     <!-- Assignment metrics -->
                     <div class="metric-section">
                       <p class="section-title">
