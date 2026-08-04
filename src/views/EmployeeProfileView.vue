@@ -200,11 +200,11 @@
 
                     <!-- Shift Action Buttons -->
                     <div class="shift-actions">
-                      <button class="shift-btn shift-btn--break">
+                      <button class="shift-btn shift-btn--break" @click="handleLogBreak(selectedOp)">
                         <span class="material-symbols-rounded">free_breakfast</span>
-                        LOG BREAK
+                        {{ isOperatorOnBreak(selectedOp) ? 'END BREAK' : 'LOG BREAK' }}
                       </button>
-                      <button class="shift-btn shift-btn--end">
+                      <button class="shift-btn shift-btn--end" @click="handleEndShift(selectedOp)">
                         <span class="material-symbols-rounded">power_settings_new</span>
                         END SHIFT
                       </button>
@@ -462,6 +462,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
 import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useMesStore } from '@/store/mesStore.js'
+import { useAttendanceStore } from '@/store/attendanceStore.js'
 
 const store = useMesStore()
 
@@ -537,6 +538,68 @@ function showToast(msg) {
   toastVisible.value = true
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => { toastVisible.value = false }, 2500)
+}
+
+const attStore = useAttendanceStore()
+
+function isOperatorOnBreak(op) {
+  if (!op) return false
+  return store.downtimeSessions.some(d => d.operator_id === op.id && d.downtime_reason === 'Break' && !d.end_time)
+}
+
+async function handleLogBreak(op) {
+  if (!op) return
+  const activeBreak = store.downtimeSessions.find(d => d.operator_id === op.id && d.downtime_reason === 'Break' && !d.end_time)
+  
+  try {
+    const { supabase } = await import('@/lib/supabaseClient')
+    if (activeBreak) {
+      // End the break
+      const outTime = new Date().toISOString()
+      await supabase.from('mes_downtime_logs').update({ end_time: outTime }).eq('id', activeBreak.id)
+      activeBreak.end_time = outTime
+      showToast(`${op.name}'s break ended!`)
+    } else {
+      // Start a break
+      const payload = {
+        production_week: store.currentProductionWeek,
+        operator_id: op.id,
+        downtime_reason: 'Break',
+        start_time: new Date().toISOString()
+      }
+      const { data } = await supabase.from('mes_downtime_logs').insert(payload).select().single()
+      if (data) {
+        store.downtimeSessions.push(data)
+      }
+      showToast(`${op.name} is now on break!`)
+    }
+  } catch (err) {
+    console.error('Failed to log break:', err)
+    showToast('Failed to log break')
+  }
+}
+
+async function handleEndShift(op) {
+  if (!op) return
+  store.clockOut(op)
+  try {
+    const { supabase } = await import('@/lib/supabaseClient')
+    const outTime = new Date().toISOString()
+    await supabase.from('mes_attendance')
+      .update({ clock_out: outTime })
+      .eq('operator_id', op.id)
+      .is('clock_out', null)
+      
+    // Update local attendance store state
+    const logEntry = attStore.clockInLog.find(log => log.operatorId === op.id && !log.clockOut)
+    if (logEntry) {
+      logEntry.clockOut = outTime
+    }
+    showToast(`${op.name}'s shift ended!`)
+  } catch (e) {
+    console.error('End shift error:', e)
+    showToast('Failed to end shift')
+  }
 }
 
 function handleClockOut() {
