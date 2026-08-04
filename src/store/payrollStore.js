@@ -11,7 +11,7 @@ import { useMesStore } from './mesStore'
 import { useAttendanceStore } from './attendanceStore'
 import { supabase } from '@/lib/supabaseClient'
 
-export const PLACEMENT_KEYS = (['ብተና', 'ውስጥ', 'የተሰየ'])
+export const PLACEMENT_KEYS = (['ብተና', 'ውስጥ', 'የተለየ'])
 export const HOURLY_MIN =  15
 export const HOURLY_MAX =  30
 export const WORK_DAYS_PER_WEEK = 6

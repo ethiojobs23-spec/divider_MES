@@ -163,7 +163,7 @@ const store = useMesStore()
 // ─── Constants ─────────────────────────────────────────────────────────────
 const columns   = ['50', '40', '30', '16', '12', '45', 'Other']
 const days      = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const placements = ['ብተና', 'ውስጥ', 'የተሰየ']
+const placements = ['ብተና', 'ውስጥ', 'የተለየ']
 const sizes      = ['9cm', '7cm']
 
 // ─── Active Filters ────────────────────────────────────────────────────────

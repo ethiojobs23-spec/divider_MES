@@ -4,7 +4,7 @@
  * Strict JSON serialisation contracts for all MES API endpoints.
  *
  * Rules enforced here:
- *  1. Amharic placement keys ('ብተና' | 'ውስጥ' | 'የተሰየ') are sent as-is to the
+ *  1. Amharic placement keys ('ብተና' | 'ውስጥ' | 'የተለየ') are sent as-is to the
  *     database — they are NOT translated to English. The backend schema stores
  *     the Amharic literal in `placement_style VARCHAR(20)`.
  *  2. All numeric fields use integer arithmetic or the toDecimal2() helper to
@@ -19,7 +19,7 @@ import { toDecimal2 } from '@/store/payrollStore.js'
 
 // ─── Canonical Amharic placement keys ──────────────────────────────────────
 // These must match mesStore.pieceRates keys and the DB column values exactly.
-export const VALID_PLACEMENTS = /** @type {const} */ (['ብተና', 'ውስጥ', 'የተሰየ'])
+export const VALID_PLACEMENTS = /** @type {const} */ (['ብተና', 'ውስጥ', 'የተለየ'])
 export const VALID_SIZES      = /** @type {const} */ (['7cm', '9cm'])
 export const VALID_TYPES      = /** @type {const} */ ([12, 16, 30, 40, 45, 50])
 
@@ -41,7 +41,7 @@ function safeStr(value, maxLen = 50) {
  *
  * @param {Object} data
  *   @param {string|number} data.dividerType   - e.g. "50" or 50
- *   @param {string}        data.placement     - Amharic: 'ብተና'|'ውስጥ'|'የተሰየ'
+ *   @param {string}        data.placement     - Amharic: 'ብተና'|'ውስጥ'|'የተለየ'
  *   @param {string}        data.size          - '9cm' or '7cm'
  *   @param {number|string} data.goodProduction
  *   @param {number|string} data.wasteMaterial
@@ -76,7 +76,7 @@ export function formatProductionPayload(data, operatorName) {
     production_date: utcDateString(),         // YYYY-MM-DD UTC — never locale string
     divider_type:    dividerType,             // INT
     // Stored as Amharic literal — do NOT translate to English
-    placement_style: placement,               // 'ብተና' | 'ውስጥ' | 'የተሰየ'
+    placement_style: placement,               // 'ብተና' | 'ውስጥ' | 'የተለየ'
     size_cm:         sizeCm,                  // INT: 7 or 9
     qty_produced:    qtyProduced,             // INT ≥ 0
     qty_waste:       qtyWaste,                // INT ≥ 0
