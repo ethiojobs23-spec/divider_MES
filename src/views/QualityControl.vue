@@ -154,9 +154,9 @@
               </div>
             </div>
           </div>
-
         </div>
       </div>
+    </div>
       
       <!-- Toast -->
       <Transition name="toast">

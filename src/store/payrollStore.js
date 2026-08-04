@@ -453,6 +453,7 @@ export const usePayrollStore = defineStore('payroll', () => {
   }
 
   const weeklyPayrollSummary = computed(() => {
+    const mesStore = useMesStore()
     const week = mesStore.currentProductionWeek
     return mesStore.operators.map(op => ({
       ...op,
