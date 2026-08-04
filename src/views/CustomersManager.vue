@@ -18,7 +18,7 @@
       <div class="cards-grid">
         <div v-for="c in customersWithStats" :key="c.id" class="customer-card">
           <div class="card-top">
-            <div class="avatar">{{ c.avatar }}</div>
+            <OperatorAvatar :avatar="c.avatar" :name="c.name" :color="c.color" size="md" />
             <div class="info">
               <h3>{{ c.name }}</h3>
               <p>Customer ID: {{ c.id }}</p>
@@ -88,8 +88,9 @@
 </template>
 
 <script setup>
-import AppLayout from '@/components/layout/AppLayout.vue'
 import { ref, computed } from 'vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
+import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useMesStore } from '@/store/mesStore.js'
 
 const store = useMesStore()

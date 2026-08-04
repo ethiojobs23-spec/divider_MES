@@ -42,9 +42,7 @@
         >
           <!-- Top row: operator + date + status -->
           <div class="card-top">
-            <div class="op-avatar" :style="{ background: opColor(sub.operator_id) }">
-              {{ operatorName(sub.operator_id).charAt(0) }}
-            </div>
+            <OperatorAvatar :name="operatorName(sub.operator_id)" size="sm" />
             <div class="card-info">
               <h3>{{ operatorName(sub.operator_id) }}</h3>
               <p>{{ new Date(sub.transaction_date).toLocaleDateString('en-GB', { weekday:'long', day:'2-digit', month:'long' }) }}</p>
@@ -131,7 +129,7 @@
         <div class="operator-cards">
           <div v-for="op in store.operators.filter(o => o.role !== 'admin' && o.role !== 'customer')" :key="op.id" class="op-config-card">
             <div class="op-config-header">
-              <div class="op-mini-avatar" :style="{ background: opColor(op.id) }">{{ op.avatar }}</div>
+              <OperatorAvatar :avatar="op.avatar" :name="op.name" :color="op.color" size="sm" />
               <div>
                 <p class="op-name">{{ op.name }}</p>
                 <p class="op-role">{{ op.role }}</p>
@@ -206,6 +204,7 @@
 <script setup>
 import { ref, computed, reactive } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useMesStore } from '@/store/mesStore.js'
 
 const store = useMesStore()

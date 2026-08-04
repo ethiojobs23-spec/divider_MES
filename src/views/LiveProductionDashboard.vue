@@ -92,9 +92,7 @@
                 class="feed-item"
                 :class="{ 'feed-item--waste': entry.wasteMaterial > 0 && entry.goodProduction === 0 }"
               >
-                <div class="feed-avatar" :style="{ background: operatorColor(entry.operator) }">
-                  {{ entry.operator?.charAt(0) ?? '?' }}
-                </div>
+                <OperatorAvatar :name="entry.operator" size="sm" />
                 <div class="feed-body">
                   <p class="feed-primary">
                     <strong>{{ entry.operator }}</strong>
@@ -205,6 +203,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useMesStore } from '@/store/mesStore.js'
 
 const store = useMesStore()

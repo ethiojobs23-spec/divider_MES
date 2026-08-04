@@ -104,7 +104,7 @@
             ]"
             :title="op.name"
           >
-            {{ op.avatar }}
+            <OperatorAvatar :avatar="op.avatar" :name="op.name" :color="op.color" size="md" />
           </button>
         </div>
 
@@ -161,6 +161,7 @@ import { useMesStore }        from '@/store/mesStore.js'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 import { syncState }          from '@/services/syncManager.js'
 import NetworkBanner          from '@/components/ui/NetworkBanner.vue'
+import OperatorAvatar         from '@/components/ui/OperatorAvatar.vue'
 
 const router   = useRouter()
 const mesStore = useMesStore()

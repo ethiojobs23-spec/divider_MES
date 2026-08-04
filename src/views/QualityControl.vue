@@ -107,9 +107,7 @@
                 :class="{'alert-row--danger': rate.training_required}"
               >
                 <div class="flex items-center gap-3">
-                  <div class="avatar-sm" :class="rate.color || 'bg-slate-600'">
-                    {{ rate.avatar || rate.operator_name.charAt(0) }}
-                  </div>
+                  <OperatorAvatar :avatar="rate.avatar" :name="rate.operator_name" :color="rate.color" size="md" />
                   <div>
                     <p class="font-bold text-white">{{ rate.operator_name }}</p>
                     <p class="text-xs text-slate-400 font-medium">{{ rate.total_defects }} Total Defects</p>
@@ -174,6 +172,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
+import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useMesStore } from '@/store/mesStore'
 import { useDowntimeStore } from '@/store/downtimeStore'
 import { useQcStore } from '@/store/qcStore'

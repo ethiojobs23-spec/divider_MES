@@ -14,7 +14,7 @@
 
     <div class="employee-list">
       <div v-for="emp in mesStore.operators" :key="emp.id" class="employee-card" :class="{ 'is-inactive': !emp.is_active }">
-        <div class="emp-avatar" :class="emp.color">{{ emp.avatar }}</div>
+        <OperatorAvatar :avatar="emp.avatar" :name="emp.name" :color="emp.color" size="md" />
         <div class="emp-details">
           <h3 class="emp-name">{{ emp.name }}</h3>
           <p class="emp-role">{{ emp.role }}</p>
@@ -59,8 +59,8 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Avatar Letter</label>
-            <input v-model="formData.avatar" type="text" maxlength="1" placeholder="e.g. Z" />
+            <label>Profile Picture URL</label>
+            <input v-model="formData.avatar" type="text" placeholder="https://... or initial" />
           </div>
           <div class="form-group">
             <label>Color Theme</label>
@@ -108,8 +108,9 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useMesStore } from '@/store/mesStore.js'
 import { supabase } from '@/lib/supabaseClient'
+import { useMesStore } from '@/store/mesStore'
+import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 
 const mesStore = useMesStore()
 

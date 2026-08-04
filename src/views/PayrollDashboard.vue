@@ -136,7 +136,7 @@
               :class="{ 'op-card--active': selectedWorkerId === worker.id }"
               @click="selectedWorkerId = worker.id"
            >
-              <div class="op-avatar-sm" :class="worker.color">{{ worker.avatar }}</div>
+              <OperatorAvatar :avatar="worker.avatar" :name="worker.name" :color="worker.color" size="sm" />
               <div class="op-info">
                 <p class="op-name-sm">{{ worker.name }}</p>
                 <p class="op-role-sm">{{ worker.role }}</p>
@@ -436,9 +436,7 @@
                 <tr v-for="entry in paymentHistory" :key="entry.id" class="hover:bg-white/5 transition-colors">
                   <td class="p-4 text-sm text-slate-300 font-mono">{{ entry.timestamp.split('T')[0] }}</td>
                   <td class="p-4 text-sm font-bold text-slate-100 flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
-                      {{ entry.operator.charAt(0) }}
-                    </div>
+                    <OperatorAvatar :name="entry.operator" size="sm" />
                     {{ entry.operator }}
                   </td>
                   <td class="p-4 text-sm text-slate-400">{{ entry.note || `Payroll for ${entry.week}` }}</td>
@@ -497,6 +495,7 @@
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
 import PaymentReceiptModal from '@/components/ui/PaymentReceiptModal.vue'
+import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore.js'

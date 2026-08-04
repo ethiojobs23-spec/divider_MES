@@ -26,7 +26,7 @@
         :class="{ 'operator-card--active': store.isOperatorClockedIn(op.id) }"
         @click="openModal(op)"
       >
-        <div class="card-avatar" :class="op.color">{{ op.avatar }}</div>
+        <OperatorAvatar :avatar="op.avatar" :name="op.name" :color="op.color" size="lg" customClass="mx-auto mb-3" />
         <p class="card-name">{{ op.name }}</p>
         <p class="card-role">{{ op.role }}</p>
         <div class="card-status" :class="store.isOperatorClockedIn(op.id) ? 'status--in' : 'status--out'">
@@ -40,7 +40,7 @@
     <Transition name="fade">
       <div v-if="modal.open" class="modal-overlay" @click.self="closeModal">
         <div class="modal-card">
-          <div class="modal-avatar" :class="modal.operator?.color">{{ modal.operator?.avatar }}</div>
+          <OperatorAvatar :avatar="modal.operator?.avatar" :name="modal.operator?.name" :color="modal.operator?.color" size="lg" />
           <h2 class="modal-name">{{ modal.operator?.name }}</h2>
           <p class="modal-role">{{ modal.operator?.role }}</p>
 
@@ -110,6 +110,7 @@ import { useRouter } from 'vue-router'
 import { useMesStore } from '@/store/mesStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
+import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 
 const router = useRouter()
 const store = useMesStore()

@@ -145,7 +145,7 @@
                 :class="{ 'op-card--active': selectedOpId === op.id }"
                 @click="selectedOpId = op.id"
               >
-                <div class="op-avatar" :class="op.color">{{ op.avatar }}</div>
+                <OperatorAvatar :avatar="op.avatar" :name="op.name" :color="op.color" size="sm" />
                 <div class="op-info">
                   <p class="op-name">{{ op.name }}</p>
                   <p class="op-role">{{ op.role }}</p>
@@ -166,7 +166,7 @@
 
                   <!-- Header -->
                   <div class="profile-hdr">
-                    <div class="profile-avatar" :class="selectedProfile.color">{{ selectedProfile.avatar }}</div>
+                    <OperatorAvatar :avatar="selectedProfile.avatar" :name="selectedProfile.name" :color="selectedProfile.color" size="xl" />
                     <div>
                       <h3 class="profile-name">{{ selectedProfile.name }}</h3>
                       <p class="profile-role">{{ selectedProfile.role }}</p>
@@ -343,7 +343,7 @@
                   <tr v-for="row in costAnalysisRows" :key="row.id">
                     <td>
                       <div class="op-cell">
-                        <div class="op-dot" :class="row.color">{{ row.avatar }}</div>
+                        <OperatorAvatar :avatar="row.avatar" :name="row.name" :color="row.color" size="sm" />
                         <span>{{ row.name }}</span>
                       </div>
                     </td>
@@ -406,9 +406,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
+import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useMesStore } from '@/store/mesStore.js'
 
 const store = useMesStore()

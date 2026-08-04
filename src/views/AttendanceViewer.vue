@@ -26,7 +26,7 @@
             <tr v-for="log in formattedLogs" :key="log.id">
               <td>
                 <div class="op-info">
-                  <div class="op-avatar-sm" :class="log.operator.color">{{ log.operator.avatar }}</div>
+                  <OperatorAvatar :avatar="log.operator.avatar" :name="log.operator.name" :color="log.operator.color" size="sm" />
                   <span>{{ log.operator.name }}</span>
                 </div>
               </td>
@@ -52,6 +52,7 @@
 <script setup>
 import { computed } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
 import { useMesStore } from '@/store/mesStore.js'
 
@@ -68,7 +69,7 @@ const formattedLogs = computed(() => {
 
   return sorted.map(log => {
     const operator = mesStore.operators.find(op => op.id === log.operatorId) || {
-      name: 'Unknown', avatar: '?', color: 'bg-slate-500'
+      name: 'Unknown', avatar: '', color: 'bg-slate-500'
     }
     
     return {

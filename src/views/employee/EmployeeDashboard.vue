@@ -3,12 +3,15 @@
     <!-- Sidebar -->
     <aside class="employee-sidebar">
       <div class="profile-section">
-        <div class="op-avatar" :class="employee?.color">{{ employee?.avatar }}</div>
-        <h2 class="op-name">{{ employee?.name }}</h2>
+        <OperatorAvatar :avatar="employee?.avatar" :name="employee?.name" :color="employee?.color" size="xl" />
+        <h2 class="op-name mt-4">{{ employee?.name }}</h2>
         <p class="op-role">{{ employee?.role }}</p>
       </div>
 
       <nav class="portal-nav">
+        <button class="nav-btn" :class="{ active: activeTab === 'profile-settings' }" @click="activeTab = 'profile-settings'">
+          <span class="material-symbols-rounded">manage_accounts</span> Profile Settings
+        </button>
         <button class="nav-btn" :class="{ active: activeTab === 'overview' }" @click="activeTab = 'overview'">
           <span class="material-symbols-rounded">dashboard</span> My Dashboard
         </button>
@@ -44,6 +47,56 @@
         <h1>{{ tabTitles[activeTab] }}</h1>
         <p>Production Week: {{ currentWeek }}</p>
       </header>
+
+      <!-- Profile Settings Tab -->
+      <div v-if="activeTab === 'profile-settings'" class="tab-content">
+        <div class="production-list-card" style="max-width: 600px; margin: 0 auto;">
+          <h3 style="margin-bottom: 1.5rem; border-bottom: 1px solid rgba(99,102,241,0.2); padding-bottom: 0.75rem;">Edit Profile</h3>
+          
+          <!-- Avatar Preview & Upload -->
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem; margin-bottom: 2rem;">
+            <OperatorAvatar :avatar="profileForm.avatar" :name="employee?.name" :color="employee?.color" size="xl" />
+            
+            <div style="position: relative;">
+              <input type="file" accept="image/*" @change="handleAvatarSelected" style="position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer;" :disabled="isUploadingAvatar" />
+              <button class="nav-btn" style="pointer-events: none; justify-content: center; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3);">
+                <span class="material-symbols-rounded">{{ isUploadingAvatar ? 'hourglass_empty' : 'upload' }}</span>
+                {{ isUploadingAvatar ? 'Uploading...' : 'Change Picture' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="request-grid" style="grid-template-columns: 1fr;">
+            <div class="input-group">
+              <label>Full Name</label>
+              <input v-model="profileForm.full_name" type="text" class="input-field" placeholder="Enter full name" />
+            </div>
+            
+            <div class="input-group">
+              <label>Phone Number</label>
+              <input v-model="profileForm.phone_number" type="tel" class="input-field" placeholder="09..." />
+            </div>
+            
+            <div class="input-group">
+              <label>Date of Birth</label>
+              <input v-model="profileForm.dob" type="date" class="input-field" />
+            </div>
+            
+            <div class="input-group">
+              <label>Confirm PIN to Save</label>
+              <input v-model="profileForm.pinConfirm" type="password" maxlength="4" inputmode="numeric" class="input-field" placeholder="Enter 4-digit PIN" />
+            </div>
+          </div>
+
+          <div style="margin-top: 2rem;">
+            <button class="btn-submit-shift" style="width: 100%" @click="saveProfile" :disabled="isSavingProfile || !profileForm.pinConfirm">
+              <span class="material-symbols-rounded">save</span>
+              {{ isSavingProfile ? 'Saving...' : 'Save Profile' }}
+            </button>
+            <p v-if="profileMessage" class="success-msg" style="text-align: center; margin-top: 1rem;" :class="{'error-text': profileMessage.includes('Error') || profileMessage.includes('Incorrect')}">{{ profileMessage }}</p>
+          </div>
+        </div>
+      </div>
 
       <!-- Overview Tab -->
       <div v-if="activeTab === 'overview'" class="tab-content">
@@ -391,12 +444,13 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
+import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import PinModal from '@/components/ui/PinModal.vue'
 
@@ -416,6 +470,7 @@ const tabTitles = {
   attendance: 'Attendance & Shift Management',
   production: 'My Production Log',
   'shift-submit': 'Submit My Shift',
+  'profile-settings': 'Profile Settings'
 }
 
 // Get employee info
@@ -677,6 +732,78 @@ async function submitTodayShift() {
 function logout() {
   sysAuth.lockSystem()
   router.push({ name: 'WelcomeAuth' })
+}
+
+// ── Profile Settings ──
+const profileForm = ref({ full_name: '', phone_number: '', dob: '', avatar: '', pinConfirm: '' })
+const isUploadingAvatar = ref(false)
+const isSavingProfile = ref(false)
+const profileMessage = ref('')
+
+onMounted(() => {
+  if (employee.value) {
+    profileForm.value.full_name = employee.value.full_name || employee.value.name
+    profileForm.value.phone_number = employee.value.phone_number || ''
+    profileForm.value.dob = employee.value.dob || ''
+    profileForm.value.avatar = employee.value.avatar || ''
+  }
+})
+
+async function handleAvatarSelected(event) {
+  const file = event.target.files[0]
+  if (!file) return
+  isUploadingAvatar.value = true
+  profileMessage.value = ''
+  try {
+    const { supabase } = await import('@/lib/supabaseClient')
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${employee.value.id}_${Date.now()}.${fileExt}`
+    const filePath = `${fileName}`
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file)
+    if (uploadError) throw uploadError
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
+    profileForm.value.avatar = data.publicUrl
+    profileMessage.value = 'Avatar uploaded successfully! Click Save Profile to apply.'
+  } catch (error) {
+    console.error('Avatar upload failed:', error)
+    profileMessage.value = 'Error uploading avatar: ' + error.message
+  } finally {
+    isUploadingAvatar.value = false
+  }
+}
+
+async function saveProfile() {
+  if (!employee.value) return
+  if (String(profileForm.value.pinConfirm) !== String(employee.value.pin_code)) {
+    profileMessage.value = 'Incorrect PIN. Profile not saved.'
+    setTimeout(() => { profileMessage.value = '' }, 3000)
+    return
+  }
+  isSavingProfile.value = true
+  profileMessage.value = ''
+  try {
+    const { supabase } = await import('@/lib/supabaseClient')
+    const payload = {
+      full_name: profileForm.value.full_name,
+      phone_number: profileForm.value.phone_number,
+      dob: profileForm.value.dob || null,
+      avatar: profileForm.value.avatar
+    }
+    if (payload.full_name && payload.full_name !== employee.value.name) {
+      payload.name = payload.full_name
+    }
+    const { error } = await supabase.from('mes_operators').update(payload).eq('id', employee.value.id)
+    if (error) throw error
+    profileMessage.value = 'Profile updated successfully!'
+    profileForm.value.pinConfirm = ''
+    mesStore.fetchInitialData()
+  } catch (error) {
+    console.error('Profile save failed:', error)
+    profileMessage.value = 'Error saving profile: ' + error.message
+  } finally {
+    isSavingProfile.value = false
+    setTimeout(() => { profileMessage.value = '' }, 3000)
+  }
 }
 </script>
 

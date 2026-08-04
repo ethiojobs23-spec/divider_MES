@@ -18,7 +18,7 @@
             @click="selectOperator(op)"
             :class="['operator-item', { active: activeOperator?.id === op.id }]"
           >
-            <div class="op-avatar" :class="op.color">{{ op.avatar }}</div>
+            <OperatorAvatar :avatar="op.avatar" :name="op.name" :color="op.color" size="md" />
             <div class="op-info">
               <span class="op-name">{{ op.name }}</span>
               <span class="op-role">{{ op.role }}</span>
@@ -75,8 +75,10 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-import { useMesStore } from '@/store/mesStore'
+import { ref, computed } from 'vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
+import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
+import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 

@@ -27,7 +27,7 @@
         <div class="selected-op-block" v-if="selectedOp">
           <p class="nav-heading" style="margin-top:1rem">SELECTED OPERATOR</p>
           <div class="selected-op-card">
-            <div class="op-avatar-sm" :class="selectedOp.color">{{ selectedOp.avatar }}</div>
+            <OperatorAvatar :avatar="selectedOp.avatar" :name="selectedOp.name" :color="selectedOp.color" size="sm" />
             <div class="op-info">
               <p class="op-name-sm">{{ selectedOp.name }}</p>
               <p class="op-role-sm">{{ selectedOp.role }}</p>
@@ -78,7 +78,7 @@
                   :class="{ 'op-card--active': selectedOp?.id === op.id }"
                   @click="selectedOp = op"
                 >
-                  <div class="op-avatar-sm" :class="op.color">{{ op.avatar }}</div>
+                  <OperatorAvatar :avatar="op.avatar" :name="op.name" :color="op.color" size="sm" />
                   <div class="op-info">
                     <p class="op-name-sm">{{ op.name }}</p>
                     <p class="op-role-sm">{{ op.role }}</p>
@@ -96,7 +96,7 @@
 
                     <!-- Profile header -->
                     <div class="profile-hdr">
-                      <div class="profile-avatar" :class="selectedOp.color">{{ selectedOp.avatar }}</div>
+                      <OperatorAvatar :avatar="selectedOp.avatar" :name="selectedOp.name" :color="selectedOp.color" size="xl" />
                       <div>
                         <h3 class="profile-name">{{ selectedOp.name }}</h3>
                         <p class="profile-role-label">{{ selectedOp.role }}</p>
@@ -438,6 +438,7 @@
 import { ref, computed } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
+import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useMesStore } from '@/store/mesStore.js'
 
 const store = useMesStore()
