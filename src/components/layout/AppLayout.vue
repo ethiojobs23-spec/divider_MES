@@ -85,17 +85,35 @@
         </div>
       </div>
 
-      <!-- Active Operator Badge -->
-      <div v-if="mesStore.activeOperator" class="flex items-center gap-3 bg-white/5 rounded-xl p-2.5 border border-white/10">
-        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center font-extrabold text-white shrink-0" :class="mesStore.activeOperator.color">
-          {{ mesStore.activeOperator.avatar }}
+      <!-- Active Operators List -->
+      <div v-if="activeOperatorsList.length > 0" class="flex flex-col gap-2.5 bg-white/5 rounded-xl p-3 border border-white/10">
+        <div class="flex justify-between items-center px-1">
+           <span class="text-[0.65rem] text-slate-400 font-bold uppercase tracking-wider">Active Operators</span>
+           <span class="text-[0.65rem] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-md font-black">{{ activeOperatorsList.length }}</span>
         </div>
-        <div>
-          <p class="text-sm font-bold text-slate-100">{{ mesStore.activeOperator.name }}</p>
-          <p class="text-xs text-slate-400">{{ mesStore.activeOperator.role }}</p>
+        
+        <div class="flex gap-2.5 overflow-x-auto pb-1 custom-scrollbar scroll-smooth">
+          <button 
+            v-for="op in activeOperatorsList" 
+            :key="op.id"
+            @click="mesStore.setOperator(op)"
+            class="relative w-10 h-10 rounded-lg flex items-center justify-center font-extrabold text-white shrink-0 transition-all duration-200 hover:scale-105 active:scale-95"
+            :class="[
+              op.color || 'bg-slate-600', 
+              mesStore.activeOperator?.id === op.id ? 'ring-2 ring-indigo-400 ring-offset-2 ring-offset-slate-800 shadow-lg shadow-indigo-500/30' : 'opacity-60 hover:opacity-100 grayscale hover:grayscale-0 scale-95'
+            ]"
+            :title="op.name"
+          >
+            {{ op.avatar }}
+          </button>
+        </div>
+
+        <div v-if="mesStore.activeOperator" class="mt-1 pt-2 border-t border-white/10 px-1">
+          <p class="text-sm font-bold text-slate-100 truncate">{{ mesStore.activeOperator.name }}</p>
+          <p class="text-xs text-slate-400 truncate">{{ mesStore.activeOperator.role }}</p>
         </div>
       </div>
-      <div v-else class="text-center text-xs text-slate-400 p-2 border border-dashed border-white/10 rounded-lg">
+      <div v-else class="text-center text-xs text-slate-400 p-3 border border-dashed border-white/10 rounded-lg">
         <span>No Operator Active</span>
       </div>
 
@@ -149,6 +167,10 @@ const mesStore = useMesStore()
 const sysAuth  = useSystemAuthStore()
 
 const { isMobileMenuOpen } = storeToRefs(sysAuth)
+
+const activeOperatorsList = computed(() => {
+  return mesStore.operators.filter(op => mesStore.isOperatorClockedIn(op.id))
+})
 
 // ─── Smart Back Navigation (never wipes Pinia state) ─────────────────────
 function goBack() {
