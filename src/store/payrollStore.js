@@ -22,9 +22,6 @@ export function toDecimal2(n) {
 }
 
 export const usePayrollStore = defineStore('payroll', () => {
-  const mesStore = useMesStore()
-  const attendanceStore = useAttendanceStore()
-
   // ── Profiles ────────────────────────────────────────────────────────
   const workerProfiles = ref({})
   const DEFAULT_PROFILE = {
@@ -33,6 +30,7 @@ export const usePayrollStore = defineStore('payroll', () => {
   }
 
   function getWorkerProfile(workerId) {
+    const mesStore = useMesStore()
     const op = mesStore.operators.find(o => o.id === workerId)
     const opConfig = op?.payroll_config || {}
     return { ...DEFAULT_PROFILE, ...opConfig, ...workerProfiles.value[workerId] }
@@ -268,6 +266,7 @@ export const usePayrollStore = defineStore('payroll', () => {
   }
 
   function getAdvanceDeductions(workerId, week) {
+    const mesStore = useMesStore()
     const worker = mesStore.operators.find(o => o.id === workerId)
     if (!worker) return { totalDeduction: 0 }
     const workerAdvances = mesStore.cashEntries.filter(e =>
@@ -301,11 +300,13 @@ export const usePayrollStore = defineStore('payroll', () => {
 
   // ── Attendance Delegate ───────────────────────────────────────────────────
   function getDaysAttended(workerId, week) {
+    const attendanceStore = useAttendanceStore()
     return attendanceStore.getDaysAttended(workerId, week)
   }
 
   // ── Gross Earnings ────────────────────────────────────────────────────────
   function getGrossEarnings(workerId, week) {
+    const mesStore = useMesStore()
     const profile = getWorkerProfile(workerId)
     if (!profile.isPieceRate) return 0
     const worker = mesStore.operators.find(o => o.id === workerId)
@@ -332,6 +333,7 @@ export const usePayrollStore = defineStore('payroll', () => {
   }
 
   function getShiftBreakdown(workerId, week) {
+    const mesStore = useMesStore()
     const worker = mesStore.operators.find(o => o.id === workerId)
     if (!worker) return []
     return mesStore.shiftSubmissions
@@ -357,6 +359,7 @@ export const usePayrollStore = defineStore('payroll', () => {
 
   // ── Final Payout Calculation ──────────────────────────────────────────────
   function calculateFinalPayout(workerId, week) {
+    const mesStore = useMesStore()
     const daysAttended = getDaysAttended(workerId, week)
     const attendanceFactor = daysAttended > 0 ? toDecimal2(daysAttended / WORK_DAYS_PER_WEEK) : 0
 
@@ -410,6 +413,7 @@ export const usePayrollStore = defineStore('payroll', () => {
   }
 
   async function approvePayout(workerId, week) {
+    const mesStore = useMesStore()
     const currentStatuses = { ...payoutStatuses.value }
     if (!currentStatuses[week]) currentStatuses[week] = {}
     currentStatuses[week] = {

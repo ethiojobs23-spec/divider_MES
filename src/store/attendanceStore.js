@@ -24,7 +24,6 @@ function nowInMinutes() {
 }
 
 export const useAttendanceStore = defineStore('attendance', () => {
-  const mesStore = useMesStore()
 
   // Allowed Clocking Windows
   const clockingWindows = ref([
@@ -67,6 +66,7 @@ export const useAttendanceStore = defineStore('attendance', () => {
 
   async function fetchAttendance() {
     try {
+      const mesStore = useMesStore()
       const { data, error } = await supabase.from('mes_attendance').select('*').eq('production_week', mesStore.currentProductionWeek)
       if (data) {
         clockInLog.value = data.map(dbRow => ({
@@ -87,6 +87,7 @@ export const useAttendanceStore = defineStore('attendance', () => {
     const val = validateClockTime('in')
     if (!val.allowed && !adminOverride) throw new Error(val.message)
     try {
+      const mesStore = useMesStore()
       const payload = {
         operator_id: operator.id,
         production_week: mesStore.currentProductionWeek,
