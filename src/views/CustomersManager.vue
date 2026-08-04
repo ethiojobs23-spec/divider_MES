@@ -73,7 +73,8 @@
           </div>
           <div class="input-group">
             <label>Phone Number</label>
-            <input v-model="newCustomer.phone_number" type="tel" placeholder="09..." />
+            <!-- Using VirtualNumpad for phone numbers as requested -->
+            <VirtualNumpad v-model="newCustomer.phone_number" label="Phone Number" :maxLen="14" />
           </div>
           <div class="input-group">
             <label>Email Address</label>
