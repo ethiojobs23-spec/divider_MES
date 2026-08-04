@@ -8,11 +8,23 @@ CREATE TABLE IF NOT EXISTS mes_customers (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Migrate existing customers from mes_operators to mes_customers
-INSERT INTO mes_customers (company_name, contact_person, phone_number, email, address, created_at)
-SELECT name, full_name, phone_number, email, address, created_at
-FROM mes_operators
-WHERE role = 'customer';
+ALTER TABLE mes_customers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access for anon" ON mes_customers;
+CREATE POLICY "Allow all access for anon" ON mes_customers FOR ALL USING (true);
 
--- After successful migration, you can delete them from mes_operators
--- DELETE FROM mes_operators WHERE role = 'customer';
+-- Gracefully migrate data even if address/email don't exist in mes_operators
+DO $$ 
+BEGIN 
+    BEGIN
+        INSERT INTO mes_customers (company_name, contact_person, phone_number, email, address, created_at)
+        SELECT name, full_name, phone_number, email, address, created_at
+        FROM mes_operators
+        WHERE role = 'customer';
+    EXCEPTION WHEN undefined_column THEN
+        -- If address or email column doesn't exist in mes_operators, fallback
+        INSERT INTO mes_customers (company_name, contact_person, phone_number, created_at)
+        SELECT name, full_name, phone_number, created_at
+        FROM mes_operators
+        WHERE role = 'customer';
+    END;
+END $$;
