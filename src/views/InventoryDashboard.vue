@@ -21,12 +21,12 @@
       </div>
 
       <!-- ── Main Grid ── -->
-      <div class="flex-1 overflow-y-auto px-4 md:px-8 pb-8 pt-6" :class="{ 'opacity-40 md:opacity-100 transition-opacity': showReceivePanel }">
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div class="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 pb-10 pt-8" :class="{ 'opacity-40 md:opacity-100 transition-opacity': showReceivePanel }">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-8">
           <div 
             v-for="mat in inventoryStore.materials" 
             :key="mat.id"
-            class="chart-card inventory-card transition-all"
+            class="chart-card inventory-card transition-all duration-300"
             :class="isLowStock(mat) ? 'inventory-card--danger' : 'inventory-card--normal'"
           >
             <!-- Low Stock Badge -->
@@ -237,11 +237,11 @@ function submitShipment() {
 .chart-card {
   background: #1e293b;
   border: 1px solid rgba(255,255,255,.07);
-  border-radius: 1rem;
-  padding: 1.25rem;
+  border-radius: 1.25rem;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: .75rem;
+  gap: 1rem;
   overflow: visible;
   position: relative;
 }

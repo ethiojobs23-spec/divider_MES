@@ -12,7 +12,7 @@
       </div>
 
       <!-- ── Main Grid ── -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 md:px-8 pb-4 mt-4" style="overflow-y: auto;">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 px-4 sm:px-6 md:px-8 pb-10 pt-6" style="overflow-y: auto;">
         
         <!-- ── Left Panel: Active Issues & Reporting ── -->
         <div class="flex flex-col gap-4">
@@ -282,15 +282,15 @@ function formatCurrency(val) {
 }
 .panel-sub { font-size: .7rem; color: #64748b; margin: .2rem 0 0; }
 
-/* ══ Chart card (shared) ═════════════════════════════════════════════════════ */
+/* ══ Cards ── */
 .chart-card {
   background: #1e293b;
   border: 1px solid rgba(255,255,255,.07);
-  border-radius: 1rem;
-  padding: 1rem 1.1rem;
+  border-radius: 1.25rem;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: .75rem;
+  gap: 1.25rem;
   overflow: hidden;
 }
 .chart-card h3 {
