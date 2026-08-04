@@ -472,7 +472,7 @@ async function handlePinConfirm(pin) {
   const op = employee.value
   if (!op) return
   // Verify employee's own PIN
-  if (op.pin_code !== pin) {
+  if (String(op.pin_code) !== String(pin)) {
     pinModal.value.error = 'Incorrect PIN. Please try again.'
     return
   }
@@ -557,7 +557,7 @@ async function clockOut() {
 }
 
 async function handleAdminOverride(pin) {
-  const admin = mesStore.operators.find(o => o.pin_code === pin && (o.role === 'System Admin' || o.role === 'Supervisor'))
+  const admin = mesStore.operators.find(o => String(o.pin_code) === String(pin) && (o.role === 'System Admin' || o.role === 'Supervisor'))
   if (!admin) {
     adminOverrideModal.value.error = 'Invalid Admin/Supervisor PIN. Try again.'
     return
