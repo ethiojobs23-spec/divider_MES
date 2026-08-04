@@ -9,7 +9,7 @@
           </h1>
           <p class="subtitle">Manage customers, view dispatches, and track balances.</p>
         </div>
-        <button class="add-btn" @click="showAddModal = true">
+        <button class="add-btn" @click="openAddModal">
           <span class="material-symbols-rounded">person_add</span>
           Add Customer
         </button>
@@ -44,8 +44,12 @@
             </div>
           </div>
           
-          <div class="card-footer">
-            <button class="btn-log" @click="openPaymentModal(c)">
+          <div class="card-footer" style="display: flex; gap: 0.5rem;">
+            <button class="btn-log" @click="openEditModal(c)" style="flex: 1; background: rgba(99,102,241,0.1); color: #6366f1; border-color: rgba(99,102,241,0.2);">
+              <span class="material-symbols-rounded">edit</span>
+              Edit
+            </button>
+            <button class="btn-log" @click="openPaymentModal(c)" style="flex: 2;">
               <span class="material-symbols-rounded">payments</span>
               Log Payment
             </button>
@@ -62,7 +66,7 @@
       <!-- Modals -->
       <div v-if="showAddModal" class="modal-overlay">
         <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
-          <h2>Add New Customer</h2>
+          <h2>{{ isEditing ? 'Edit Customer' : 'Add New Customer' }}</h2>
           <div class="input-group">
             <label>Customer/Company Name <span style="color:#ef4444">*</span></label>
             <input v-model="newCustomer.name" type="text" placeholder="e.g. Addis Ababa Main Depot" />
@@ -87,7 +91,7 @@
           <div class="modal-actions">
             <button class="btn-cancel" @click="showAddModal = false">Cancel</button>
             <button class="btn-save" :disabled="!newCustomer.name.trim() || isSaving" @click="saveCustomer">
-              {{ isSaving ? 'Saving...' : 'Add Customer' }}
+              {{ isSaving ? 'Saving...' : (isEditing ? 'Save Changes' : 'Add Customer') }}
             </button>
           </div>
         </div>
@@ -140,6 +144,9 @@ const customersWithStats = computed(() => {
 })
 
 const showAddModal = ref(false)
+const isEditing = ref(false)
+const editingCustomerId = ref(null)
+
 const newCustomer = ref({
   name: '',
   contact_person: '',
@@ -149,16 +156,41 @@ const newCustomer = ref({
 })
 const isSaving = ref(false)
 
+function openAddModal() {
+  isEditing.value = false
+  editingCustomerId.value = null
+  newCustomer.value = { name: '', contact_person: '', phone_number: '', email: '', address: '' }
+  showAddModal.value = true
+}
+
+function openEditModal(c) {
+  isEditing.value = true
+  editingCustomerId.value = c.id
+  newCustomer.value = {
+    name: c.name || '',
+    contact_person: c.full_name || '',
+    phone_number: c.phone_number || '',
+    email: c.email || '',
+    address: c.address || ''
+  }
+  showAddModal.value = true
+}
+
 async function saveCustomer() {
   if (!newCustomer.value.name.trim()) return
   isSaving.value = true
-  const ok = await store.addClient({ ...newCustomer.value })
+  let ok = false
+  if (isEditing.value) {
+    ok = await store.updateClient(editingCustomerId.value, { ...newCustomer.value })
+  } else {
+    ok = await store.addClient({ ...newCustomer.value })
+  }
   isSaving.value = false
   if (ok) {
     newCustomer.value = { name: '', contact_person: '', phone_number: '', email: '', address: '' }
     showAddModal.value = false
   } else {
-    alert("Failed to add customer")
+    alert(isEditing.value ? "Failed to update customer" : "Failed to add customer")
   }
 }
 

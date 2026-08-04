@@ -433,6 +433,34 @@ export const useMesStore = defineStore('mes', () => {
     }
   }
 
+  async function updateClient(id, customerData) {
+    try {
+      const payload = {
+        company_name: customerData.name,
+        contact_person: customerData.contact_person || '',
+        phone_number: customerData.phone_number || '',
+        address: customerData.address || '',
+        email: customerData.email || ''
+      }
+      const { data, error } = await supabase.from('mes_customers').update(payload).eq('id', id).select().single()
+      if (error) throw error
+      const idx = clients.value.findIndex(c => c.id === id)
+      if (idx !== -1) {
+        clients.value[idx] = {
+          ...data,
+          name: data.company_name,
+          full_name: data.contact_person,
+          avatar: data.company_name.charAt(0).toUpperCase(),
+          color: 'bg-emerald-500'
+        }
+      }
+      return true
+    } catch (err) {
+      console.error('[Store] Update client failed:', err)
+      return false
+    }
+  }
+
   // ─── Admin Config — Piece Rates & Thresholds ───────────────────────────────
   const pieceRates = ref({
     '50': { '9cm': { 'ብተና': 2.50, 'ውስጥ': 3.00, 'የተለየ': 3.50 }, '7cm': { 'ብተና': 2.00, 'ውስጥ': 2.50, 'የተለየ': 3.00 } },
@@ -687,7 +715,7 @@ export const useMesStore = defineStore('mes', () => {
     ledgerEntries, submitProductionLog, weeklyAggregation, isWeekendOvertime,
     inventory,
     cashEntries, addCashEntry, approveCashEntry, rejectCashEntry, totalAdvances, totalExpenses,
-    dispatchLogs, clients, addClient, addDispatch, totalDispatched,
+    dispatchLogs, clients, addClient, updateClient, addDispatch, totalDispatched,
     pieceRates, setPieceRate,
     wasteThresholds, setWasteThreshold,
     systemConfig, updateSystemConfig, saveSystemConfig,
