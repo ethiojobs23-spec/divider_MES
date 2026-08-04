@@ -400,10 +400,13 @@ export const useMesStore = defineStore('mes', () => {
 
   async function addClient(name) {
     try {
+      // Generate a highly unique 4-character pin for customers (e.g. C + 3 random alphanumerics)
+      const randomPin = ('C' + Math.random().toString(36).substr(2, 3)).toUpperCase()
+      
       const payload = {
         name,
         role: 'customer',
-        pin_code: '0000', // unused for customers
+        pin_code: randomPin, // unused for customers, but required unique
         is_active: true,
         color: 'bg-emerald-500',
         avatar: name.charAt(0).toUpperCase()
