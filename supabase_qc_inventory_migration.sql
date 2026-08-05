@@ -27,7 +27,8 @@ ALTER TABLE mes_inventory ADD COLUMN IF NOT EXISTS reorder_threshold DECIMAL(10,
 ALTER TABLE mes_inventory ADD COLUMN IF NOT EXISTS max_capacity      DECIMAL(10,2) DEFAULT 200;
 
 -- 3. Seed default inventory materials (safe to re-run — skips on conflict)
-ALTER TABLE mes_inventory ADD CONSTRAINT mes_inventory_material_name_unique UNIQUE (material_name) DEFERRABLE;
+ALTER TABLE mes_inventory DROP CONSTRAINT IF EXISTS mes_inventory_material_name_unique;
+ALTER TABLE mes_inventory ADD CONSTRAINT mes_inventory_material_name_unique UNIQUE (material_name);
 
 INSERT INTO mes_inventory (material_name, stock_level, unit, reorder_threshold, max_capacity)
 VALUES
