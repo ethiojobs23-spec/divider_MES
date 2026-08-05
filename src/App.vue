@@ -44,18 +44,42 @@ import { ref, onErrorCaptured, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMesStore } from '@/store/mesStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
+import { useQcStore } from '@/store/qcStore.js'
+import { useDowntimeStore } from '@/store/downtimeStore.js'
+import { useInventoryStore } from '@/store/inventoryStore.js'
+import { syncManager } from '@/services/syncManager.js'
 
 const router      = useRouter()
 const hasCrashed  = ref(false)
 const crashMessage = ref('')
 
-onMounted(() => {
-  const mesStore = useMesStore()
-  const attStore = useAttendanceStore()
+onMounted(async () => {
+  const mesStore      = useMesStore()
+  const attStore      = useAttendanceStore()
+  const qcStore       = useQcStore()
+  const downtimeStore = useDowntimeStore()
+  const invStore      = useInventoryStore()
+
+  // Determine current production week for scoped fetches
+  const week = mesStore.currentProductionWeek
+
   if (navigator.onLine) {
-    mesStore.fetchInitialData()
+    // 1. Core operators + ledger
+    await mesStore.fetchInitialData()
+    // 2. Attendance
     attStore.fetchAttendance()
+    // 3. QC defects — if fetchDefects exists after subagent wiring
+    if (typeof qcStore.fetchDefects === 'function') qcStore.fetchDefects(week)
+    // 4. Raw materials inventory
+    if (typeof invStore.fetchMaterials === 'function') invStore.fetchMaterials()
+    // 5. Process any pending offline queue
+    syncManager.processQueue()
   }
+
+  // Init Realtime subscriptions regardless of initial online state
+  // (they will auto-connect when Supabase WS is available)
+  if (typeof downtimeStore.initRealtime === 'function') downtimeStore.initRealtime()
+  if (typeof qcStore.initRealtime === 'function') qcStore.initRealtime()
 })
 
 // ─── Global Error Boundary ─────────────────────────────────────────────────
