@@ -24,6 +24,14 @@
       <!-- ── Normal App ─────────────────────────────────────────────── -->
       <router-view v-else />
     </Transition>
+
+    <!-- ── System Down Global Banner ──────────────────────────────── -->
+    <Transition name="banner-slide">
+      <div v-if="downtimeStore?.activeIssues?.length > 0" class="system-down-banner">
+        <span class="material-symbols-rounded animate-pulse">warning</span>
+        <span><strong>SYSTEM DOWN:</strong> {{ downtimeStore.activeIssues.length }} Machine(s) currently down</span>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -53,11 +61,12 @@ const router      = useRouter()
 const hasCrashed  = ref(false)
 const crashMessage = ref('')
 
+const downtimeStore = useDowntimeStore()
+
 onMounted(async () => {
   const mesStore      = useMesStore()
   const attStore      = useAttendanceStore()
   const qcStore       = useQcStore()
-  const downtimeStore = useDowntimeStore()
   const invStore      = useInventoryStore()
 
   // Determine current production week for scoped fetches
@@ -200,27 +209,55 @@ input[type="tel"] {
   word-break: break-all;
 }
 
+/* Reset to Hub button */
 .crash-btn {
-  margin-top: .5rem;
-  width: 100%;
-  height: 4.5rem;
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  border: none;
-  border-radius: .85rem;
-  color: #fff;
-  font-size: 1.1rem;
-  font-weight: 900;
-  letter-spacing: .1em;
-  cursor: pointer;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 1rem 2rem;
+  border-radius: 0.5rem;
+  font-weight: 700;
   display: flex;
   align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: .5rem;
+  width: 100%;
   justify-content: center;
-  gap: .65rem;
-  transition: filter .13s ease, transform .08s ease;
 }
-.crash-btn:hover  { filter: brightness(1.12); }
-.crash-btn:active { transform: scale(.97); }
+.crash-btn:hover { background: rgba(255, 255, 255, 0.2); }
+.crash-btn:active { transform: scale(0.96); }
 .crash-btn .material-symbols-rounded { font-size: 1.5rem; }
+
+/* ── System Down Banner ───────────────────────────────────────── */
+.system-down-banner {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  color: #fff;
+  padding: 0.75rem 2rem;
+  border-radius: 0 0 1rem 1rem;
+  box-shadow: 0 10px 25px rgba(220, 38, 38, 0.5);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-top: none;
+  pointer-events: none; /* so it doesn't block clicks */
+}
+.banner-slide-enter-active, .banner-slide-leave-active {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.banner-slide-enter-from, .banner-slide-leave-to {
+  transform: translate(-50%, -100%);
+  opacity: 0;
+}
 
 /* ── Crash transition ──────────────────────────────────────────────────── */
 .crash-fade-enter-active,
