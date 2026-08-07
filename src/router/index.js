@@ -236,7 +236,13 @@ router.beforeEach((to) => {
   // 4. Admin-gated routes → PIN challenge (then return)
   if (to.meta.requiresAdmin && sysAuth.isSystemUnlocked) {
     if (sysAuth.currentRole === 'Supervisor') {
-      return { name: 'LiveProductionDashboard' }
+      const allowedAdminRoutes = ['DowntimeTracker', 'ProductionBlockMatrix']
+      if (!allowedAdminRoutes.includes(to.name)) {
+        return { name: 'LiveProductionDashboard' }
+      } else {
+        // Auto-grant access for these specific allowed modules
+        sysAuth.grantAdminAccess()
+      }
     }
     // If they logged in as Admin initially, automatically grant secondary access
     if (['admin', 'System Admin', 'manager'].includes(sysAuth.currentRole)) {
