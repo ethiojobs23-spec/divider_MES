@@ -222,7 +222,8 @@ const numpadValue  = ref('')
 
 function openNumpad(day, col) {
   activeCell.value = { day, col }
-  numpadValue.value = '' // Always clear numpad to add new entries, rather than replace
+  const currentTotal = getCellValue(day, col, activePlacement.value, activeSize.value)
+  numpadValue.value = currentTotal > 0 ? String(currentTotal) : ''
 }
 
 function cancelNumpad() {
@@ -232,29 +233,53 @@ function cancelNumpad() {
 
 async function confirmEntry() {
   if (!activeCell.value) return
-  const qty = Number(numpadValue.value) || 0
+  const newTotal = Number(numpadValue.value) || 0
+  const currentTotal = getCellValue(activeCell.value.day, activeCell.value.col, activePlacement.value, activeSize.value)
+  const qtyDiff = newTotal - currentTotal
 
-  if (qty > 0) {
-    const submitOpId = isAdmin.value && targetOperatorId.value !== 'all' ? targetOperatorId.value : store.activeOperator?.id
-    const result = await store.submitProductionLog({
-      dividerType:    activeCell.value.col,
-      placement:      activePlacement.value,
-      size:           activeSize.value,
-      goodProduction: qty,
-      wasteMaterial:  0,
-      operator_id:    submitOpId,
-      loggedByAdmin:  isAdmin.value && submitOpId !== store.activeOperator?.id
-    })
-    if (result.ok) {
-      let msg = `✓ Logged ${result.rawQty} pcs · ${activeCell.value.day} / Type ${activeCell.value.col}`
-      if (result.overtime) msg += ` (1.5x OT -> ${result.effectiveQty} effective)`
-      showToast(msg)
-    } else {
-      showToast(`⚠ Saved locally but sync failed`)
-    }
-  } else {
-    showToast(`Cleared ${activeCell.value.day} / Type ${activeCell.value.col}`)
+  if (qtyDiff === 0) {
+    cancelNumpad()
+    return
   }
+
+  // Calculate target date for the cell based on current week
+  const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 }
+  const targetDayIdx = dayMap[activeCell.value.day]
+  
+  // Find the exact date in the currently selected production week
+  const now = new Date()
+  const currentDayOfWeek = now.getDay()
+  // calculate start of the current week (Sunday)
+  const startOfWeek = new Date(now)
+  startOfWeek.setDate(now.getDate() - currentDayOfWeek)
+  
+  const targetDateObj = new Date(startOfWeek)
+  targetDateObj.setDate(startOfWeek.getDate() + targetDayIdx)
+  // Ensure the time is set to noon to avoid timezone shift when saving ISO date
+  targetDateObj.setHours(12, 0, 0, 0)
+  const targetDateStr = targetDateObj.toISOString().split('T')[0]
+  // We'll pass the exact timestamp for the ledger entries
+  const targetTimestamp = targetDateObj.toISOString()
+
+  const submitOpId = isAdmin.value && targetOperatorId.value !== 'all' ? targetOperatorId.value : store.activeOperator?.id
+  const result = await store.submitProductionLog({
+    dividerType:    activeCell.value.col,
+    placement:      activePlacement.value,
+    size:           activeSize.value,
+    goodProduction: qtyDiff,
+    wasteMaterial:  0,
+    operator_id:    submitOpId,
+    production_date: targetDateStr,
+    timestamp_override: targetTimestamp,
+    loggedByAdmin:  isAdmin.value && submitOpId !== store.activeOperator?.id
+  })
+  
+  if (result.ok) {
+    showToast(`✓ Updated ${activeCell.value.day} / Type ${activeCell.value.col} to ${newTotal}`)
+  } else {
+    showToast(`⚠ Saved locally but sync failed`)
+  }
+  
   cancelNumpad()
 }
 

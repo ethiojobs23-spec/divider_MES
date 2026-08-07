@@ -208,7 +208,7 @@ export const useMesStore = defineStore('mes', () => {
       const payload = {
         operator_id: data.operator_id || (activeOperator.value ? activeOperator.value.id : null),
         production_week: currentProductionWeek.value,
-        production_date: new Date().toISOString().split('T')[0],
+        production_date: data.production_date || new Date().toISOString().split('T')[0],
         divider_type: data.dividerType,
         placement_style: data.placement,
         size_cm: parseInt(data.size),
@@ -220,7 +220,7 @@ export const useMesStore = defineStore('mes', () => {
 
       // Optimistic UI update
       const tempId = Date.now()
-      const optimisticRow = { id: tempId, created_at: new Date().toISOString(), ...payload }
+      const optimisticRow = { id: tempId, created_at: data.timestamp_override || new Date().toISOString(), ...payload }
       ledgerEntries.value.push(mapSupabaseLedgerToLocal(optimisticRow))
 
       if (navigator.onLine) {
