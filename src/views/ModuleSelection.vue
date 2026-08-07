@@ -11,7 +11,7 @@
         <span class="material-symbols-rounded hub-logo-icon">precision_manufacturing</span>
       </div>
       <div class="hub-title-block">
-        <p class="hub-eyebrow">SODOFIX MANUFACTURING EXECUTION SYSTEM</p>
+        <p class="hub-eyebrow">KALEB DIVIDER MANUFACTURING EXECUTION SYSTEM</p>
         <h1 class="hub-title">Select Module</h1>
       </div>
       <div class="hub-meta">
