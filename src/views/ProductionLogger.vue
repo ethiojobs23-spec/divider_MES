@@ -118,7 +118,6 @@
           <span v-if="values.good && !isSaving" class="earn-badge">ETB {{ earningsPreview }}</span>
         </button>
 
-        <!-- Toast -->
         <Transition name="toast">
           <div v-if="toast.visible" class="toast">
             <span class="material-symbols-rounded">check_circle</span>
@@ -127,6 +126,21 @@
         </Transition>
       </main>
     </div>
+
+    <!-- Supervisor PIN Modal -->
+    <PinModal
+      v-if="supPin.show"
+      title="Supervisor Authorization"
+      subtitle="Enter PIN to save production block"
+      icon="verified_user"
+      icon-color="#34d399"
+      confirm-label="Authorize"
+      confirm-color="linear-gradient(135deg,#10b981,#34d399)"
+      :error-msg="supPin.error"
+      :loading="supPin.loading"
+      @confirm="executeSupervisorSave"
+      @cancel="supPin.show = false"
+    />
   </AppLayout>
 </template>
 
@@ -134,9 +148,12 @@
 import { ref, reactive, computed, watchEffect } from 'vue'
 import AppLayout  from '@/components/layout/AppLayout.vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
+import PinModal from '@/components/ui/PinModal.vue'
 import { useMesStore } from '@/store/mesStore.js'
+import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 
 const store = useMesStore()
+const sysAuth = useSystemAuthStore()
 
 const clockedInList = computed(() => {
   return store.operators.filter(op => store.isOperatorClockedIn(op.id))
@@ -196,8 +213,37 @@ function showToast(msg, isError = false) {
   toastTimer = setTimeout(() => { toast.visible = false }, 2500)
 }
 
+const supPin = reactive({ show: false, error: '', loading: false })
+
 async function saveEntry() {
   if (!canSave.value || isSaving.value) return
+  if (sysAuth.currentRole === 'Supervisor') {
+    supPin.error = ''
+    supPin.show = true
+    return
+  }
+  await performSave()
+}
+
+async function executeSupervisorSave(pin) {
+  supPin.loading = true
+  supPin.error = ''
+  
+  // Validate supervisor PIN
+  const supervisor = store.operators.find(o => o.id === sysAuth.currentEmployeeId && String(o.pin_code) === String(pin))
+  
+  if (!supervisor) {
+    supPin.error = 'Invalid PIN.'
+    supPin.loading = false
+    return
+  }
+  
+  await performSave()
+  supPin.loading = false
+  supPin.show = false
+}
+
+async function performSave() {
   isSaving.value = true
   const ok = await store.submitProductionLog({
     operator_id:    selectedOperatorId.value,

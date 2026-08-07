@@ -215,6 +215,7 @@ const navRoutes = computed(() => {
     if (sysAuth.currentRole === 'Supervisor') {
       const allowedSupervisorNames = [
         'LiveProductionDashboard',
+        'ProductionLogger',
         'DailyProductionLog',
         'AttendanceViewer',
         'ProductionBlockMatrix',
