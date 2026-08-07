@@ -179,12 +179,7 @@ const routes = [
     component: EmployeeProfileView,
     meta: { title: 'Profiles', icon: 'person', requiresSystemAuth: true, nav: true },
   },
-  {
-    path: '/supervisor-hub',
-    name: 'SupervisorHub',
-    component: () => import('@/views/SupervisorHub.vue'),
-    meta: { title: 'Supervisor Hub', icon: 'dashboard', requiresSystemAuth: true, nav: false },
-  },
+
   {
     path: '/supervisor-profile',
     name: 'SupervisorProfile',
@@ -226,7 +221,7 @@ router.beforeEach((to) => {
       return { name: 'EmployeeDashboard' }
     }
     if (sysAuth.currentRole === 'Supervisor') {
-      return { name: 'SupervisorHub' }
+      return { name: 'LiveProductionDashboard' }
     }
     return { name: 'ModuleSelection' }
   }
@@ -241,7 +236,7 @@ router.beforeEach((to) => {
   // 4. Admin-gated routes → PIN challenge (then return)
   if (to.meta.requiresAdmin && sysAuth.isSystemUnlocked) {
     if (sysAuth.currentRole === 'Supervisor') {
-      return { name: 'SupervisorHub' }
+      return { name: 'LiveProductionDashboard' }
     }
     // If they logged in as Admin initially, automatically grant secondary access
     if (['admin', 'System Admin', 'manager'].includes(sysAuth.currentRole)) {
