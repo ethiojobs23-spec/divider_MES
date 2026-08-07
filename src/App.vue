@@ -81,7 +81,9 @@ onMounted(async () => {
     if (typeof qcStore.fetchDefects === 'function') qcStore.fetchDefects(week)
     // 4. Raw materials inventory
     if (typeof invStore.fetchMaterials === 'function') invStore.fetchMaterials()
-    // 5. Process any pending offline queue
+    // 5. Downtime logs
+    if (typeof downtimeStore.fetchDowntime === 'function') downtimeStore.fetchDowntime()
+    // 6. Process any pending offline queue
     syncManager.processQueue()
   }
 

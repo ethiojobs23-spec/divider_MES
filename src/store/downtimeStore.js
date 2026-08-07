@@ -31,12 +31,16 @@ export const useDowntimeStore = defineStore('downtimeStore', () => {
   // ── Fetch from Supabase ────────────────────────────────────────────────
   async function fetchDowntime(week) {
     const mesStore = useMesStore()
-    const targetWeek = week || mesStore.currentProductionWeek
+    // Since mes_downtime_logs schema lacks production_week, we fetch the last 14 days
+    const twoWeeksAgo = new Date()
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+    const startDateISO = twoWeeksAgo.toISOString()
+
     try {
       const { data, error } = await supabase
         .from('mes_downtime_logs')
         .select('*')
-        .eq('production_week', targetWeek)
+        .gte('start_time', startDateISO)
         .order('start_time', { ascending: false })
 
       if (error) throw error
@@ -77,7 +81,6 @@ export const useDowntimeStore = defineStore('downtimeStore', () => {
       operator_id:     machineId,  // stored in operator_id column per schema
       issue_category:  category,
       start_time:      now,
-      production_week: mesStore.currentProductionWeek,
     }
 
     if (navigator.onLine) {
