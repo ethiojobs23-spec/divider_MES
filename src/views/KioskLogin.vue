@@ -199,8 +199,8 @@ async function appendNum(n) {
   if (overridePin.value.length < 4) {
     overridePin.value += String(n)
     if (overridePin.value.length === 4) {
-      // Verify override PIN against Supabase (admin role)
-      const result = await sysAuth.unlockSystem(overridePin.value, 'admin')
+      // Verify override PIN against Supabase without changing global auth state
+      const result = await sysAuth.verifyPin(overridePin.value, 'admin')
       if (result.success) {
         isOverrideAuthorized.value = true
         showOverride.value = false

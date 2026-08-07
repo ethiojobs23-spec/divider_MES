@@ -61,6 +61,29 @@ export const useSystemAuthStore = defineStore('systemAuth', () => {
     }
   }
 
+  async function verifyPin(pin, mode = 'admin') {
+    try {
+      const { data: operator, error } = await supabase
+        .from('mes_operators')
+        .select('*')
+        .eq('pin_code', String(pin).trim())
+        .single()
+
+      if (error || !operator) {
+        return { success: false, message: 'Invalid PIN. Access denied.' }
+      }
+      
+      if (mode === 'admin' && !['admin', 'System Admin', 'manager', 'Supervisor'].includes(operator.role)) {
+        return { success: false, message: 'Admin or Supervisor privileges required.' }
+      }
+      
+      return { success: true, message: '' }
+    } catch (err) {
+      console.error('[Auth Error]', err)
+      return { success: false, message: 'Connection error. Check network.' }
+    }
+  }
+
   function grantAdminAccess() {
     hasAdminAccess.value = true
   }
@@ -84,6 +107,7 @@ export const useSystemAuthStore = defineStore('systemAuth', () => {
     shiftDuration,
     isMobileMenuOpen,
     unlockSystem,
+    verifyPin,
     grantAdminAccess,
     lockSystem,
   }

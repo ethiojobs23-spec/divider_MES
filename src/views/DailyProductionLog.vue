@@ -156,6 +156,16 @@
           {{ toast.message }}
         </div>
       </Transition>
+      <!-- ── Supervisor PIN Modal ────────────────────────────────────── -->
+      <PinModal
+        :isOpen="supPin.show"
+        title="Supervisor Authorization"
+        subtitle="Enter PIN to modify this daily log"
+        :error="supPin.error"
+        :loading="supPin.loading"
+        @confirm="executeSupervisorSave"
+        @cancel="supPin.show = false"
+      />
     </div>
   </AppLayout>
 </template>
@@ -164,9 +174,12 @@
 import { ref, reactive, computed } from 'vue'
 import AppLayout  from '@/components/layout/AppLayout.vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
+import PinModal from '@/components/ui/PinModal.vue'
 import { useMesStore } from '@/store/mesStore.js'
+import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 
 const store = useMesStore()
+const sysAuth = useSystemAuthStore()
 
 const isAdmin = computed(() => {
   const role = store.activeOperator?.role
@@ -241,6 +254,38 @@ async function confirmEntry() {
     cancelNumpad()
     return
   }
+
+  if (sysAuth.currentRole === 'Supervisor') {
+    supPin.error = ''
+    supPin.show = true
+    return
+  }
+  
+  await performSave()
+}
+
+const supPin = reactive({ show: false, error: '', loading: false })
+
+async function executeSupervisorSave(pin) {
+  supPin.loading = true
+  supPin.error = ''
+  
+  const supervisor = store.operators.find(o => o.id === sysAuth.currentEmployeeId && String(o.pin_code) === String(pin))
+  if (!supervisor) {
+    supPin.error = 'Invalid PIN.'
+    supPin.loading = false
+    return
+  }
+  
+  await performSave()
+  supPin.loading = false
+  supPin.show = false
+}
+
+async function performSave() {
+  const newTotal = Number(numpadValue.value) || 0
+  const currentTotal = getCellValue(activeCell.value.day, activeCell.value.col, activePlacement.value, activeSize.value)
+  const qtyDiff = newTotal - currentTotal
 
   // Calculate target date for the cell based on current week
   const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 }
