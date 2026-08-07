@@ -166,7 +166,11 @@ async function attemptUnlock() {
   const result = await sysAuth.unlockSystem(pin.value, authMode.value)
   if (result.success) {
     if (authMode.value === 'admin') {
-      router.push({ name: 'ModuleSelection' })
+      if (sysAuth.currentRole === 'Supervisor') {
+        router.push({ name: 'LiveProductionDashboard' })
+      } else {
+        router.push({ name: 'ModuleSelection' })
+      }
     } else {
       router.push({ name: 'EmployeeDashboard' })
     }
