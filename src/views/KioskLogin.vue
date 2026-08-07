@@ -2,6 +2,9 @@
   <div class="login-page">
     <!-- Header -->
     <div class="login-header">
+      <button class="back-btn" @click="router.push('/')" title="Back to Hub">
+        <span class="material-symbols-rounded">arrow_back</span>
+      </button>
       <div class="header-logo">⚡</div>
       <div>
         <h1 class="header-title">Divider Manufacturing System</h1>
@@ -154,7 +157,11 @@ function closeModal() { modal.value = { open: false, operator: null } }
 async function handleClockIn() {
   const op = modal.value.operator
   mesStore.clockIn(op)                        // update local UI state immediately
-  await attendanceStore.recordClockIn(op)     // persist to Supabase
+  try {
+    await attendanceStore.recordClockIn(op, isOverrideAuthorized.value)     // persist to Supabase
+  } catch (err) {
+    console.error('Clock-in failed:', err)
+  }
   closeModal()
   router.push('/production')
 }
@@ -233,6 +240,24 @@ function clearNum() {
   align-items: center;
   gap: 1.25rem;
   margin-bottom: 2rem;
+}
+.back-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f1f5f9;
+  border-radius: 50%;
+  width: 3.5rem;
+  height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
 }
 .header-logo {
   font-size: 2.5rem;
