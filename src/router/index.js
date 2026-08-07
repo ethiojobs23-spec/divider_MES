@@ -179,6 +179,18 @@ const routes = [
     component: EmployeeProfileView,
     meta: { title: 'Profiles', icon: 'person', requiresSystemAuth: true, nav: true },
   },
+  {
+    path: '/supervisor-hub',
+    name: 'SupervisorHub',
+    component: () => import('@/views/SupervisorHub.vue'),
+    meta: { title: 'Supervisor Hub', icon: 'dashboard', requiresSystemAuth: true, nav: false },
+  },
+  {
+    path: '/supervisor-profile',
+    name: 'SupervisorProfile',
+    component: () => import('@/views/SupervisorProfile.vue'),
+    meta: { title: 'My Profile', icon: 'person', requiresSystemAuth: true, nav: true },
+  },
 
   // ── Auth helpers ───────────────────────────────────────────────────────
   {
@@ -213,6 +225,9 @@ router.beforeEach((to) => {
     if (sysAuth.currentRole === 'employee') {
       return { name: 'EmployeeDashboard' }
     }
+    if (sysAuth.currentRole === 'Supervisor') {
+      return { name: 'SupervisorHub' }
+    }
     return { name: 'ModuleSelection' }
   }
 
@@ -225,8 +240,11 @@ router.beforeEach((to) => {
 
   // 4. Admin-gated routes → PIN challenge (then return)
   if (to.meta.requiresAdmin && sysAuth.isSystemUnlocked) {
+    if (sysAuth.currentRole === 'Supervisor') {
+      return { name: 'SupervisorHub' }
+    }
     // If they logged in as Admin initially, automatically grant secondary access
-    if (sysAuth.currentRole === 'admin' || sysAuth.currentRole === 'manager') {
+    if (['admin', 'System Admin', 'manager'].includes(sysAuth.currentRole)) {
       sysAuth.grantAdminAccess()
     }
     

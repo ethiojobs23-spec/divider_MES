@@ -42,13 +42,13 @@ export const useSystemAuthStore = defineStore('systemAuth', () => {
         return { success: false, message: 'Invalid PIN. Access denied.' }
       }
       
-      // Verify role (allow admin, System Admin, and manager)
-      if (mode === 'admin' && operator.role !== 'admin' && operator.role !== 'System Admin' && operator.role !== 'manager') {
-        return { success: false, message: 'Admin privileges required.' }
+      // Verify role (allow admin, System Admin, manager, and Supervisor)
+      if (mode === 'admin' && !['admin', 'System Admin', 'manager', 'Supervisor'].includes(operator.role)) {
+        return { success: false, message: 'Admin or Supervisor privileges required.' }
       }
       
       isSystemUnlocked.value  = true
-      currentRole.value       = mode
+      currentRole.value       = operator.role // Keep exact role
       currentEmployeeId.value = operator.id
       authorizedManager.value = operator.name
       shiftStartedAt.value    = new Date().toISOString()

@@ -169,7 +169,7 @@ const store = useMesStore()
 
 const isAdmin = computed(() => {
   const role = store.activeOperator?.role
-  return role === 'admin' || role === 'System Admin' || role === 'manager'
+  return role === 'admin' || role === 'System Admin' || role === 'manager' || role === 'Supervisor'
 })
 const targetOperatorId = ref(store.activeOperator?.id)
 
