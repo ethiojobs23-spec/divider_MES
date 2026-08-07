@@ -195,10 +195,10 @@ function getCellValue(dayName, col, placement, size) {
   return store.ledgerEntries
     .filter(e => {
        const dayMatch = new Date(e.timestamp).getDay() === targetDay
-       const colMatch = e.dividerType === col
-       const placeMatch = e.placement === placement
-       const sizeMatch = e.size === size
-       const opMatch = filterId === 'all' || e.operator_id === filterId
+       const colMatch = String(e.dividerType || '').trim() === String(col).trim()
+       const placeMatch = String(e.placement || '').trim() === String(placement).trim()
+       const sizeMatch = String(e.size || '').trim() === String(size).trim()
+       const opMatch = filterId === 'all' || String(e.operator_id) === String(filterId)
        
        return dayMatch && colMatch && placeMatch && sizeMatch && opMatch
     })
