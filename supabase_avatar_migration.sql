@@ -24,3 +24,4 @@ WITH CHECK ( bucket_id = 'avatars' );
 CREATE POLICY "Anyone can update their avatar." 
 ON storage.objects FOR UPDATE 
 USING ( bucket_id = 'avatars' );
+

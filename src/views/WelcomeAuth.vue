@@ -20,7 +20,7 @@
 
       <!-- Title block -->
       <div class="brand-block">
-        <p class="brand-eyebrow">SODOFIX MANUFACTURING</p>
+        <p class="brand-eyebrow">KALEB DIVIDER MANUFACTURING</p>
         <h1 class="brand-title">SYSTEM<br>BOOT</h1>
         <p class="brand-sub">Authorized Personnel Only</p>
       </div>

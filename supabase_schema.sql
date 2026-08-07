@@ -110,4 +110,4 @@ INSERT INTO mes_operators (pin_code, name, role, avatar, color) VALUES
 ('9999', 'System Admin', 'admin', 'A', 'bg-rose-500'),
 ('1111', 'Zelalem', 'employee', 'Z', 'bg-indigo-500'),
 ('2222', 'Aben', 'employee', 'A', 'bg-emerald-500'),
-('3333', 'Teme', 'employee', 'T', 'bg-amber-500');
+('3333', 'Teme', 'employee', 'T', 'bg-amber-500'); 
