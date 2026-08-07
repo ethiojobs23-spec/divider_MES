@@ -21,6 +21,7 @@
         <div v-if="isAdmin" class="toggle-cluster" style="margin-left: auto; border: 1px solid #6366f1; background: rgba(99,102,241,0.1); padding: 0.5rem; border-radius: 0.5rem;">
           <p class="cluster-label" style="color: #818cf8; font-size: 0.7rem;">ADMIN TARGET OPERATOR</p>
           <select v-model="targetOperatorId" class="mega-toggle" style="background: transparent; color: #fff; font-size: 0.9rem; padding: 0.2rem; cursor: pointer; outline: none; border: none;">
+             <option value="all" style="color: #000">All Operators (Total)</option>
              <option v-for="op in store.operators" :value="op.id" :key="op.id" style="color: #000">{{ op.name }} ({{ op.role }})</option>
           </select>
         </div>
@@ -171,7 +172,7 @@ const isAdmin = computed(() => {
   const role = store.activeOperator?.role
   return role === 'admin' || role === 'System Admin' || role === 'manager' || role === 'Supervisor'
 })
-const targetOperatorId = ref(store.activeOperator?.id)
+const targetOperatorId = ref('all') // Default to 'all' for admins to see everyone's entries. Non-admins will be filtered below.
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 const columns   = ['50', '40', '30', '16', '12', '45', 'Other']
@@ -188,13 +189,19 @@ function getCellValue(dayName, col, placement, size) {
   const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 }
   const targetDay = dayMap[dayName]
   
+  // If not admin, force it to their own ID. If admin, use the dropdown value.
+  const filterId = isAdmin.value ? targetOperatorId.value : store.activeOperator?.id
+
   return store.ledgerEntries
-    .filter(e => 
-       new Date(e.timestamp).getDay() === targetDay &&
-       e.dividerType === col &&
-       e.placement === placement &&
-       e.size === size
-    )
+    .filter(e => {
+       const dayMatch = new Date(e.timestamp).getDay() === targetDay
+       const colMatch = e.dividerType === col
+       const placeMatch = e.placement === placement
+       const sizeMatch = e.size === size
+       const opMatch = filterId === 'all' || e.operator_id === filterId
+       
+       return dayMatch && colMatch && placeMatch && sizeMatch && opMatch
+    })
     .reduce((sum, e) => sum + (Number(e.goodProduction) || 0), 0)
 }
 
@@ -227,16 +234,16 @@ async function confirmEntry() {
   if (!activeCell.value) return
   const qty = Number(numpadValue.value) || 0
 
-  // Also persist to Supabase
   if (qty > 0) {
+    const submitOpId = isAdmin.value && targetOperatorId.value !== 'all' ? targetOperatorId.value : store.activeOperator?.id
     const result = await store.submitProductionLog({
       dividerType:    activeCell.value.col,
       placement:      activePlacement.value,
       size:           activeSize.value,
       goodProduction: qty,
       wasteMaterial:  0,
-      operator_id:    targetOperatorId.value,
-      loggedByAdmin:  isAdmin.value && targetOperatorId.value !== store.activeOperator?.id
+      operator_id:    submitOpId,
+      loggedByAdmin:  isAdmin.value && submitOpId !== store.activeOperator?.id
     })
     if (result.ok) {
       let msg = `✓ Logged ${result.rawQty} pcs · ${activeCell.value.day} / Type ${activeCell.value.col}`

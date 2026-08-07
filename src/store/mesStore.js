@@ -177,6 +177,7 @@ export const useMesStore = defineStore('mes', () => {
       timestamp: dbRow.created_at,
       week: dbRow.production_week,
       operator: op ? op.name : 'Unknown',
+      operator_id: dbRow.operator_id,
       dividerType: dbRow.divider_type,
       placement: dbRow.placement_style,
       size: dbRow.size_cm + 'cm',
