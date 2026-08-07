@@ -93,27 +93,50 @@ async function saveProfile() {
 .sup-profile-root {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   height: 100%;
-  padding: 2rem;
+  padding: 1rem;
   background: #0f172a;
+  overflow-y: auto;
 }
+@media (min-width: 768px) {
+  .sup-profile-root {
+    align-items: center;
+    padding: 2rem;
+  }
+}
+
 .profile-card {
   background: #1e293b;
   border-radius: 1rem;
-  padding: 2rem;
+  padding: 1.5rem;
   width: 100%;
   max-width: 500px;
   border: 1px solid rgba(255,255,255,0.05);
   position: relative;
+  margin: auto;
+}
+@media (min-width: 768px) {
+  .profile-card {
+    padding: 2rem;
+  }
 }
 .profile-hdr {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 1.5rem;
+  text-align: center;
+  gap: 1rem;
   border-bottom: 1px solid rgba(255,255,255,0.05);
   padding-bottom: 1.5rem;
   margin-bottom: 1.5rem;
+}
+@media (min-width: 768px) {
+  .profile-hdr {
+    flex-direction: row;
+    text-align: left;
+    gap: 1.5rem;
+  }
 }
 .profile-info h2 {
   font-size: 1.8rem;
