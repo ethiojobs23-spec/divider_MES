@@ -138,7 +138,7 @@
         <button @click="goBack" class="hidden md:flex items-center justify-center w-16 h-14 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-300 text-xl cursor-pointer transition-all hover:bg-indigo-500/20 hover:border-indigo-500/40 active:scale-95 shrink-0" title="Go back">
           <span class="material-symbols-rounded text-2xl">arrow_back</span>
         </button>
-        <button v-if="sysAuth.currentRole === 'Supervisor'" @click="sysAuth.lockSystem(); router.replace('/welcome')" class="flex items-center justify-center gap-2.5 w-full min-h-[3.5rem] bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm font-extrabold tracking-wide cursor-pointer transition-all hover:bg-red-500/20 hover:border-red-500/50 hover:text-red-300 active:scale-95 shrink-0">
+        <button v-if="sysAuth.currentRole === 'Supervisor'" @click="sysAuth.lockSystem(); router.replace('/')" class="flex items-center justify-center gap-2.5 w-full min-h-[3.5rem] bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm font-extrabold tracking-wide cursor-pointer transition-all hover:bg-red-500/20 hover:border-red-500/50 hover:text-red-300 active:scale-95 shrink-0">
           <span class="material-symbols-rounded text-2xl">lock</span>
           <span>Lock System</span>
         </button>
