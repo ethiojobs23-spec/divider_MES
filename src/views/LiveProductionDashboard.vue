@@ -105,6 +105,7 @@
                     {{ entry.placement }} ·
                     {{ entry.size }} ·
                     {{ fmtTime(entry.timestamp) }}
+                    <span v-if="entry.loggedByAdmin" class="feed-admin-badge" title="Systematically registered / Admin Override">[Admin Logged]</span>
                   </p>
                 </div>
                 <div class="feed-badge" :class="entry.goodProduction > 0 ? 'feed-badge--good' : 'feed-badge--waste'">
@@ -506,6 +507,18 @@ const typeBreakdown = computed(() => {
 .feed-qty { font-weight: 800; }
 .feed-qty.good  { color: #34d399; }
 .feed-qty.waste { color: #f87171; }
+
+.feed-admin-badge {
+  display: inline-block;
+  background: rgba(99,102,241,0.2);
+  color: #818cf8;
+  font-size: 0.65rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.2rem;
+  margin-left: 0.5rem;
+  font-weight: bold;
+  vertical-align: middle;
+}
 
 .feed-badge {
   font-size: 0.8rem; font-weight: 900; flex-shrink: 0;

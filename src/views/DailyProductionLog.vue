@@ -18,6 +18,13 @@
           </div>
         </div>
 
+        <div v-if="isAdmin" class="toggle-cluster" style="margin-left: auto; border: 1px solid #6366f1; background: rgba(99,102,241,0.1); padding: 0.5rem; border-radius: 0.5rem;">
+          <p class="cluster-label" style="color: #818cf8; font-size: 0.7rem;">ADMIN TARGET OPERATOR</p>
+          <select v-model="targetOperatorId" class="mega-toggle" style="background: transparent; color: #fff; font-size: 0.9rem; padding: 0.2rem; cursor: pointer; outline: none; border: none;">
+             <option v-for="op in store.operators" :value="op.id" :key="op.id" style="color: #000">{{ op.name }} ({{ op.role }})</option>
+          </select>
+        </div>
+
         <!-- Placement Toggles -->
         <div class="toggle-cluster">
           <p class="cluster-label">Placement</p>
@@ -160,6 +167,12 @@ import { useMesStore } from '@/store/mesStore.js'
 
 const store = useMesStore()
 
+const isAdmin = computed(() => {
+  const role = store.activeOperator?.role
+  return role === 'admin' || role === 'System Admin' || role === 'manager'
+})
+const targetOperatorId = ref(store.activeOperator?.id)
+
 // ─── Constants ─────────────────────────────────────────────────────────────
 const columns   = ['50', '40', '30', '16', '12', '45', 'Other']
 const days      = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -222,6 +235,8 @@ async function confirmEntry() {
       size:           activeSize.value,
       goodProduction: qty,
       wasteMaterial:  0,
+      operator_id:    targetOperatorId.value,
+      loggedByAdmin:  isAdmin.value && targetOperatorId.value !== store.activeOperator?.id
     })
     if (result.ok) {
       let msg = `✓ Logged ${result.rawQty} pcs · ${activeCell.value.day} / Type ${activeCell.value.col}`

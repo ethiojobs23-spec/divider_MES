@@ -286,14 +286,17 @@
                   </thead>
                   <tbody>
                     <tr v-for="(log, idx) in activityLogs" :key="idx"
-                        :class="{ 'row-error': log.status === 'REJECT' }">
-                      <td class="font-mono">{{ log.time }}</td>
+                        :class="{ 'row-error': log.status === 'WASTE' }">
+                      <td class="font-mono">
+                        {{ log.time }}
+                        <span v-if="log.loggedByAdmin" class="row-badge row-badge--neutral text-[0.6rem] ml-1" title="Systematically registered / Admin Override">ADMIN</span>
+                      </td>
                       <td class="val-purple bold">{{ log.variant }}</td>
                       <td class="val-muted">{{ log.size }}</td>
                       <td class="val-muted">{{ log.placement }}</td>
-                      <td class="num val-main">{{ log.qty }}</td>
+                      <td class="num val-main">{{ log.qty > 0 ? log.qty : log.waste }}</td>
                       <td class="num">
-                        <span class="row-badge" :class="log.status === 'REJECT' ? 'row-badge--red' : 'row-badge--green'">
+                        <span class="row-badge" :class="log.status === 'WASTE' ? 'row-badge--red' : 'row-badge--green'">
                           {{ log.status }}
                         </span>
                       </td>
@@ -512,13 +515,22 @@ const attendanceRate = (op) =>
   op.expectedDays > 0 ? Math.round((op.daysAttended / op.expectedDays) * 100) : 0
 
 // ── Activity logs ─────────────────────────────────────────────────────────────
-const activityLogs = ref([
-  { time: '14:30:22', variant: 'PT-X99-ALPHA', size: '9cm', placement: 'ብተና',  qty: '250', status: 'OK'     },
-  { time: '13:45:10', variant: 'PT-X99-BETA',  size: '7cm', placement: 'ውስጥ',  qty: '120', status: 'OK'     },
-  { time: '12:15:05', variant: 'PT-X99-ALPHA', size: '9cm', placement: 'ብተና',  qty: '500', status: 'OK'     },
-  { time: '11:02:44', variant: 'PT-X99-GAMMA', size: '7cm', placement: 'የተለየ', qty: '07',  status: 'REJECT' },
-  { time: '09:30:00', variant: 'PT-X99-ALPHA', size: '9cm', placement: 'ብተና',  qty: '525', status: 'OK'     },
-])
+const activityLogs = computed(() => {
+  if (!selectedOp.value) return []
+  return store.ledgerEntries
+    .filter(e => e.operator === selectedOp.value.name)
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    .map(e => ({
+      time: new Date(e.timestamp).toLocaleTimeString('en-GB'),
+      variant: e.dividerType,
+      size: e.size,
+      placement: e.placement,
+      qty: e.goodProduction,
+      waste: e.wasteMaterial,
+      status: e.wasteMaterial > 0 && e.goodProduction === 0 ? 'WASTE' : 'OK',
+      loggedByAdmin: e.loggedByAdmin
+    }))
+})
 
 // ── Transactions ──────────────────────────────────────────────────────────────
 const transactions = ref([

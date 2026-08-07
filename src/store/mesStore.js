@@ -181,7 +181,8 @@ export const useMesStore = defineStore('mes', () => {
       placement: dbRow.placement_style,
       size: dbRow.size_cm + 'cm',
       goodProduction: dbRow.qty_produced,
-      wasteMaterial: dbRow.qty_waste
+      wasteMaterial: dbRow.qty_waste,
+      loggedByAdmin: dbRow.logged_by_admin || false
     }
   }
 
@@ -213,6 +214,7 @@ export const useMesStore = defineStore('mes', () => {
         qty_produced: effectiveQty,
         qty_waste: data.wasteMaterial || 0,
         is_overtime: overtime,
+        logged_by_admin: data.loggedByAdmin || false
       }
 
       // Optimistic UI update
