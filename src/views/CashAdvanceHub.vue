@@ -12,6 +12,10 @@
           <span class="snav-label">Pending Approvals</span>
           <span class="badge" v-if="pendingCount > 0">{{ pendingCount }}</span>
         </button>
+        <button class="snav-item" :class="{'snav-item--active': activeTab === 'history'}" @click="activeTab = 'history'">
+          <span class="material-symbols-rounded snav-icon">history</span>
+          <span class="snav-label">History</span>
+        </button>
       </nav>
 
       <div v-if="activeTab === 'new'" class="tab-panel">
@@ -108,6 +112,45 @@
           </div>
         </div>
       </div>
+
+      <!-- History Panel -->
+      <div v-if="activeTab === 'history'" class="tab-panel history-panel">
+        <div class="history-controls">
+          <label>Select Week: </label>
+          <select v-model="historyWeek" @change="fetchHistory" class="week-select">
+            <option v-for="week in availableWeeks" :key="week" :value="week">{{ week }}</option>
+          </select>
+        </div>
+        
+        <h3 class="panel-heading">Loan & Advance History ({{ historyWeek }})</h3>
+        
+        <div class="chart-container" v-if="historyChartData.length">
+          <h4 style="margin-bottom: 1rem; color: #a5b4fc;">Top Borrowers this Week</h4>
+          <div v-for="item in historyChartData" :key="item.operator" class="chart-row">
+            <div class="chart-label">{{ item.operator }} ({{ item.totalAmount.toFixed(2) }} ETB)</div>
+            <div class="chart-bar-wrap">
+              <div class="chart-bar" :style="{ width: item.percentage + '%' }"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="pending-list">
+          <div v-for="item in historyList" :key="item.id" class="pending-item">
+            <div class="pending-info">
+              <span class="material-symbols-rounded" :class="item.type === 'loan' ? 'icon-loan' : 'icon-adv'">
+                {{ item.type === 'loan' ? 'account_balance' : 'payments' }}
+              </span>
+              <div>
+                <p class="p-title">{{ item.type === 'loan' ? 'Loan Request' : 'Payment Request' }} • <strong>{{ item.amount.toFixed(2) }} ETB</strong></p>
+                <p class="p-sub">Requested by: <strong>{{ item.operator }}</strong> | Status: <strong :class="item.status === 'active' || item.status === 'advance' ? 'text-green-400' : (item.status === 'rejected' || item.status === 'rejected_advance' ? 'text-red-400' : 'text-yellow-400')">{{ item.status.replace('_', ' ').toUpperCase() }}</strong></p>
+              </div>
+            </div>
+          </div>
+          <div v-if="historyList.length === 0" class="empty-state">
+            No loan or advance history found for this week.
+          </div>
+        </div>
+      </div>
     </main>
 
     <!-- Admin PIN Modal -->
@@ -134,6 +177,8 @@ import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import PinModal from '@/components/ui/PinModal.vue'
 import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore.js'
+import { supabase } from '@/lib/supabaseClient'
+import { watch, onMounted } from 'vue'
 
 const store = useMesStore()
 const payrollStore = usePayrollStore()
@@ -260,15 +305,110 @@ async function handleApproveAdvance(id) {
 async function handleRejectAdvance(id) {
   requireAdminPin('Reject payment request', async () => {
     await store.rejectCashEntry(id)
-    showToast('Payment request rejected ✓')
+    showToast('Advance rejected ✓')
   })
 }
+
+// --- History Logic ---
+const availableWeeks = computed(() => {
+  const set = new Set([store.currentProductionWeek])
+  store.ledgerEntries.forEach(e => set.add(e.week))
+  payrollStore.loans.forEach(l => set.add(l.week))
+  return Array.from(set).sort().reverse()
+})
+
+const historyWeek = ref(store.currentProductionWeek)
+const historyList = ref([])
+const historyChartData = ref([])
+
+function getWeekLabel(dateStr) {
+  const date = new Date(dateStr)
+  const startOfYear = new Date(date.getFullYear(), 0, 1)
+  const week = Math.ceil(((date - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7)
+  return `W${String(week).padStart(2, '0')}-${date.getFullYear()}`
+}
+
+async function fetchHistory() {
+  historyList.value = []
+  historyChartData.value = []
+  try {
+    const { data: loansData } = await supabase.from('mes_loans')
+      .select('*')
+      .eq('production_week', historyWeek.value)
+      
+    const { data: ledgerData } = await supabase.from('mes_financial_ledger')
+      .select('*')
+      .in('transaction_type', ['advance', 'pending_advance', 'rejected_advance'])
+
+    const combined = []
+    const operatorTotals = {}
+
+    if (loansData) {
+      loansData.forEach(row => {
+        const opName = getOperatorName(row.operator_id)
+        const amt = Number(row.principal)
+        combined.push({
+          id: 'loan-' + row.id,
+          type: 'loan',
+          amount: amt,
+          operator: opName,
+          status: row.status,
+          date: new Date(row.issued_at).getTime()
+        })
+        if (row.status !== 'rejected') {
+          operatorTotals[opName] = (operatorTotals[opName] || 0) + amt
+        }
+      })
+    }
+    
+    if (ledgerData) {
+      ledgerData.forEach(row => {
+        if (getWeekLabel(row.transaction_date) === historyWeek.value) {
+          const opName = row.target_name || getOperatorName(row.operator_id)
+          const amt = Number(row.amount)
+          combined.push({
+            id: 'adv-' + row.id,
+            type: 'advance',
+            amount: amt,
+            operator: opName,
+            status: row.transaction_type,
+            date: new Date(row.created_at).getTime()
+          })
+          if (row.transaction_type !== 'rejected_advance') {
+            operatorTotals[opName] = (operatorTotals[opName] || 0) + amt
+          }
+        }
+      })
+    }
+
+    combined.sort((a, b) => b.date - a.date)
+    historyList.value = combined
+
+    const maxTotal = Math.max(0, ...Object.values(operatorTotals))
+    const chartData = Object.entries(operatorTotals).map(([name, total]) => ({
+      operator: name,
+      totalAmount: total,
+      percentage: maxTotal > 0 ? (total / maxTotal) * 100 : 0
+    }))
+    chartData.sort((a, b) => b.totalAmount - a.totalAmount)
+    historyChartData.value = chartData
+
+  } catch(e) {
+    console.error('Error fetching history:', e)
+  }
+}
+
+watch(activeTab, (newVal) => {
+  if (newVal === 'history') fetchHistory()
+})
+onMounted(() => {
+  if (activeTab.value === 'history') fetchHistory()
+})
 
 const recentEntries = computed(() => [...store.cashEntries].reverse().slice(0, 8))
 </script>
 
 <style scoped>
-
 
 /* Sidebar */
 
@@ -314,6 +454,63 @@ const recentEntries = computed(() => [...store.cashEntries].reverse().slice(0, 8
   border-radius: .35rem;
   display: flex; align-items: center; justify-content: center;
   font-weight: 800; font-size: .75rem; color: #fff;
+}
+
+.pin-error {
+  color: #ef4444;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* History */
+.history-controls {
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.week-select {
+  padding: 0.5rem 1rem;
+  background: #334155;
+  border: 1px solid #475569;
+  border-radius: 0.5rem;
+  color: #f8fafc;
+  font-size: 1rem;
+  outline: none;
+}
+.chart-container {
+  background: #1e293b;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid #334155;
+}
+.chart-row {
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.chart-label {
+  font-size: 0.9rem;
+  color: #e2e8f0;
+}
+.chart-bar-wrap {
+  width: 100%;
+  height: 8px;
+  background: #334155;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.chart-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #a855f7);
+  border-radius: 4px;
+  transition: width 0.5s ease-out;
 }
 
 .summary-card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: .75rem; padding: .8rem 1rem; }
