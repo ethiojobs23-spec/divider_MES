@@ -182,7 +182,7 @@ const store = useMesStore()
 const sysAuth = useSystemAuthStore()
 
 const isAdmin = computed(() => {
-  const role = store.activeOperator?.role
+  const role = sysAuth.currentRole || store.activeOperator?.role
   return role === 'admin' || role === 'System Admin' || role === 'manager' || role === 'Supervisor'
 })
 const targetOperatorId = ref('all') // Default to 'all' for admins to see everyone's entries. Non-admins will be filtered below.
@@ -203,7 +203,7 @@ function getCellValue(dayName, col, placement, size) {
   const targetDay = dayMap[dayName]
   
   // If not admin, force it to their own ID. If admin, use the dropdown value.
-  const filterId = isAdmin.value ? targetOperatorId.value : store.activeOperator?.id
+  const filterId = isAdmin.value ? targetOperatorId.value : (sysAuth.currentEmployeeId || store.activeOperator?.id)
 
   return store.ledgerEntries
     .filter(e => {
@@ -306,7 +306,8 @@ async function performSave() {
   // We'll pass the exact timestamp for the ledger entries
   const targetTimestamp = targetDateObj.toISOString()
 
-  const submitOpId = isAdmin.value && targetOperatorId.value !== 'all' ? targetOperatorId.value : store.activeOperator?.id
+  const currentOpId = sysAuth.currentEmployeeId || store.activeOperator?.id
+  const submitOpId = isAdmin.value && targetOperatorId.value !== 'all' ? targetOperatorId.value : currentOpId
   const result = await store.submitProductionLog({
     dividerType:    activeCell.value.col,
     placement:      activePlacement.value,
@@ -316,7 +317,7 @@ async function performSave() {
     operator_id:    submitOpId,
     production_date: targetDateStr,
     timestamp_override: targetTimestamp,
-    loggedByAdmin:  isAdmin.value && submitOpId !== store.activeOperator?.id
+    loggedByAdmin:  isAdmin.value && submitOpId !== currentOpId
   })
   
   if (result.ok) {
