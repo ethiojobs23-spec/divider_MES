@@ -327,12 +327,16 @@ onUnmounted(() => clearInterval(clockTimer))
   opacity: .18;
 }
 .glow--purple {
-  width: 500px; height: 500px;
+  width: 100%;
+
+  max-width: 500px; height: 500px;
   background: #7c3aed;
   top: -120px; left: -100px;
 }
 .glow--blue {
-  width: 400px; height: 400px;
+  width: 100%;
+
+  max-width: 400px; height: 400px;
   background: #2563eb;
   bottom: -100px; right: -80px;
 }

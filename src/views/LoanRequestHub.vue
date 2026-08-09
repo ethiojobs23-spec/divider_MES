@@ -319,7 +319,9 @@ async function approveLoanInstallment() {
 .content-area { display: flex; flex: 1; overflow: hidden; }
 
 .sidebar {
-  width: 300px;
+  width: 100%;
+
+  max-width: 300px;
   flex-shrink: 0;
   background: #1e293b;
   border-right: 1px solid rgba(255,255,255,0.05);
@@ -451,7 +453,9 @@ async function approveLoanInstallment() {
 
 .calc-card {
   flex: 1;
-  min-width: 280px;
+  width: 100%;
+
+  max-width: 280px;
   background: linear-gradient(145deg, #1e293b, #0f172a);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 1.25rem;
@@ -550,7 +554,9 @@ async function approveLoanInstallment() {
 /* ── Numpad ── */
 .input-section {
   flex: 1;
-  min-width: 240px;
+  width: 100%;
+
+  max-width: 240px;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;

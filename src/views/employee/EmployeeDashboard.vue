@@ -817,7 +817,9 @@ async function saveProfile() {
 
 /* Sidebar */
 .employee-sidebar {
-  width: 340px;
+  width: 100%;
+
+  max-width: 340px;
   background: #1e293b;
   border-right: 1px solid rgba(255,255,255,0.1);
   display: flex;

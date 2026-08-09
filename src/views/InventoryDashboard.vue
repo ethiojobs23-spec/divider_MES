@@ -77,7 +77,7 @@
 
       <!-- ── Receiving Panel (Slide In) ── -->
       <div 
-        class="absolute inset-y-0 right-0 w-full md:w-[420px] bg-slate-800 border-l border-white/10 shadow-2xl flex flex-col transition-transform duration-300 z-20"
+        class="absolute inset-y-0 right-0 w-full md:w-full max-w-[420px] bg-slate-800 border-l border-white/10 shadow-2xl flex flex-col transition-transform duration-300 z-20"
         :class="showReceivePanel ? 'translate-x-0' : 'translate-x-full'"
       >
         <!-- Panel Header -->

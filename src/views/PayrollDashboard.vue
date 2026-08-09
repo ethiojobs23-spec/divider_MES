@@ -423,7 +423,7 @@
         
         <div class="bg-slate-800 border border-white/10 rounded-xl overflow-hidden shadow-xl">
           <div class="table-scroll overflow-x-auto w-full">
-            <table class="w-full text-left border-collapse min-w-[600px]">
+            <table class="w-full text-left border-collapse min-w-full max-w-[600px]">
               <thead class="bg-slate-900 border-b border-white/10">
                 <tr>
                   <th class="p-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Date</th>

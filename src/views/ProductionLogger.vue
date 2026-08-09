@@ -277,7 +277,9 @@ async function performSave() {
 /* Sidebar */
 .prod-sidebar {
   width: 25%;
-  min-width: 260px;
+  width: 100%;
+
+  max-width: 260px;
   background: #1e293b;
   border-right: 1px solid rgba(99,102,241,.2);
   display: flex;

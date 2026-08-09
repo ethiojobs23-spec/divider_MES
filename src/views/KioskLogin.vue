@@ -360,7 +360,9 @@ function clearNum() {
   flex-direction: column;
   align-items: center;
   gap: 1rem;
-  min-width: 420px;
+  width: 100%;
+
+  max-width: 420px;
   position: relative;
 }
 .modal-avatar {

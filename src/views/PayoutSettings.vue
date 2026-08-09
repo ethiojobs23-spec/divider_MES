@@ -137,7 +137,9 @@ function saveSettings() {
 }
 
 .sidebar {
-  width: 350px;
+  width: 100%;
+
+  max-width: 350px;
   background: #1e293b;
   border-right: 1px solid rgba(255,255,255,0.05);
   display: flex;

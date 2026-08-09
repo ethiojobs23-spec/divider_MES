@@ -217,8 +217,10 @@ function triggerShake() {
   filter: blur(120px);
   pointer-events: none;
 }
-.glow--left  { width: 520px; height: 520px; background: #6366f1; opacity: .12; top: -160px; left: -160px; }
-.glow--right { width: 420px; height: 420px; background: #2563eb; opacity: .1;  bottom: -100px; right: -80px; }
+.glow--left  { width: 100%;
+ max-width: 520px; height: 520px; background: #6366f1; opacity: .12; top: -160px; left: -160px; }
+.glow--right { width: 100%;
+ max-width: 420px; height: 420px; background: #2563eb; opacity: .1;  bottom: -100px; right: -80px; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    LEFT PANEL
