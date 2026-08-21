@@ -158,7 +158,7 @@
           </div>
 
           <!-- Table -->
-          <div class="ledger-scroll">
+          <div class="ledger-scroll w-full overflow-x-auto">
             <table class="expense-table" v-if="filteredExpenses.length">
               <thead>
                 <tr>

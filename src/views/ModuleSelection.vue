@@ -30,8 +30,8 @@
       </div>
     </header>
 
-    <!-- ── Module cards grid ──────────────────────────────────────── -->
-    <main class="hub-grid">
+    <!-- ── Module cards grid ────────────────────────────────────────── -->
+    <main class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 min-h-0 z-10 w-full p-4 md:p-6 overflow-y-auto">
 
       <!-- 1. Attendance Kiosk -->
       <button class="module-card card--emerald" @click="go('/login')">

@@ -11,7 +11,7 @@
         </div>
       </div>
 
-      <div class="viewer-content">
+      <div class="viewer-content w-full overflow-x-auto">
         <table class="data-table">
           <thead>
             <tr>

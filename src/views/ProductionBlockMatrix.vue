@@ -32,7 +32,7 @@
       </header>
 
       <!-- ─── Matrix Table ───────────────────────────────────────────── -->
-      <div class="matrix-scroll">
+      <div class="matrix-scroll w-full overflow-x-auto">
         <table class="block-table">
           <thead>
             <tr>

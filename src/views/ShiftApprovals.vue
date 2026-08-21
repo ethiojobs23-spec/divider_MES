@@ -73,7 +73,7 @@
           </div>
 
           <!-- Entry breakdown (collapsed by default) -->
-          <div v-if="expanded === sub.id" class="entry-table-wrap">
+          <div v-if="expanded === sub.id" class="entry-table-wrap w-full overflow-x-auto">
             <table class="entry-table">
               <thead><tr><th>Type</th><th>Placement</th><th>Size</th><th>Good</th><th>Waste</th><th>Time</th></tr></thead>
               <tbody>

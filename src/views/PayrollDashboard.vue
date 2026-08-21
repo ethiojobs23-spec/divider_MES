@@ -55,8 +55,8 @@
             </button>
           </div>
         </div>
-        <div class="denom-table-wrap">
-          <table class="denom-table">
+        <div class="denom-table-wrap w-full overflow-x-auto">
+          <table class="denom-table w-full min-w-[600px]">
             <thead>
               <tr>
                 <th>Note</th>

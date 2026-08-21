@@ -81,9 +81,9 @@
         </div>
 
         <!-- New Loan Form -->
-        <div class="loan-container">
+        <div class="loan-container flex flex-col md:flex-row gap-4 md:gap-8 w-full max-w-5xl">
           <!-- Left: Summary Card -->
-          <div class="calc-card">
+          <div class="calc-card w-full">
             <h3 class="calc-title">New Loan — {{ activeOperator.name }}</h3>
 
             <div class="calc-row">
