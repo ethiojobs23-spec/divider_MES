@@ -457,4 +457,79 @@ function triggerShake() {
 }
 .num-key--del:hover  { background: rgba(239,68,68,.17); border-color: rgba(239,68,68,.4); }
 .num-key--del:active { background: rgba(239,68,68,.28); }
+
+/* =========================================================================
+   RESPONSIVE DESIGN (Mobile & Portrait Tablets)
+   ========================================================================= */
+@media (max-width: 992px) {
+  .boot-screen {
+    flex-direction: column;
+    overflow-y: auto;
+    height: 100dvh; /* Use dynamic viewport height if supported */
+  }
+
+  .left-panel {
+    width: 100%;
+    padding: 2rem 2rem 1.5rem 2rem;
+    gap: 1.5rem;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    align-items: center;
+    text-align: center;
+  }
+
+  .brand-badge {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 1rem;
+  }
+  .brand-icon { font-size: 2rem; }
+
+  .brand-title {
+    font-size: clamp(2rem, 8vw, 3rem);
+  }
+
+  .mode-toggle {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .pin-dots {
+    justify-content: center;
+  }
+
+  .left-footer {
+    display: none; /* Hide clock on mobile to save space */
+  }
+
+  .right-panel {
+    width: 100%;
+    padding: 1rem 2rem 2rem 2rem;
+    align-items: flex-start;
+  }
+
+  .numpad {
+    max-width: 400px;
+    margin: 0 auto;
+    max-height: 50vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .left-panel {
+    padding: 1.5rem 1rem 1rem 1rem;
+    gap: 1rem;
+  }
+  .right-panel {
+    padding: 1rem;
+  }
+  .numpad {
+    gap: 0.5rem;
+    max-height: 45vh;
+  }
+  .num-key {
+    border-radius: 0.75rem;
+  }
+}
 </style>
+
