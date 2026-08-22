@@ -217,8 +217,12 @@ const supPin = reactive({ show: false, error: '', loading: false })
 
 async function saveEntry() {
   if (!canSave.value || isSaving.value) return
-  const role = sysAuth.currentRole || store.activeOperator?.role
-  if (role === 'Supervisor' && !sysAuth.isSystemUnlocked) {
+  if (sysAuth.isSystemUnlocked) {
+    await performSave()
+    return
+  }
+  
+  if (store.activeOperator?.role === 'Supervisor') {
     supPin.error = ''
     supPin.show = true
     return

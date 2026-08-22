@@ -255,8 +255,12 @@ async function confirmEntry() {
     return
   }
 
-  const role = sysAuth.currentRole || store.activeOperator?.role
-  if (role === 'Supervisor' && !sysAuth.isSystemUnlocked) {
+  if (sysAuth.isSystemUnlocked) {
+    await performSave()
+    return
+  }
+
+  if (store.activeOperator?.role === 'Supervisor') {
     supPin.error = ''
     supPin.show = true
     return
