@@ -217,7 +217,8 @@ const supPin = reactive({ show: false, error: '', loading: false })
 
 async function saveEntry() {
   if (!canSave.value || isSaving.value) return
-  if (sysAuth.currentRole === 'Supervisor') {
+  const role = sysAuth.currentRole || store.activeOperator?.role
+  if (role === 'Supervisor' && !sysAuth.isSystemUnlocked) {
     supPin.error = ''
     supPin.show = true
     return
@@ -230,7 +231,8 @@ async function executeSupervisorSave(pin) {
   supPin.error = ''
   
   // Validate supervisor PIN
-  const supervisor = store.operators.find(o => o.id === sysAuth.currentEmployeeId && String(o.pin_code) === String(pin))
+  const employeeId = sysAuth.currentEmployeeId || store.activeOperator?.id
+  const supervisor = store.operators.find(o => o.id === employeeId && String(o.pin_code) === String(pin))
   
   if (!supervisor) {
     supPin.error = 'Invalid PIN.'
