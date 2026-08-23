@@ -122,7 +122,7 @@ const mesStore = store
 const attendanceStore = useAttendanceStore()
 const sysAuth = useSystemAuthStore()
 
-const employeeOperators = computed(() => store.operators.filter(function(o){ return o.role === 'Employee' }))
+const employeeOperators = computed(() => store.operators.filter(function(o){ return o.role === 'Operator' }))
 const modal = ref({ open: false, operator: null })
 
 const validation = ref({ allowed: true, message: '' })
