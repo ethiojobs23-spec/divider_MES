@@ -156,16 +156,7 @@
           {{ toast.message }}
         </div>
       </Transition>
-      <!-- ── Supervisor PIN Modal ────────────────────────────────────── -->
-      <PinModal
-        :isOpen="supPin.show"
-        title="Supervisor Authorization"
-        subtitle="Enter PIN to modify this daily log"
-        :error="supPin.error"
-        :loading="supPin.loading"
-        @confirm="executeSupervisorSave"
-        @cancel="supPin.show = false"
-      />
+
     </div>
   </AppLayout>
 </template>
@@ -174,7 +165,7 @@
 import { ref, reactive, computed } from 'vue'
 import AppLayout  from '@/components/layout/AppLayout.vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
-import PinModal from '@/components/ui/PinModal.vue'
+
 import { useMesStore } from '@/store/mesStore.js'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 
@@ -255,37 +246,7 @@ async function confirmEntry() {
     return
   }
 
-  if (sysAuth.isSystemUnlocked) {
-    await performSave()
-    return
-  }
-
-  if (store.activeOperator?.role === 'Supervisor') {
-    supPin.error = ''
-    supPin.show = true
-    return
-  }
-  
   await performSave()
-}
-
-const supPin = reactive({ show: false, error: '', loading: false })
-
-async function executeSupervisorSave(pin) {
-  supPin.loading = true
-  supPin.error = ''
-  
-  const employeeId = sysAuth.currentEmployeeId || store.activeOperator?.id
-  const supervisor = store.operators.find(o => o.id === employeeId && String(o.pin_code) === String(pin))
-  if (!supervisor) {
-    supPin.error = 'Invalid PIN.'
-    supPin.loading = false
-    return
-  }
-  
-  await performSave()
-  supPin.loading = false
-  supPin.show = false
 }
 
 async function performSave() {
