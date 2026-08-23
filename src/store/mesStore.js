@@ -174,7 +174,7 @@ export const useMesStore = defineStore('mes', () => {
     const op = operators.value.find(o => o.id === dbRow.operator_id)
     return {
       id: dbRow.id,
-      timestamp: dbRow.created_at,
+      timestamp: dbRow.production_date || dbRow.created_at,
       week: dbRow.production_week,
       operator: op ? op.name : 'Unknown',
       operator_id: dbRow.operator_id,
