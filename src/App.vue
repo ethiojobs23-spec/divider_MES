@@ -1,4 +1,5 @@
 <template>
+  <!-- Developer: Mintesnot Abebe | Brand: dev MinteIO -->
   <!-- Global error boundary wraps the entire router outlet.
        If any child component throws an unhandled error the operator sees
        a clear recovery screen instead of a blank white crash. -->

@@ -448,6 +448,7 @@
 </template>
 
 <script setup>
+// Developer: Mintesnot Abebe | Brand: dev MinteIO
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
