@@ -171,6 +171,7 @@
 </template>
 
 <script setup>
+// Developer: Mintesnot Abebe | Brand: dev MinteIO
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { ref, computed, reactive } from 'vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'

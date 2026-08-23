@@ -492,6 +492,7 @@
 </template>
 
 <script setup>
+// Developer: Mintesnot Abebe | Brand: dev MinteIO
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
 import PaymentReceiptModal from '@/components/ui/PaymentReceiptModal.vue'

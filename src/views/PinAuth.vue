@@ -93,6 +93,7 @@
 </template>
 
 <script setup>
+// Developer: Mintesnot Abebe | Brand: dev MinteIO
 import { ref, computed, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMesStore } from '@/store/mesStore.js'

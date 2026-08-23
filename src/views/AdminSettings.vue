@@ -384,6 +384,7 @@
 </template>
 
 <script setup>
+// Developer: Mintesnot Abebe | Brand: dev MinteIO
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
