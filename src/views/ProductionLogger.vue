@@ -130,7 +130,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watchEffect } from 'vue'
+import { ref, reactive, computed, watchEffect, onMounted, onUnmounted } from 'vue'
 import AppLayout  from '@/components/layout/AppLayout.vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 
@@ -139,6 +139,18 @@ import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 
 const store = useMesStore()
 const sysAuth = useSystemAuthStore()
+
+let refreshTimer = null
+onMounted(() => {
+  store.fetchInitialData()
+  refreshTimer = setInterval(() => {
+    store.fetchInitialData()
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
+})
 
 const clockedInList = computed(() => {
   return store.operators.filter(op => store.isOperatorClockedIn(op.id))
