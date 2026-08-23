@@ -303,29 +303,31 @@
       <div v-if="activeTab === 'production'" class="tab-content">
         <div class="production-list-card">
           <h3>My Production Entries ({{ currentWeek }})</h3>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Date & Time</th>
-                <th>Type</th>
-                <th>Size</th>
-                <th>Placement</th>
-                <th class="align-right">Good</th>
-                <th class="align-right">Waste</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="entry in myProduction" :key="entry.id">
-                <td>{{ new Date(entry.timestamp).toLocaleString([], {weekday: 'short', hour: '2-digit', minute:'2-digit'}) }}</td>
-                <td>{{ entry.dividerType }}</td>
-                <td>{{ entry.size }}</td>
-                <td>{{ entry.placement || '—' }}</td>
-                <td class="align-right"><strong style="color:#34d399">{{ entry.goodProduction }}</strong></td>
-                <td class="align-right"><strong style="color:#f87171">{{ entry.wasteMaterial || 0 }}</strong></td>
-              </tr>
-              <tr v-if="!myProduction.length"><td colspan="6" class="empty-text">No production logged yet.</td></tr>
-            </tbody>
-          </table>
+          <div class="data-table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date & Time</th>
+                  <th>Type</th>
+                  <th>Size</th>
+                  <th>Placement</th>
+                  <th class="align-right">Good</th>
+                  <th class="align-right">Waste</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="entry in myProduction" :key="entry.id">
+                  <td>{{ new Date(entry.timestamp).toLocaleString([], {weekday: 'short', hour: '2-digit', minute:'2-digit'}) }}</td>
+                  <td>{{ entry.dividerType }}</td>
+                  <td>{{ entry.size }}</td>
+                  <td>{{ entry.placement || '—' }}</td>
+                  <td class="align-right"><strong style="color:#34d399">{{ entry.goodProduction }}</strong></td>
+                  <td class="align-right"><strong style="color:#f87171">{{ entry.wasteMaterial || 0 }}</strong></td>
+                </tr>
+                <tr v-if="!myProduction.length"><td colspan="6" class="empty-text">No production logged yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -357,17 +359,19 @@
           </div>
 
           <!-- Breakdown table -->
-          <table class="data-table" style="margin-top:1.5rem">
-            <thead><tr><th>Type</th><th>Placement</th><th>Size</th><th class="align-right">Good</th><th class="align-right">Waste</th></tr></thead>
-            <tbody>
-              <tr v-for="e in todayEntries" :key="e.id">
-                <td>{{ e.dividerType }}</td><td>{{ e.placement }}</td><td>{{ e.size }}</td>
-                <td class="align-right" style="color:#34d399">{{ e.goodProduction }}</td>
-                <td class="align-right" style="color:#f87171">{{ e.wasteMaterial || 0 }}</td>
-              </tr>
-              <tr v-if="!todayEntries.length"><td colspan="5" class="empty-text">No entries logged today.</td></tr>
-            </tbody>
-          </table>
+          <div class="data-table-container" style="margin-top:1.5rem">
+            <table class="data-table">
+              <thead><tr><th>Type</th><th>Placement</th><th>Size</th><th class="align-right">Good</th><th class="align-right">Waste</th></tr></thead>
+              <tbody>
+                <tr v-for="e in todayEntries" :key="e.id">
+                  <td>{{ e.dividerType }}</td><td>{{ e.placement }}</td><td>{{ e.size }}</td>
+                  <td class="align-right" style="color:#34d399">{{ e.goodProduction }}</td>
+                  <td class="align-right" style="color:#f87171">{{ e.wasteMaterial || 0 }}</td>
+                </tr>
+                <tr v-if="!todayEntries.length"><td colspan="5" class="empty-text">No entries logged today.</td></tr>
+              </tbody>
+            </table>
+          </div>
 
           <!-- Submit button -->
           <div class="submit-area">
@@ -1223,4 +1227,98 @@ async function saveProfile() {
 .status-pending  { color: #f59e0b; font-weight: 800; }
 .status-approved { color: #10b981; font-weight: 800; }
 .status-rejected { color: #ef4444; font-weight: 800; }
+
+/* Responsive Mobile Styles */
+@media (max-width: 768px) {
+  .employee-portal {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  
+  .employee-sidebar {
+    max-width: 100%;
+    padding: 1.5rem 1rem;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  
+  .profile-section {
+    flex-direction: row;
+    text-align: left;
+    margin-bottom: 1rem;
+    gap: 1rem;
+    justify-content: flex-start;
+  }
+  
+  .op-avatar {
+    width: 60px;
+    height: 60px;
+    font-size: 2rem;
+    margin-bottom: 0;
+  }
+  
+  .op-name { font-size: 1.4rem; margin: 0; }
+  .op-role { font-size: 0.9rem; }
+  
+  .portal-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    gap: 0.5rem;
+    /* Hide scrollbar for cleaner look but keep scrollable */
+    scrollbar-width: none; 
+    -ms-overflow-style: none;
+  }
+  .portal-nav::-webkit-scrollbar { display: none; }
+  
+  .nav-btn {
+    white-space: nowrap;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+  }
+  
+  .sidebar-actions { margin-top: 1rem; }
+  .btn-logout { padding: 1rem; font-size: 1rem; }
+  
+  .portal-main {
+    padding: 1.5rem 1rem;
+    overflow-y: visible; /* Let the body scroll */
+  }
+  
+  .portal-header { margin-bottom: 1.5rem; }
+  .portal-header h1 { font-size: 1.75rem; }
+  
+  .dashboard-grid, .split-layout { grid-template-columns: 1fr; gap: 1rem; }
+  
+  .stat-card, .form-card, .history-card, .attendance-card, .production-list-card, .shift-summary-card {
+    padding: 1.5rem;
+  }
+  
+  .shift-stats { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  
+  .btn-clock { width: 100%; justify-content: center; padding: 1.25rem 1rem; font-size: 1rem; }
+  
+  .status-indicator { padding: 0.75rem 1.5rem; font-size: 1.2rem; }
+  
+  /* Make tables scrollable horizontally */
+  .data-table-container {
+    overflow-x: auto;
+    width: 100%;
+  }
+  
+  .data-table {
+    white-space: nowrap;
+  }
+  
+  .submission-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .sub-stats { width: 100%; justify-content: space-between; }
+  .sub-status { align-self: flex-start; }
+}
 </style>
