@@ -23,7 +23,7 @@
     <!-- Operator Grid -->
     <div class="operator-grid">
       <button
-        v-for="op in store.operators"
+        v-for="op in employeeOperators"
         :key="op.id"
         class="operator-card"
         :class="{ 'operator-card--active': store.isOperatorClockedIn(op.id) }"
@@ -122,6 +122,7 @@ const mesStore = store
 const attendanceStore = useAttendanceStore()
 const sysAuth = useSystemAuthStore()
 
+const employeeOperators = computed(() => store.operators.filter(function(o){ return o.role === 'Employee' }))
 const modal = ref({ open: false, operator: null })
 
 const validation = ref({ allowed: true, message: '' })
