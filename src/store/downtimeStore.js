@@ -1,3 +1,4 @@
+// Developer: Mintesnot Abebe | Brand: dev MinteIO
 /**
  * downtimeStore.js — Machine Downtime Tracking
  * Fully wired to Supabase with optimistic UI, offline sync, and Realtime subscriptions.

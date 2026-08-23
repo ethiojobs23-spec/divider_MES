@@ -1,3 +1,4 @@
+// Developer: Mintesnot Abebe | Brand: dev MinteIO
 /**
  * inventoryStore.js — Raw Materials Inventory
  * Fully wired to Supabase with optimistic UI and offline sync.

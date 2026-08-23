@@ -1,3 +1,4 @@
+// Developer: Mintesnot Abebe | Brand: dev MinteIO
 /**
  * qcStore.js — Quality Control Defect Logging
  * Fully wired to Supabase with optimistic UI, offline sync, and Realtime subscriptions.
