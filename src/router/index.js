@@ -17,6 +17,7 @@ import QualityControl        from '@/views/QualityControl.vue'
 import DispatchLogistics     from '@/views/DispatchLogistics.vue'
 import ExecutiveAnalytics    from '@/views/ExecutiveAnalytics.vue'
 import AdminSettings         from '@/views/AdminSettings.vue'
+import PayoutSettings        from '@/views/PayoutSettings.vue'
 import PinAuth               from '@/views/PinAuth.vue'
 import EmployeeProfileView   from '@/views/EmployeeProfileView.vue'
 import DailyProductionLog    from '@/views/DailyProductionLog.vue'
@@ -172,6 +173,12 @@ const routes = [
     name: 'AdminSettings',
     component: AdminSettings,
     meta: { title: 'Settings', icon: 'settings', requiresSystemAuth: true, requiresAdmin: true, nav: true },
+  },
+  {
+    path: '/payout-settings',
+    name: 'PayoutSettings',
+    component: PayoutSettings,
+    meta: { title: 'Payout Settings', icon: 'settings_account_box', requiresSystemAuth: true, requiresAdmin: true, nav: true },
   },
   {
     path: '/profile',
