@@ -101,9 +101,9 @@ function selectOperator(op) {
   formData.value = { ...profile }
 }
 
-function saveSettings() {
+async function saveSettings() {
   if (activeOperator.value) {
-    payrollStore.setWorkerProfile(activeOperator.value.id, { ...formData.value })
+    await payrollStore.setWorkerProfile(activeOperator.value.id, { ...formData.value })
     alert(`Settings saved for ${activeOperator.value.name}`)
   }
 }

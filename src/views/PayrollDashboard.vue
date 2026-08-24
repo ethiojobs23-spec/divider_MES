@@ -386,6 +386,17 @@
               <p v-if="currentBonus.amount > 0" class="net-bonus-note">
                 Includes {{ Number(currentBonus.amount).toFixed(2) }} ETB bonus
               </p>
+              
+              <div class="payment-method-info" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.95rem;">
+                <p style="margin: 0; color: #cbd5e1; display: flex; justify-content: space-between;">
+                  <span>Payment Method:</span>
+                  <strong style="color: #fff">{{ selectedWorkerProfile?.paymentMethod || 'Cash' }}</strong>
+                </p>
+                <p v-if="selectedWorkerProfile?.paymentMethod !== 'Cash'" style="margin: 0.5rem 0 0; color: #cbd5e1; display: flex; justify-content: space-between;">
+                  <span>Account:</span>
+                  <strong style="color: #6366f1">{{ selectedWorkerProfile?.accountInfo || 'N/A' }}</strong>
+                </p>
+              </div>
             </div>
          </div>
 

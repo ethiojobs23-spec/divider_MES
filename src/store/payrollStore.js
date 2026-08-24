@@ -36,12 +36,51 @@ export const usePayrollStore = defineStore('payroll', () => {
     const opConfig = op?.payroll_config || {}
     return { ...DEFAULT_PROFILE, ...opConfig, ...workerProfiles.value[workerId] }
   }
-  function setWorkerProfile(workerId, profileData) {
+  async function setWorkerProfile(workerId, profileData) {
     const incoming = { ...profileData }
     if ('hourlyRate' in incoming) {
       incoming.hourlyRate = Math.min(HOURLY_MAX, Math.max(HOURLY_MIN, Number(incoming.hourlyRate) || HOURLY_MIN))
     }
-    workerProfiles.value[workerId] = { ...getWorkerProfile(workerId), ...incoming }
+    const newProfile = { ...getWorkerProfile(workerId), ...incoming }
+    workerProfiles.value[workerId] = newProfile
+
+    try {
+      const { data: existing } = await supabase.from('mes_financial_ledger')
+        .select('*')
+        .eq('operator_id', workerId)
+        .eq('transaction_type', 'operator_config')
+      
+      let notesObj = { payroll_config: newProfile }
+      let targetId = null
+      
+      if (existing && existing.length > 0) {
+        const latest = existing[existing.length - 1]
+        targetId = latest.id
+        try {
+          const parsed = JSON.parse(latest.notes)
+          notesObj = { ...parsed, payroll_config: newProfile }
+        } catch (e) {}
+      }
+
+      const notes = JSON.stringify(notesObj)
+
+      if (targetId) {
+        await supabase.from('mes_financial_ledger').update({ notes }).eq('id', targetId)
+      } else {
+        await supabase.from('mes_financial_ledger').insert({
+          operator_id: workerId, target_name: '', transaction_type: 'operator_config',
+          amount: 0, transaction_date: new Date().toISOString().split('T')[0], notes
+        })
+      }
+      
+      const mesStore = useMesStore()
+      const op = mesStore.operators.find(o => o.id === workerId)
+      if (op) {
+        op.payroll_config = newProfile
+      }
+    } catch (err) {
+      console.error('[PayrollStore] setWorkerProfile failed to persist:', err)
+    }
   }
 
   // ── Bonuses ────────────────────────────────────────────────────────────────
