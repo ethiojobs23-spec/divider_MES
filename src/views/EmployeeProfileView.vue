@@ -619,7 +619,6 @@ function showToast(msg) {
   toastTimer = setTimeout(() => { toastVisible.value = false }, 2500)
 }
 
-const attStore = useAttendanceStore()
 
 function isOperatorOnBreak(op) {
   if (!op) return false
