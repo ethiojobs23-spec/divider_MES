@@ -255,16 +255,8 @@
                 <span>Hourly Subtotal</span>
                 <span>{{ selectedWorker.grossHourly.toFixed(2) }} ETB</span>
               </div>
-              <div class="calc-row math-op">
-                <span>Combined Gross</span>
-                <span>{{ (selectedWorker.grossPieceRate + selectedWorker.grossHourly).toFixed(2) }} ETB</span>
-              </div>
-              <div class="calc-row">
-                <span>× Attendance Factor ({{ selectedWorker.daysAttended }}/6 days)</span>
-                <span>× {{ selectedWorker.attendanceFactor.toFixed(2) }}</span>
-              </div>
               <div class="calc-row math-result">
-                <span>Adjusted Gross Earnings</span>
+                <span>Gross Earnings</span>
                 <span>{{ selectedWorker.grossEarnings.toFixed(2) }} ETB</span>
               </div>
             </div>

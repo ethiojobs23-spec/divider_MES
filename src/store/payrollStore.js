@@ -377,7 +377,7 @@ export const usePayrollStore = defineStore('payroll', () => {
     const worker = mesStore.operators.find(o => o.id === workerId)
     if (!worker) return []
     const shifts = mesStore.shiftSubmissions
-      .filter(s => s.operator_id === workerId)
+      .filter(s => s.operator_id === workerId && s.details?.week === week)
       .map(s => {
         const entries = (s.details?.entries || []).map(e => {
           const rate = mesStore.pieceRates?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
@@ -441,25 +441,16 @@ export const usePayrollStore = defineStore('payroll', () => {
     return fallbackShifts.sort((a, b) => new Date(a.date) - new Date(b.date))
   }
 
-  // ── Final Payout Calculation ──────────────────────────────────────────────
   function calculateFinalPayout(workerId, week) {
     const mesStore = useMesStore()
     const daysAttended = getDaysAttended(workerId, week)
-    const attendanceFactor = daysAttended > 0 ? toDecimal2(daysAttended / WORK_DAYS_PER_WEEK) : 0
-
-    if (attendanceFactor === 0) {
-      return {
-        grossPieceRate: 0, grossHourly: 0, attendanceFactor: 0,
-        grossEarnings: 0, totalDeduction: 0, loanBreakdown: [],
-        bonus: 0, netPayout: 0, daysAttended: 0
-      }
-    }
+    const attendanceFactor = WORK_DAYS_PER_WEEK > 0 ? toDecimal2(daysAttended / WORK_DAYS_PER_WEEK) : 0
 
     // Piece-rate: prefer approved shift submissions, fallback to raw ledger
     const approvedShifts = mesStore.shiftSubmissions.filter(
-      s => s.operator_id === workerId && s.target_name === 'approved'
+      s => s.operator_id === workerId && s.target_name === 'approved' && s.details?.week === week
     )
-    let grossPieceRate
+    let grossPieceRate = 0
     if (approvedShifts.length > 0) {
       grossPieceRate = toDecimal2(approvedShifts.reduce((sum, s) => {
         const entries = s.details?.entries || []
@@ -473,7 +464,7 @@ export const usePayrollStore = defineStore('payroll', () => {
     }
 
     const grossHourly   = getHourlyEarnings(workerId, week)
-    const grossEarnings = toDecimal2((grossPieceRate + grossHourly) * attendanceFactor)
+    const grossEarnings = toDecimal2(grossPieceRate + grossHourly)
 
     // ── INSTALLMENT DEDUCTIONS: only this week's slice ──────────────────────
     const { totalDeduction: loanDeductions, breakdown: loanBreakdown } = getLoanDeductions(workerId, week)
