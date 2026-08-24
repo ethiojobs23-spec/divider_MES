@@ -1,6 +1,7 @@
 <template>
-  <div class="tablet-layout">
-    <div class="header">
+  <AppLayout>
+    <div class="tablet-layout">
+      <div class="header">
       <span class="material-symbols-rounded header-icon">settings_account_box</span>
       <div>
         <h1 class="header-title">Worker Payout Settings</h1>
@@ -72,6 +73,7 @@
       </div>
     </div>
   </div>
+  </AppLayout>
 </template>
 
 <script setup>
@@ -111,8 +113,8 @@ function saveSettings() {
 .tablet-layout {
   display: flex;
   flex-direction: column;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   background: #0f172a;
   color: #f1f5f9;
   font-family: 'Inter', sans-serif;
