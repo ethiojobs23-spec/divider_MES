@@ -236,27 +236,27 @@
             <div class="kpi-grid grid grid-cols-1 md:grid-cols-3 gap-3 shrink-0">
               <AnalyticsDataCard
                 title="Total Units (Today)"
-                value="1,402"
+                :value="kpiStats.good + ' pcs'"
                 icon="inventory_2"
                 icon-bg="rgba(99,102,241,.15)"
                 icon-color="#a5b4fc"
-                :trend="12"
+                :trend="0"
               />
               <AnalyticsDataCard
                 title="Efficiency %"
-                value="98.4%"
+                :value="kpiStats.efficiency + '%'"
                 icon="trending_up"
                 icon-bg="rgba(16,185,129,.15)"
                 icon-color="#34d399"
-                :trend="2"
+                :trend="0"
               />
               <AnalyticsDataCard
                 title="Total Waste"
-                value="07 pcs"
+                :value="kpiStats.waste + ' pcs'"
                 icon="delete_sweep"
                 icon-bg="rgba(239,68,68,.12)"
                 icon-color="#f87171"
-                :trend="-5"
+                :trend="0"
                 :trend-up-is-bad="true"
               />
             </div>
@@ -327,14 +327,14 @@
             <div class="kpi-grid kpi-grid--2col grid grid-cols-1 md:grid-cols-2 gap-3 shrink-0">
               <AnalyticsDataCard
                 title="Current Balance"
-                value="ETB 1,240"
+                :value="'ETB ' + kpiStats.balance"
                 icon="account_balance"
                 icon-bg="rgba(16,185,129,.15)"
                 icon-color="#34d399"
               />
               <AnalyticsDataCard
-                title="Last Advance (Oct 24)"
-                value="ETB 200"
+                title="Last Advance"
+                :value="'ETB ' + kpiStats.lastAdvance"
                 icon="money_off"
                 icon-bg="rgba(239,68,68,.12)"
                 icon-color="#f87171"
@@ -479,28 +479,44 @@ const TABS = [
 const activeView = ref('roster')
 
 // ── Operator list (pulls from store + adds extra fields) ─────────────────────
-const operatorExtras = {
-  1: { status: 'active', line: '02', station: 'A', shift: 'Shift A', startTime: '06:00 AM', hoursLogged: '06:42:15', daysAttended: 5, expectedDays: 6,
-       alerts: [
-         { id: 1, type: 'info',  icon: 'info',    label: 'SYSTEM MSG - 06:15 AM',     message: 'Clock-in successful. Daily quota updated.' },
-         { id: 2, type: 'warn',  icon: 'warning', label: 'SAFETY REMINDER - 08:00 AM', message: 'PPE check required before Sector 7 transition.' },
-       ]},
-  2: { status: 'active', line: '04', station: 'B', shift: 'Shift B', startTime: '06:14 AM', hoursLogged: '08:10:00', daysAttended: 6, expectedDays: 6,
-       alerts: [
-         { id: 1, type: 'info', icon: 'info', label: 'SYSTEM MSG - 06:14 AM', message: 'Clock-in successful.' },
-       ]},
-  3: { status: 'active', line: '01', station: 'C', shift: 'Shift A', startTime: '06:00 AM', hoursLogged: '07:30:00', daysAttended: 4, expectedDays: 6,
-       alerts: [] },
-  4: { status: 'active', line: '03', station: 'A', shift: 'Shift A', startTime: '06:00 AM', hoursLogged: '05:00:00', daysAttended: 6, expectedDays: 6,
-       alerts: [] },
-  5: { status: 'active', line: '02', station: 'D', shift: 'Shift B', startTime: '14:00 PM', hoursLogged: '04:00:00', daysAttended: 5, expectedDays: 6,
-       alerts: [] },
-  6: { status: 'inactive', line: '—',  station: '—',  shift: 'Off',     startTime: '—',        hoursLogged: '00:00:00', daysAttended: 4, expectedDays: 6,
-       alerts: [] },
-}
+const attStore = useAttendanceStore()
 
 const operators = computed(() =>
-  store.operators.map(op => ({ ...op, ...(operatorExtras[op.id] ?? {}) }))
+  store.operators.map(op => {
+    const isClockedIn = attStore.isOperatorClockedIn(op.id)
+    const currentShift = attStore.clockInLog.find(log => log.operatorId === op.id && !log.clockOut)
+    
+    let startTime = '—'
+    let hoursLogged = '00:00:00'
+    if (currentShift) {
+      const d = new Date(currentShift.clockIn)
+      startTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      const diffMs = new Date() - d
+      const h = Math.floor(diffMs / 3600000).toString().padStart(2, '0')
+      const m = Math.floor((diffMs % 3600000) / 60000).toString().padStart(2, '0')
+      hoursLogged = `${h}:${m}`
+    }
+
+    const daysAttended = attStore.getDaysAttended(op.id, store.currentProductionWeek)
+    
+    const alerts = []
+    if (isClockedIn) {
+      alerts.push({ id: 1, type: 'info', icon: 'info', label: 'SYSTEM MSG', message: 'Clocked in successfully.' })
+    }
+
+    return {
+      ...op,
+      status: isClockedIn ? 'active' : 'inactive',
+      line: op.line || '01',
+      station: op.station || 'A',
+      shift: isClockedIn ? 'Shift A' : 'Off',
+      startTime,
+      hoursLogged,
+      daysAttended,
+      expectedDays: 6,
+      alerts
+    }
+  })
 )
 
 // Search + selection
@@ -519,7 +535,7 @@ const attendanceRate = (op) =>
 const activityLogs = computed(() => {
   if (!selectedOp.value) return []
   return store.ledgerEntries
-    .filter(e => e.operator === selectedOp.value.name)
+    .filter(e => e.operator_id === selectedOp.value.id)
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
     .map(e => ({
       time: new Date(e.timestamp).toLocaleTimeString('en-GB'),
@@ -533,13 +549,63 @@ const activityLogs = computed(() => {
     }))
 })
 
-// ── Transactions ──────────────────────────────────────────────────────────────
-const transactions = ref([
-  { date: '24 OCT 2023', type: 'ADVANCE',     amount: '−200.00', status: 'CLEARED', icon: 'call_made', colorClass: 'val-red',    badgeClass: 'row-badge--yellow', old: false },
-  { date: '15 OCT 2023', type: 'TOOL EXPENSE',amount: '45.00',   status: 'LOGGED',  icon: 'inventory', colorClass: 'val-purple', badgeClass: 'row-badge--neutral', old: false },
-  { date: '01 OCT 2023', type: 'PAYROLL DEP', amount: '+1,400.00',status: 'CLEARED',icon: 'payments',  colorClass: 'val-green',  badgeClass: 'row-badge--green', old: false },
-  { date: '12 SEP 2023', type: 'ADVANCE',     amount: '−150.00', status: 'CLEARED', icon: 'call_made', colorClass: 'val-red',    badgeClass: 'row-badge--yellow', old: true  },
-])
+// ── KPIs ─────────────────────────────────────────────────────────────
+const kpiStats = computed(() => {
+  if (!selectedOp.value) return { good: 0, waste: 0, efficiency: 0, balance: 0, lastAdvance: 0 }
+  
+  const today = new Date().toISOString().split('T')[0]
+  const todayLogs = store.ledgerEntries.filter(e => 
+    e.operator_id === selectedOp.value.id && 
+    (e.productionDate === today || e.timestamp.startsWith(today))
+  )
+  const good = todayLogs.reduce((s, e) => s + (Number(e.goodProduction) || 0), 0)
+  const waste = todayLogs.reduce((s, e) => s + (Number(e.wasteMaterial) || 0), 0)
+  const total = good + waste
+  const efficiency = total > 0 ? ((good / total) * 100).toFixed(1) : 100
+  
+  const myCash = store.cashEntries.filter(c => c.operator === selectedOp.value.name)
+  const balance = myCash.reduce((s, c) => s + (c.type === 'advance' ? -Number(c.amount) : c.type === 'payout' ? Number(c.amount) : 0), 0)
+  
+  const lastAdv = myCash.filter(c => c.type === 'advance').sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
+  
+  return { good, waste, efficiency, balance: balance.toFixed(2), lastAdvance: lastAdv ? Number(lastAdv.amount).toFixed(2) : '0.00' }
+})
+
+const transactions = computed(() => {
+  if (!selectedOp.value) return []
+  return store.cashEntries
+    .filter(c => c.operator === selectedOp.value.name)
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    .map(c => {
+      let typeStr = c.type.toUpperCase()
+      let colorClass = 'val-purple'
+      let badgeClass = 'row-badge--neutral'
+      let icon = 'receipt_long'
+      
+      if (c.type === 'advance') {
+        typeStr = 'ADVANCE'
+        colorClass = 'val-red'
+        badgeClass = 'row-badge--yellow'
+        icon = 'call_made'
+      } else if (c.type === 'payout') {
+        typeStr = 'PAYROLL DEP'
+        colorClass = 'val-green'
+        badgeClass = 'row-badge--green'
+        icon = 'payments'
+      }
+      
+      return {
+        date: new Date(c.timestamp).toLocaleDateString('en-GB').toUpperCase(),
+        type: typeStr,
+        amount: (c.type === 'advance' ? '−' : '+') + Number(c.amount).toFixed(2),
+        status: c.status === 'pending' ? 'PENDING' : 'CLEARED',
+        icon,
+        colorClass,
+        badgeClass,
+        old: false
+      }
+    })
+})
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 const toastVisible = ref(false)
