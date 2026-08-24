@@ -185,7 +185,7 @@
                       <span class="pill pill--yellow">ETB {{ shift.shiftEarnings.toFixed(2) }}</span>
                     </div>
                     <span class="shift-status-badge" :class="'ssb--' + shift.status">
-                      {{ shift.status.toUpperCase() }}
+                      {{ shift.status === 'raw-ledger' ? 'RAW LOGS' : shift.status.toUpperCase() }}
                     </span>
                     <span class="material-symbols-rounded" style="font-size:1rem; color:#64748b">
                       {{ expandedShift === shift.date ? 'expand_less' : 'expand_more' }}
@@ -1131,6 +1131,7 @@ function executeHold(reason) {
 .shift-row--pending  { border-color: rgba(245,158,11,0.2); }
 .shift-row--approved { border-color: rgba(16,185,129,0.2); }
 .shift-row--rejected { border-color: rgba(239,68,68,0.2); opacity: 0.7; }
+.shift-row--raw-ledger { border-color: rgba(99,102,241,0.2); }
 
 .shift-row-header {
   display: flex; align-items: center; gap: 0.75rem;
@@ -1158,6 +1159,7 @@ function executeHold(reason) {
 .ssb--pending  { background: rgba(245,158,11,0.12); color: #fbbf24; }
 .ssb--approved { background: rgba(16,185,129,0.12); color: #34d399; }
 .ssb--rejected { background: rgba(239,68,68,0.12); color: #f87171; }
+.ssb--raw-ledger { background: rgba(99,102,241,0.12); color: #818cf8; }
 
 .shift-entries { padding: 0.75rem 1rem; background: rgba(0,0,0,0.2); }
 .entry-mini-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }

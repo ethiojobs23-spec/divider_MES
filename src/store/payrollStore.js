@@ -352,7 +352,7 @@ export const usePayrollStore = defineStore('payroll', () => {
     const worker = mesStore.operators.find(o => o.id === workerId)
     if (!worker) return 0
     const entries = mesStore.ledgerEntries.filter(e =>
-      e.operator === worker.name && (e.week === week || !week)
+      e.operator_id === workerId && (e.week === week || !week)
     )
     let gross = 0
     for (const entry of entries) {
@@ -376,7 +376,7 @@ export const usePayrollStore = defineStore('payroll', () => {
     const mesStore = useMesStore()
     const worker = mesStore.operators.find(o => o.id === workerId)
     if (!worker) return []
-    return mesStore.shiftSubmissions
+    const shifts = mesStore.shiftSubmissions
       .filter(s => s.operator_id === workerId)
       .map(s => {
         const entries = (s.details?.entries || []).map(e => {
@@ -395,6 +395,50 @@ export const usePayrollStore = defineStore('payroll', () => {
         }
       })
       .sort((a, b) => new Date(a.date) - new Date(b.date))
+      
+    if (shifts.length > 0) return shifts
+
+    const rawEntries = mesStore.ledgerEntries.filter(e =>
+      e.operator_id === workerId && (e.week === week || !week)
+    )
+    if (rawEntries.length === 0) return []
+    
+    const byDate = {}
+    for (const entry of rawEntries) {
+      const date = entry.productionDate ? entry.productionDate.split('T')[0] : entry.timestamp.split('T')[0]
+      if (!byDate[date]) byDate[date] = []
+      byDate[date].push(entry)
+    }
+    
+    const fallbackShifts = []
+    for (const date in byDate) {
+      const entries = byDate[date].map(e => {
+        const rate = mesStore.pieceRates?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
+        const good = Number(e.goodProduction) || 0
+        const earnings = toDecimal2(rate * good)
+        return {
+          dividerType: e.dividerType,
+          placement: e.placement,
+          size: e.size,
+          good,
+          rate,
+          earnings
+        }
+      })
+      const shiftGood = entries.reduce((sum, e) => sum + e.good, 0)
+      const shiftEarnings = entries.reduce((sum, e) => sum + e.earnings, 0)
+      
+      fallbackShifts.push({
+        date,
+        status: 'raw-ledger',
+        shiftGood,
+        shiftWaste: 0,
+        shiftEarnings: toDecimal2(shiftEarnings),
+        entries
+      })
+    }
+    
+    return fallbackShifts.sort((a, b) => new Date(a.date) - new Date(b.date))
   }
 
   // ── Final Payout Calculation ──────────────────────────────────────────────
