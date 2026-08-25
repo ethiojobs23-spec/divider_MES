@@ -563,7 +563,7 @@ const kpiStats = computed(() => {
   const total = good + waste
   const efficiency = total > 0 ? ((good / total) * 100).toFixed(1) : 100
   
-  const myCash = store.cashEntries.filter(c => c.operator === selectedOp.value.name)
+  const myCash = store.cashEntries.filter(c => c.operator_id === selectedOp.value.id)
   const balance = myCash.reduce((s, c) => s + (c.type === 'advance' ? -Number(c.amount) : c.type === 'payout' ? Number(c.amount) : 0), 0)
   
   const lastAdv = myCash.filter(c => c.type === 'advance').sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
@@ -574,7 +574,7 @@ const kpiStats = computed(() => {
 const transactions = computed(() => {
   if (!selectedOp.value) return []
   return store.cashEntries
-    .filter(c => c.operator === selectedOp.value.name)
+    .filter(c => c.operator_id === selectedOp.value.id)
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
     .map(c => {
       let typeStr = c.type.toUpperCase()

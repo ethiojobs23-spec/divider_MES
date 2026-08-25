@@ -284,6 +284,7 @@ export const useMesStore = defineStore('mes', () => {
       timestamp: dbRow.created_at,
       week: currentProductionWeek.value,
       operator: op ? op.name : dbRow.target_name,
+      operator_id: dbRow.operator_id,
       type: dbRow.transaction_type,
       amount: dbRow.amount,
       note: dbRow.notes
@@ -293,7 +294,7 @@ export const useMesStore = defineStore('mes', () => {
   async function addCashEntry(entry) {
     try {
       const payload = {
-        operator_id: activeOperator.value?.id || null,
+        operator_id: entry.operator_id || activeOperator.value?.id || null,
         target_name: entry.operator || 'Company',
         transaction_type: entry.type,
         amount: entry.amount,

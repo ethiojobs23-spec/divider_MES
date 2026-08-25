@@ -509,6 +509,7 @@ export const usePayrollStore = defineStore('payroll', () => {
         ? ` + Bonus: ${bonusInfo.amount} ETB (${bonusInfo.reason || 'Performance'})`
         : ''
       await mesStore.addCashEntry({
+        operator_id: workerId,
         operator: worker?.name || 'Unknown',
         type:     'payout',
         amount:   payoutDetails.netPayout,
