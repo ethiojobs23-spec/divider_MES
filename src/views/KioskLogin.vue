@@ -111,9 +111,11 @@
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { supabase } from '@/lib/supabaseClient'
 import { useMesStore } from '@/store/mesStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
+import { syncManager } from '@/services/syncManager.js'
 import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 
 const router = useRouter()
@@ -182,17 +184,11 @@ async function handleClockOut() {
   const match = { operator_id: op.id, clock_out: null }
 
   if (navigator.onLine) {
-    import('@/lib/supabaseClient').then(({ supabase }) => {
-      supabase.from('mes_attendance').update(payload).match(match).catch(() => {
-        import('@/services/syncManager').then(({ syncManager }) => {
-          syncManager.enqueue({ action: 'update', table: 'mes_attendance', payload, match })
-        })
-      })
-    })
-  } else {
-    import('@/services/syncManager').then(({ syncManager }) => {
+    supabase.from('mes_attendance').update(payload).match(match).catch(() => {
       syncManager.enqueue({ action: 'update', table: 'mes_attendance', payload, match })
     })
+  } else {
+    syncManager.enqueue({ action: 'update', table: 'mes_attendance', payload, match })
   }
   closeModal()
 }
@@ -517,3 +513,5 @@ function clearNum() {
 .fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
 .fade-enter-from,  .fade-leave-to      { opacity: 0; }
 </style>
+
+

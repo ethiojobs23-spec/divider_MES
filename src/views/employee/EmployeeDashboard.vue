@@ -449,8 +449,9 @@
 
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { supabase } from '@/lib/supabaseClient'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore.js'
@@ -576,6 +577,7 @@ const myAdvances = computed(() => {
 })
 
 function formatAdvanceStatus(type) {
+  if (!type) return 'UNKNOWN'
   if (type === 'pending_advance') return 'PENDING'
   if (type === 'advance') return 'APPROVED'
   if (type === 'rejected_advance') return 'REJECTED'
@@ -656,7 +658,6 @@ async function executeClockOut(adminOverride = false) {
   if (employee.value) {
     mesStore.clockOut(employee.value)
     try {
-      const { supabase } = await import('@/lib/supabaseClient')
       const outTime = new Date().toISOString()
       await supabase.from('mes_attendance')
         .update({ clock_out: outTime })
@@ -760,7 +761,6 @@ async function handleAvatarSelected(event) {
   isUploadingAvatar.value = true
   profileMessage.value = ''
   try {
-    const { supabase } = await import('@/lib/supabaseClient')
     const fileExt = file.name.split('.').pop()
     const fileName = `${employee.value.id}_${Date.now()}.${fileExt}`
     const filePath = `${fileName}`
@@ -787,8 +787,7 @@ async function saveProfile() {
   isSavingProfile.value = true
   profileMessage.value = ''
   try {
-    const { supabase } = await import('@/lib/supabaseClient')
-    const payload = {
+const payload = {
       full_name: profileForm.value.full_name,
       phone_number: profileForm.value.phone_number,
       dob: profileForm.value.dob || null,
@@ -1323,3 +1322,4 @@ async function saveProfile() {
   .sub-status { align-self: flex-start; }
 }
 </style>
+
