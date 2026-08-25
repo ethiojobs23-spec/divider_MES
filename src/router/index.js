@@ -86,7 +86,7 @@ const routes = [
     path: '/block-matrix',
     name: 'ProductionBlockMatrix',
     component: ProductionBlockMatrix,
-    meta: { title: 'Block Matrix', icon: 'grid_view', requiresSystemAuth: true, requiresAdmin: true, nav: true },
+    meta: { title: 'Block Matrix', icon: 'grid_view', requiresSystemAuth: true, requiresAdmin: true, nav: false },
   },
   {
     path: '/downtime',

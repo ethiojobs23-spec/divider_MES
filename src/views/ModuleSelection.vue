@@ -83,7 +83,7 @@
       </button>
 
       <!-- 4. Production Block Matrix -->
-      <button class="module-card card--blue" @click="go('/block-matrix')">
+      <button v-if="false" class="module-card card--blue" @click="go('/block-matrix')">
         <div class="card-glow" />
         <span class="material-symbols-rounded card-icon">grid_view</span>
         <div class="card-body">
