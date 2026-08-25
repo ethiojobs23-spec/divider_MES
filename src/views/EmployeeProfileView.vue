@@ -462,6 +462,7 @@
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
 import { ref, computed } from 'vue'
+import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
 import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
@@ -563,7 +564,7 @@ const kpiStats = computed(() => {
   const total = good + waste
   const efficiency = total > 0 ? ((good / total) * 100).toFixed(1) : 100
   
-  const myCash = store.cashEntries.filter(c => c.operator_id === selectedOp.value.id)
+  const myCash = store.cashEntries.filter(c => c.operator_id === selectedOp.value.id || (!c.operator_id && c.operator === selectedOp.value.name))
   const balance = myCash.reduce((s, c) => s + (c.type === 'advance' ? -Number(c.amount) : c.type === 'payout' ? Number(c.amount) : 0), 0)
   
   const lastAdv = myCash.filter(c => c.type === 'advance').sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
@@ -574,7 +575,7 @@ const kpiStats = computed(() => {
 const transactions = computed(() => {
   if (!selectedOp.value) return []
   return store.cashEntries
-    .filter(c => c.operator_id === selectedOp.value.id)
+    .filter(c => c.operator_id === selectedOp.value.id || (!c.operator_id && c.operator === selectedOp.value.name))
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
     .map(c => {
       let typeStr = c.type.toUpperCase()
@@ -630,7 +631,6 @@ async function handleLogBreak(op) {
   const activeBreak = store.downtimeSessions.find(d => d.operator_id === op.id && d.downtime_reason === 'Break' && !d.end_time)
   
   try {
-    const { supabase } = await import('@/lib/supabaseClient')
     if (activeBreak) {
       // End the break
       const outTime = new Date().toISOString()
@@ -661,7 +661,6 @@ async function handleEndShift(op) {
   if (!op) return
   store.clockOut(op)
   try {
-    const { supabase } = await import('@/lib/supabaseClient')
     const outTime = new Date().toISOString()
     await supabase.from('mes_attendance')
       .update({ clock_out: outTime })
