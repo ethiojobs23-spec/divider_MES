@@ -524,7 +524,7 @@ const operators = computed(() =>
 const empSearch = ref('')
 const filteredOperators = computed(() => {
   const q = empSearch.value.trim().toLowerCase()
-  return q ? operators.value.filter(o => o.name.toLowerCase().includes(q)) : operators.value
+  return q ? operators.value.filter(o => (o.name || '').toLowerCase().includes(q)) : operators.value
 })
 
 const selectedOp = ref(null)
@@ -578,7 +578,7 @@ const transactions = computed(() => {
     .filter(c => c.operator_id === selectedOp.value.id || (!c.operator_id && c.operator === selectedOp.value.name))
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
     .map(c => {
-      let typeStr = c.type.toUpperCase()
+      let typeStr = (c.type || 'UNKNOWN').toUpperCase()
       let colorClass = 'val-purple'
       let badgeClass = 'row-badge--neutral'
       let icon = 'receipt_long'
