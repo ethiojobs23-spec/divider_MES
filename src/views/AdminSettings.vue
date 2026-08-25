@@ -387,6 +387,7 @@
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { ref, computed, onMounted, watch } from 'vue'
+import { supabase } from '@/lib/supabaseClient'
 import { useMesStore } from '@/store/mesStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
@@ -482,7 +483,6 @@ async function handleAvatarSelected(event) {
   isUploadingAvatar.value = true
   profileMessage.value = ''
   try {
-    const { supabase } = await import('@/lib/supabaseClient')
     const fileExt = file.name.split('.').pop()
     const fileName = `${adminOperator.value.id}_${Date.now()}.${fileExt}`
     const filePath = `public/${fileName}`
@@ -509,7 +509,6 @@ async function saveProfile() {
   isSavingProfile.value = true
   profileMessage.value = ''
   try {
-    const { supabase } = await import('@/lib/supabaseClient')
     const payload = {
       full_name: profileForm.value.full_name,
       phone_number: profileForm.value.phone_number,
