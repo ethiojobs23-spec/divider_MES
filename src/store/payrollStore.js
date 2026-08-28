@@ -358,8 +358,7 @@ export const usePayrollStore = defineStore('payroll', () => {
     for (const entry of entries) {
       const qty = Number(entry.goodProduction) || 0
       if (qty <= 0) continue
-      const rate = mesStore.pieceRates?.[entry.dividerType]?.[entry.size]?.[entry.placement] ?? 0
-      gross += qty * rate
+      gross += mesStore.calculateEntryEarnings(entry, workerId)
     }
     return toDecimal2(gross)
   }
@@ -380,8 +379,8 @@ export const usePayrollStore = defineStore('payroll', () => {
       .filter(s => s.operator_id === workerId && s.details?.week === week)
       .map(s => {
         const entries = (s.details?.entries || []).map(e => {
-          const rate = mesStore.pieceRates?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
-          const earnings = toDecimal2(rate * (Number(e.good) || 0))
+          const rate = mesStore.getEntryRate(e)
+          const earnings = mesStore.calculateEntryEarnings(e, workerId)
           return { ...e, rate, earnings }
         })
         const shiftEarnings = entries.reduce((sum, e) => sum + e.earnings, 0)
@@ -412,10 +411,10 @@ export const usePayrollStore = defineStore('payroll', () => {
     
     const fallbackShifts = []
     for (const date in byDate) {
-      const entries = byDate[date].map(e => {
-        const rate = mesStore.pieceRates?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
+        const entries = byDate[date].map(e => {
+        const rate = mesStore.getEntryRate(e)
         const good = Number(e.goodProduction) || 0
-        const earnings = toDecimal2(rate * good)
+        const earnings = mesStore.calculateEntryEarnings(e, workerId)
         return {
           dividerType: e.dividerType,
           placement: e.placement,
@@ -455,8 +454,7 @@ export const usePayrollStore = defineStore('payroll', () => {
       grossPieceRate = toDecimal2(approvedShifts.reduce((sum, s) => {
         const entries = s.details?.entries || []
         return sum + entries.reduce((es, e) => {
-          const rate = mesStore.pieceRates?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
-          return es + rate * (Number(e.good) || 0)
+          return es + mesStore.calculateEntryEarnings(e, workerId)
         }, 0)
       }, 0))
     } else {

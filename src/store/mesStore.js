@@ -180,11 +180,13 @@ export const useMesStore = defineStore('mes', () => {
       week: dbRow.production_week,
       operator: op ? op.name : 'Unknown',
       operator_id: dbRow.operator_id,
+      workCategory: dbRow.work_category || 'MFG',
       dividerType: dbRow.divider_type,
       placement: dbRow.placement_style,
-      size: dbRow.size_cm + 'cm',
+      size: dbRow.size_cm ? dbRow.size_cm + 'cm' : null,
       goodProduction: dbRow.qty_produced,
       wasteMaterial: dbRow.qty_waste,
+      hoursWorked: dbRow.hours_worked || null,
       loggedByAdmin: dbRow.logged_by_admin || false
     }
   }
@@ -211,11 +213,13 @@ export const useMesStore = defineStore('mes', () => {
         operator_id: data.operator_id || (activeOperator.value ? activeOperator.value.id : null),
         production_week: currentProductionWeek.value,
         production_date: data.production_date || new Date().toISOString().split('T')[0],
-        divider_type: data.dividerType,
-        placement_style: data.placement,
-        size_cm: parseInt(data.size),
+        work_category: data.workCategory || 'MFG',
+        divider_type: data.dividerType || null,
+        placement_style: data.placement || null,
+        size_cm: data.size ? parseInt(data.size) : null,
         qty_produced: effectiveQty,
         qty_waste: data.wasteMaterial || 0,
+        hours_worked: data.hoursWorked || null,
         is_overtime: overtime,
         logged_by_admin: data.loggedByAdmin || false
       }
@@ -469,18 +473,46 @@ export const useMesStore = defineStore('mes', () => {
 
   // ─── Admin Config — Piece Rates & Thresholds ───────────────────────────────
   const pieceRates = ref({
-    '50': { '9cm': { 'ብተና': 2.50, 'ውስጥ': 3.00, 'የተለየ': 3.50 }, '7cm': { 'ብተና': 2.00, 'ውስጥ': 2.50, 'የተለየ': 3.00 } },
-    '40': { '9cm': { 'ብተና': 2.25, 'ውስጥ': 2.75, 'የተለየ': 3.25 }, '7cm': { 'ብተና': 1.75, 'ውስጥ': 2.25, 'የተለየ': 2.75 } },
-    '30': { '9cm': { 'ብተና': 2.00, 'ውስጥ': 2.50, 'የተለየ': 3.00 }, '7cm': { 'ብተና': 1.50, 'ውስጥ': 2.00, 'የተለየ': 2.50 } },
-    '16': { '9cm': { 'ብተና': 1.75, 'ውስጥ': 2.25, 'የተለየ': 2.75 }, '7cm': { 'ብተና': 1.25, 'ውስጥ': 1.75, 'የተለየ': 2.25 } },
-    '12': { '9cm': { 'ብተና': 1.50, 'ውስጥ': 2.00, 'የተለየ': 2.50 }, '7cm': { 'ብተና': 1.00, 'ውስጥ': 1.50, 'የተለየ': 2.00 } },
-    '45': { '9cm': { 'ብተና': 2.40, 'ውስጥ': 2.90, 'የተለየ': 3.40 }, '7cm': { 'ብተና': 1.90, 'ውስጥ': 2.40, 'የተለየ': 2.90 } },
+    MFG: {
+      '50': { '9cm': { 'ብተና': 2.50, 'ውስጥ': 3.00, 'የተለየ': 3.50, 'other': 0 }, '7cm': { 'ብተና': 2.00, 'ውስጥ': 2.50, 'የተለየ': 3.00, 'other': 0 } },
+      '40': { '9cm': { 'ብተና': 2.25, 'ውስጥ': 2.75, 'የተለየ': 3.25, 'other': 0 }, '7cm': { 'ብተና': 1.75, 'ውስጥ': 2.25, 'የተለየ': 2.75, 'other': 0 } },
+      '30': { '9cm': { 'ብተና': 2.00, 'ውስጥ': 2.50, 'የተለየ': 3.00, 'other': 0 }, '7cm': { 'ብተና': 1.50, 'ውስጥ': 2.00, 'የተለየ': 2.50, 'other': 0 } },
+      '16': { '9cm': { 'ብተና': 1.75, 'ውስጥ': 2.25, 'የተለየ': 2.75, 'other': 0 }, '7cm': { 'ብተና': 1.25, 'ውስጥ': 1.75, 'የተለየ': 2.25, 'other': 0 } },
+      '12': { '9cm': { 'ብተና': 1.50, 'ውስጥ': 2.00, 'የተለየ': 2.50, 'other': 0 }, '7cm': { 'ብተና': 1.00, 'ውስጥ': 1.50, 'የተለየ': 2.00, 'other': 0 } },
+      '45': { '9cm': { 'ብተና': 2.40, 'ውስጥ': 2.90, 'የተለየ': 3.40, 'other': 0 }, '7cm': { 'ብተና': 1.90, 'ውስጥ': 2.40, 'የተለየ': 2.90, 'other': 0 } },
+      'other': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } }
+    },
+    PP: {
+      '50': { '9cm': 0, '7cm': 0 }, '40': { '9cm': 0, '7cm': 0 }, '30': { '9cm': 0, '7cm': 0 },
+      '16': { '9cm': 0, '7cm': 0 }, '12': { '9cm': 0, '7cm': 0 }, '45': { '9cm': 0, '7cm': 0 },
+      'other': { '9cm': 0, '7cm': 0 }
+    },
+    PL: {
+      '50': { '9cm': 0, '7cm': 0 }, '40': { '9cm': 0, '7cm': 0 }, '30': { '9cm': 0, '7cm': 0 },
+      '16': { '9cm': 0, '7cm': 0 }, '12': { '9cm': 0, '7cm': 0 }, '45': { '9cm': 0, '7cm': 0 },
+      'other': { '9cm': 0, '7cm': 0 }
+    },
+    C: {
+      '50': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } },
+      '40': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } },
+      '30': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } },
+      '16': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } },
+      '12': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } },
+      '45': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } },
+      'other': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } }
+    }
   })
 
-  function setPieceRate(type, size, placement, value) {
-    if (!pieceRates.value[type]) pieceRates.value[type] = {}
-    if (!pieceRates.value[type][size]) pieceRates.value[type][size] = {}
-    pieceRates.value[type][size][placement] = value
+  function setPieceRate(category, type, size, placement, value) {
+    if (!pieceRates.value[category]) pieceRates.value[category] = {}
+    if (!pieceRates.value[category][type]) pieceRates.value[category][type] = {}
+    if (!pieceRates.value[category][type][size]) pieceRates.value[category][type][size] = category === 'PP' || category === 'PL' ? 0 : {}
+    
+    if (category === 'PP' || category === 'PL') {
+      pieceRates.value[category][type][size] = value
+    } else {
+      pieceRates.value[category][type][size][placement] = value
+    }
   }
 
   // Waste alert thresholds (used by QualityControl + AdminSettings)
@@ -499,6 +531,16 @@ export const useMesStore = defineStore('mes', () => {
     requireOperatorForEntry: false,
     telegramBotEnabled: false,
     exportRecipient: 'Frezer',
+    botToken: '',
+    chatId: '',
+    otherDividerType: {
+      enabled: false,
+      label: 'Other'
+    },
+    otherPlacement: {
+      enabled: false,
+      label: 'Other'
+    }
   })
 
   async function saveSystemConfig(configData) {
@@ -616,16 +658,32 @@ export const useMesStore = defineStore('mes', () => {
       })
       const totalGood  = myEntries.reduce((s,e) => s + (Number(e.goodProduction)||0), 0)
       const totalWaste = myEntries.reduce((s,e) => s + (Number(e.wasteMaterial)||0), 0)
-      // Compute earnings using piece rates
+      const opConfig = getOperatorWorkConfig(operatorId)
+      // Compute earnings using piece rates and hourly rates
       let totalEarnings = 0
       myEntries.forEach(e => {
-        const rate = pieceRates.value?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
-        totalEarnings += rate * (Number(e.goodProduction) || 0)
+        const cat = e.workCategory || 'MFG'
+        if (cat === 'TIME') {
+          // Earnings = hoursWorked * hourly_rate
+          if (e.hoursWorked && opConfig.hourly_rate) {
+            totalEarnings += Number(e.hoursWorked) * Number(opConfig.hourly_rate)
+          }
+        } else {
+          // Piece rate lookup
+          let rate = 0
+          if (cat === 'PP' || cat === 'PL') {
+             rate = pieceRates.value?.[cat]?.[e.dividerType]?.[e.size] ?? 0
+          } else {
+             rate = pieceRates.value?.[cat]?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
+          }
+          totalEarnings += rate * (Number(e.goodProduction) || 0)
+        }
       })
       const details = {
         entries: myEntries.map(e => ({
+          workCategory: e.workCategory || 'MFG',
           dividerType: e.dividerType, placement: e.placement, size: e.size,
-          good: e.goodProduction, waste: e.wasteMaterial, time: e.timestamp
+          good: e.goodProduction, waste: e.wasteMaterial, time: e.timestamp, hoursWorked: e.hoursWorked
         })),
         totalGood, totalWaste, totalEarnings: totalEarnings.toFixed(2),
         submittedAt: new Date().toISOString(), week: currentProductionWeek.value
@@ -692,10 +750,10 @@ export const useMesStore = defineStore('mes', () => {
 
   async function setOperatorWorkTypes(operatorId, workTypes) {
     try {
-      // Check if config already exists
+      // workTypes can be a structured object (new) or flat array (legacy)
+      const notes = JSON.stringify({ work_types: workTypes })
       const existing = (await supabase.from('mes_financial_ledger')
         .select('id').eq('operator_id', operatorId).eq('transaction_type', 'operator_config')).data
-      const notes = JSON.stringify({ work_types: workTypes })
       if (existing?.length) {
         await supabase.from('mes_financial_ledger').update({ notes }).eq('id', existing[0].id)
       } else {
@@ -711,6 +769,73 @@ export const useMesStore = defineStore('mes', () => {
       console.error('[Store] setOperatorWorkTypes failed:', err)
       return false
     }
+  }
+
+  /**
+   * Returns a normalised work config object for a given operator.
+   * Handles both the new structured format and the legacy flat-array format.
+   *
+   * New format (from ShiftApprovals structured form):
+   *   { categories: ['PP','PL'], divider_types: ['50','40'], placements: [], sizes: ['9cm','7cm'], hourly_rate: null }
+   *
+   * Legacy flat array (old ShiftApprovals):
+   *   ['Type 50', 'Placement - ብተና', ...]  → treated as MFG-only, no restrictions
+   */
+  function getOperatorWorkConfig(operatorId) {
+    const op = operators.value.find(o => o.id === operatorId)
+    const wt = op?.work_types
+
+    // No config set
+    if (!wt) {
+      return { categories: ['MFG'], divider_types: [], placements: [], sizes: [], hourly_rate: null }
+    }
+
+    // New structured format
+    if (!Array.isArray(wt) && typeof wt === 'object') {
+      return {
+        categories:    wt.categories    || ['MFG'],
+        divider_types: wt.divider_types  || [],
+        placements:    wt.placements     || [],
+        sizes:         wt.sizes          || [],
+        hourly_rate:   wt.hourly_rate    || null,
+      }
+    }
+
+    // Legacy flat array — treat as MFG-only with no type/placement/size restrictions
+    return { categories: ['MFG'], divider_types: [], placements: [], sizes: [], hourly_rate: null }
+  }
+
+  function calculateEntryEarnings(entry, operatorId) {
+    const opConfig = getOperatorWorkConfig(operatorId)
+    const cat = entry.workCategory || 'MFG'
+    
+    if (cat === 'TIME') {
+      if (entry.hoursWorked && opConfig.hourly_rate) {
+        return Number(entry.hoursWorked) * Number(opConfig.hourly_rate)
+      }
+      return 0
+    }
+    
+    let rate = 0
+    if (cat === 'PP' || cat === 'PL') {
+      rate = pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size] ?? 0
+    } else {
+      rate = pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size]?.[entry.placement] ?? 0
+    }
+    
+    const qty = Number(entry.goodProduction || entry.good || 0)
+    return rate * qty
+  }
+
+  function getEntryRate(entry) {
+    const cat = entry.workCategory || 'MFG'
+    if (cat === 'TIME') {
+      return 0
+    }
+    if (cat === 'PP' || cat === 'PL') {
+      return pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size] ?? 0
+    }
+    return pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size]?.[entry.placement] ?? 0
   }
 
   return {
@@ -729,7 +854,8 @@ export const useMesStore = defineStore('mes', () => {
     totalGoodAllTime, totalWasteAllTime, overallWastePct,
     hasAdminAccess, grantAdminAccess, revokeAdminAccess,
     downtimeSessions, activeDowntime, startDowntime, resolveDowntime, logDowntime,
-    shiftSubmissions, submitShift, approveShift, rejectShift, setOperatorWorkTypes,
+    shiftSubmissions, submitShift, approveShift, rejectShift, setOperatorWorkTypes, getOperatorWorkConfig,
+    calculateEntryEarnings, getEntryRate,
   }
 }, {
   persist: {

@@ -41,19 +41,41 @@
           <span class="material-symbols-rounded panel-icon" style="color:#6366f1">price_change</span>
           <div>
             <h2 class="panel-title">Piece-Rate Configuration</h2>
-            <p class="panel-sub">Use + / − steppers to set ETB per piece for each variant combination</p>
+            <p class="panel-sub">Configure rates and custom labels for each work category</p>
           </div>
+        </div>
+
+        <!-- Custom 'Other' Label Settings -->
+        <div class="other-config-panel">
+          <p class="config-panel-title"><span class="material-symbols-rounded">settings</span> Custom Labels</p>
+          <div class="other-config-row">
+            <div class="other-config-item">
+              <label><input type="checkbox" v-model="store.systemConfig.otherDividerType.enabled" /> Enable Custom Divider Type</label>
+              <input type="text" v-model="store.systemConfig.otherDividerType.label" placeholder="Custom label (e.g. Special Type)" :disabled="!store.systemConfig.otherDividerType.enabled" class="mes-input" />
+            </div>
+            <div class="other-config-item">
+              <label><input type="checkbox" v-model="store.systemConfig.otherPlacement.enabled" /> Enable Custom Placement</label>
+              <input type="text" v-model="store.systemConfig.otherPlacement.label" placeholder="Custom label (e.g. Special Place)" :disabled="!store.systemConfig.otherPlacement.enabled" class="mes-input" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Category Sub-tabs -->
+        <div class="cat-tabs">
+          <button v-for="cat in ['MFG', 'C', 'PP', 'PL']" :key="cat" class="cat-tab" :class="{'cat-tab--active': activeRateCat === cat}" @click="activeRateCat = cat">
+            {{ cat === 'MFG' ? 'Manufacturing' : cat === 'C' ? 'Wood Prep' : cat === 'PP' ? 'Paper Place' : 'Plaster Place' }}
+          </button>
         </div>
 
         <!-- Divider Type tabs -->
         <div class="type-tabs">
           <button
-            v-for="t in dividerTypes"
+            v-for="t in allDividerTypesForRates"
             :key="t"
             class="type-tab"
             :class="{ 'type-tab--active': selectedType === t }"
             @click="selectedType = t"
-          >{{ t }}</button>
+          >{{ t === 'Other' ? (store.systemConfig.otherDividerType.label || 'Other') : t }}</button>
         </div>
 
         <!-- Rate Matrix for selected type -->
@@ -68,36 +90,57 @@
               {{ size }}
             </p>
             <div class="rate-rows">
-              <div
-                v-for="placement in placements"
-                :key="placement"
-                class="rate-row"
-              >
-                <div class="rate-meta">
-                  <span class="placement-badge">{{ placement }}</span>
-                  <span class="rate-key">Type {{ selectedType }} &bull; {{ size }}</span>
-                </div>
-
-                <!-- Stepper -->
-                <div class="stepper">
-                  <button
-                    class="step-btn step-btn--minus"
-                    @click="adjustRate(selectedType, size, placement, -0.25)"
-                  >
-                    <span class="material-symbols-rounded">remove</span>
-                  </button>
-                  <div class="step-display">
-                    <span class="step-currency">ETB</span>
-                    <span class="step-val">{{ getRate(selectedType, size, placement).toFixed(2) }}</span>
+              <!-- If category uses placements (MFG, C) -->
+              <template v-if="activeRateCat === 'MFG' || activeRateCat === 'C'">
+                <div
+                  v-for="placement in allPlacementsForRates"
+                  :key="placement"
+                  class="rate-row"
+                >
+                  <div class="rate-meta">
+                    <span class="placement-badge">{{ placement === 'Other' ? (store.systemConfig.otherPlacement.label || 'Other') : placement }}</span>
+                    <span class="rate-key">Type {{ selectedType === 'Other' ? 'Custom' : selectedType }} &bull; {{ size }}</span>
                   </div>
-                  <button
-                    class="step-btn step-btn--plus"
-                    @click="adjustRate(selectedType, size, placement, +0.25)"
-                  >
-                    <span class="material-symbols-rounded">add</span>
-                  </button>
+
+                  <!-- Stepper -->
+                  <div class="stepper">
+                    <button class="step-btn step-btn--minus" @click="adjustRate(activeRateCat, selectedType, size, placement, -0.25)">
+                      <span class="material-symbols-rounded">remove</span>
+                    </button>
+                    <div class="step-display">
+                      <span class="step-currency">ETB</span>
+                      <span class="step-val">{{ getRate(activeRateCat, selectedType, size, placement).toFixed(2) }}</span>
+                    </div>
+                    <button class="step-btn step-btn--plus" @click="adjustRate(activeRateCat, selectedType, size, placement, +0.25)">
+                      <span class="material-symbols-rounded">add</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </template>
+
+              <!-- If category does NOT use placements (PP, PL) -->
+              <template v-else>
+                <div class="rate-row">
+                  <div class="rate-meta">
+                    <span class="placement-badge" style="background: rgba(16,185,129,.15); color: #10b981;">No Placement Used</span>
+                    <span class="rate-key">Type {{ selectedType === 'Other' ? 'Custom' : selectedType }} &bull; {{ size }}</span>
+                  </div>
+
+                  <!-- Stepper -->
+                  <div class="stepper">
+                    <button class="step-btn step-btn--minus" @click="adjustRate(activeRateCat, selectedType, size, null, -0.25)">
+                      <span class="material-symbols-rounded">remove</span>
+                    </button>
+                    <div class="step-display">
+                      <span class="step-currency">ETB</span>
+                      <span class="step-val">{{ getRate(activeRateCat, selectedType, size, null).toFixed(2) }}</span>
+                    </div>
+                    <button class="step-btn step-btn--plus" @click="adjustRate(activeRateCat, selectedType, size, null, +0.25)">
+                      <span class="material-symbols-rounded">add</span>
+                    </button>
+                  </div>
+                </div>
+              </template>
             </div>
           </div>
         </div>
@@ -400,6 +443,7 @@ const sysAuth = useSystemAuthStore()
 
 // ─── Nav state ──────────────────────────────────────────────────────────────
 const activeTab    = ref('employees')
+const activeRateCat = ref('MFG')
 const selectedType = ref('50')
 
 // ─── Rate config ────────────────────────────────────────────────────────────
@@ -407,13 +451,24 @@ const dividerTypes = ['50', '40', '30', '16', '12', '45']
 const sizes        = ['9cm', '7cm']
 const placements   = ['ብተና', 'ውስጥ', 'የተለየ']
 
-function getRate(type, size, placement) {
-  return store.pieceRates?.[type]?.[size]?.[placement] ?? 0
+const allDividerTypesForRates = computed(() => {
+  return store.systemConfig.otherDividerType.enabled ? [...dividerTypes, 'Other'] : dividerTypes
+})
+
+const allPlacementsForRates = computed(() => {
+  return store.systemConfig.otherPlacement.enabled ? [...placements, 'Other'] : placements
+})
+
+function getRate(category, type, size, placement) {
+  if (category === 'PP' || category === 'PL') {
+    return store.pieceRates?.[category]?.[type]?.[size] ?? 0
+  }
+  return store.pieceRates?.[category]?.[type]?.[size]?.[placement] ?? 0
 }
 
-function adjustRate(type, size, placement, delta) {
-  const current = getRate(type, size, placement)
-  store.setPieceRate(type, size, placement, Math.max(0, +(current + delta).toFixed(2)))
+function adjustRate(category, type, size, placement, delta) {
+  const current = getRate(category, type, size, placement)
+  store.setPieceRate(category, type, size, placement, Math.max(0, +(current + delta).toFixed(2)))
 }
 
 // ─── System flags ───────────────────────────────────────────────────────────
@@ -867,4 +922,17 @@ async function saveProfile() {
   font-size: 1rem;
 }
 .time-to { color: #64748b; font-size: 0.85rem; font-weight: 600; }
+
+/* New Rates Tab Styles */
+.cat-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+.cat-tab { flex: 1; padding: 0.85rem; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; border-radius: 0.6rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.cat-tab--active { background: rgba(99,102,241,0.2); border-color: #6366f1; color: #a5b4fc; }
+.other-config-panel { background: #1e293b; border: 1px solid rgba(255,255,255,0.1); border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1.5rem; }
+.config-panel-title { display: flex; align-items: center; gap: 0.5rem; font-weight: 800; font-size: 0.95rem; color: #cbd5e1; margin-bottom: 1rem; }
+.other-config-row { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+.other-config-item { display: flex; flex-direction: column; gap: 0.5rem; flex: 1; min-width: 250px; }
+.other-config-item label { display: flex; align-items: center; gap: 0.5rem; color: #94a3b8; font-size: 0.85rem; font-weight: 700; cursor: pointer; }
+.mes-input { background: #0f172a; border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.75rem 1rem; border-radius: 0.5rem; outline: none; }
+.mes-input:disabled { opacity: 0.5; cursor: not-allowed; }
+.mes-input:focus { border-color: #6366f1; }
 </style>

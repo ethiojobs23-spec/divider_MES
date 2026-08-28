@@ -75,11 +75,12 @@
           <!-- Entry breakdown (collapsed by default) -->
           <div v-if="expanded === sub.id" class="entry-table-wrap w-full overflow-x-auto">
             <table class="entry-table">
-              <thead><tr><th>Type</th><th>Placement</th><th>Size</th><th>Good</th><th>Waste</th><th>Time</th></tr></thead>
+              <thead><tr><th>Cat.</th><th>Type</th><th>Placement</th><th>Size</th><th>Good</th><th>Waste</th><th>Time</th></tr></thead>
               <tbody>
                 <tr v-for="(e, i) in sub.details?.entries" :key="i">
+                  <td><span class="cat-pill" :style="{ background: CAT_COLORS[e.workCategory || 'MFG'] + '22', color: CAT_COLORS[e.workCategory || 'MFG'] }">{{ e.workCategory || 'MFG' }}</span></td>
                   <td>{{ e.dividerType }}</td>
-                  <td>{{ e.placement }}</td>
+                  <td>{{ e.placement || '—' }}</td>
                   <td>{{ e.size }}</td>
                   <td style="color:#34d399"><strong>{{ e.good }}</strong></td>
                   <td style="color:#f87171"><strong>{{ e.waste || 0 }}</strong></td>
@@ -119,35 +120,144 @@
         </div>
       </div>
 
-      <!-- Work Types Management -->
+      <!-- ═══════════════════════════════════════════════════════════════
+           OPERATOR WORK ASSIGNMENT — Structured 5-Category Config
+           ═══════════════════════════════════════════════════════════════ -->
       <div class="work-types-admin">
         <h2>
           <span class="material-symbols-rounded">manage_accounts</span>
-          Operator Work Types
+          Operator Work Assignment
           <span class="admin-note">Only admins can modify</span>
         </h2>
+
         <div class="operator-cards">
-          <div v-for="op in store.operators.filter(o => o.role !== 'admin' && o.role !== 'customer')" :key="op.id" class="op-config-card">
+          <div
+            v-for="op in store.operators.filter(o => o.role !== 'admin' && o.role !== 'customer')"
+            :key="op.id"
+            class="op-config-card"
+          >
+            <!-- Card header: avatar + name + current category badges -->
             <div class="op-config-header">
               <OperatorAvatar :avatar="op.avatar" :name="op.name" :color="op.color" size="sm" />
-              <div>
+              <div class="op-header-text">
                 <p class="op-name">{{ op.name }}</p>
                 <p class="op-role">{{ op.role }}</p>
               </div>
-            </div>
-            <div class="wt-chips">
-              <div
-                v-for="wt in WORK_TYPES"
-                :key="wt"
-                class="wt-chip"
-                :class="{ 'wt-chip--active': (op.work_types || []).includes(wt) }"
-                @click="toggleWorkType(op, wt)"
-              >
-                {{ wt }}
+              <div class="op-cat-badges">
+                <span
+                  v-for="cat in getOpConfig(op).categories"
+                  :key="cat"
+                  class="cat-badge"
+                  :style="{ background: CAT_COLORS[cat] + '22', color: CAT_COLORS[cat], borderColor: CAT_COLORS[cat] + '55' }"
+                >{{ cat }}</span>
               </div>
             </div>
-            <button class="btn-save-wt" :disabled="savingWt === op.id" @click="saveWorkTypes(op)">
-              {{ savingWt === op.id ? 'Saving...' : 'Save Work Types' }}
+
+            <!-- ① Job Categories -->
+            <div class="config-section">
+              <p class="config-section-label">
+                <span class="material-symbols-rounded">work</span>
+                Job Categories
+              </p>
+              <div class="chip-row">
+                <button
+                  v-for="cat in CATEGORIES"
+                  :key="cat.id"
+                  class="cfg-chip"
+                  :class="{ 'cfg-chip--active': getOpConfig(op).categories.includes(cat.id) }"
+                  :style="getOpConfig(op).categories.includes(cat.id)
+                    ? { background: CAT_COLORS[cat.id] + '22', borderColor: CAT_COLORS[cat.id], color: CAT_COLORS[cat.id] }
+                    : {}"
+                  @click="toggleCategory(op, cat.id)"
+                >
+                  <span class="material-symbols-rounded" style="font-size:0.9rem">{{ cat.icon }}</span>
+                  {{ cat.label }}
+                </button>
+              </div>
+            </div>
+
+            <!-- ② Divider Types (hidden for TIME-only workers) -->
+            <div class="config-section" v-if="!isTimeOnly(op)">
+              <p class="config-section-label">
+                <span class="material-symbols-rounded">category</span>
+                Divider Types
+              </p>
+              <div class="chip-row">
+                <button
+                  v-for="dt in DIVIDER_TYPES"
+                  :key="dt"
+                  class="cfg-chip cfg-chip--sm cfg-chip--indigo"
+                  :class="{ 'cfg-chip--active': getOpConfig(op).divider_types.includes(dt) }"
+                  @click="toggleField(op, 'divider_types', dt)"
+                >{{ dt }}</button>
+              </div>
+            </div>
+
+            <!-- ③ Placement Styles (only for MFG or C workers) -->
+            <div class="config-section" v-if="hasMfgOrC(op)">
+              <p class="config-section-label">
+                <span class="material-symbols-rounded">tune</span>
+                Placement Styles
+                <span class="config-hint">MFG &amp; Wood Prep only</span>
+              </p>
+              <div class="chip-row">
+                <button
+                  v-for="pl in PLACEMENTS"
+                  :key="pl"
+                  class="cfg-chip cfg-chip--sm cfg-chip--emerald"
+                  :class="{ 'cfg-chip--active': getOpConfig(op).placements.includes(pl) }"
+                  @click="toggleField(op, 'placements', pl)"
+                >{{ pl }}</button>
+              </div>
+            </div>
+
+            <!-- ④ Sizes (hidden for TIME-only workers) -->
+            <div class="config-section" v-if="!isTimeOnly(op)">
+              <p class="config-section-label">
+                <span class="material-symbols-rounded">straighten</span>
+                Sizes
+              </p>
+              <div class="chip-row">
+                <button
+                  v-for="sz in SIZES"
+                  :key="sz"
+                  class="cfg-chip cfg-chip--sm cfg-chip--amber"
+                  :class="{ 'cfg-chip--active': getOpConfig(op).sizes.includes(sz) }"
+                  @click="toggleField(op, 'sizes', sz)"
+                >{{ sz }}</button>
+              </div>
+            </div>
+
+            <!-- ⑤ Hourly Rate (only when TIME is selected) -->
+            <div class="config-section" v-if="getOpConfig(op).categories.includes('TIME')">
+              <p class="config-section-label">
+                <span class="material-symbols-rounded">schedule</span>
+                Hourly Rate
+              </p>
+              <div class="rate-input-row">
+                <input
+                  type="number"
+                  class="rate-input"
+                  min="0"
+                  step="0.5"
+                  :value="getOpConfig(op).hourly_rate || ''"
+                  @input="setHourlyRate(op, $event.target.value)"
+                  placeholder="e.g. 20"
+                />
+                <span class="rate-unit">ETB / hr</span>
+              </div>
+            </div>
+
+            <!-- Save button -->
+            <button
+              class="btn-save-wt"
+              :disabled="savingWt === op.id"
+              @click="saveWorkConfig(op)"
+            >
+              <span class="material-symbols-rounded" style="font-size:1rem">
+                {{ savingWt === op.id ? 'hourglass_top' : 'save' }}
+              </span>
+              {{ savingWt === op.id ? 'Saving...' : 'Save Work Config' }}
             </button>
           </div>
         </div>
@@ -210,19 +320,102 @@ import { useMesStore } from '@/store/mesStore.js'
 
 const store = useMesStore()
 
-const WORK_TYPES = [
-  'Type 50', 'Type 40', 'Type 30', 'Type 16', 'Type 12', 'Type 45',
-  'Placement - ብተና', 'Placement - ውስጥ', 'Placement - የተለየ',
-  'Size 9cm', 'Size 7cm', 'Quality Control', 'Packaging', 'Loading'
+// ─── Work Assignment Constants ──────────────────────────────────────────────
+const CATEGORIES = [
+  { id: 'MFG',  label: 'Manufacturing',    icon: 'precision_manufacturing' },
+  { id: 'PP',   label: 'Paper Placement',  icon: 'description'             },
+  { id: 'PL',   label: 'Plaster Placement',icon: 'build'                   },
+  { id: 'C',    label: 'Wood Preparation', icon: 'forest'                  },
+  { id: 'TIME', label: 'Hourly Work',      icon: 'schedule'                },
 ]
 
+const CAT_COLORS = {
+  MFG:  '#6366f1',
+  PP:   '#10b981',
+  PL:   '#f59e0b',
+  C:    '#8b5cf6',
+  TIME: '#3b82f6',
+}
+
+const DIVIDER_TYPES = ['50', '40', '30', '16', '12', '45']
+const PLACEMENTS    = ['ብተና', 'ውስጥ', 'other']
+const SIZES         = ['9cm', '7cm']
+
+// ─── Per-operator config helpers ────────────────────────────────────────────
+// Returns a live config object for an operator (new structured format)
+function getOpConfig(op) {
+  const wt = op.work_types
+  // Already new structured format
+  if (wt && !Array.isArray(wt) && typeof wt === 'object') return wt
+  // Legacy flat array — treat operator as MFG-only with no restrictions
+  return {
+    categories:   [],
+    divider_types:[],
+    placements:   [],
+    sizes:        [],
+    hourly_rate:  null,
+  }
+}
+
+function isTimeOnly(op) {
+  const cats = getOpConfig(op).categories
+  return cats.length > 0 && cats.every(c => c === 'TIME')
+}
+
+function hasMfgOrC(op) {
+  const cats = getOpConfig(op).categories
+  return cats.includes('MFG') || cats.includes('C')
+}
+
+// Toggle a category on/off for an operator
+function toggleCategory(op, catId) {
+  const cfg = ensureStructuredConfig(op)
+  const idx = cfg.categories.indexOf(catId)
+  if (idx === -1) cfg.categories.push(catId)
+  else cfg.categories.splice(idx, 1)
+}
+
+// Toggle a field value (divider_types, placements, sizes)
+function toggleField(op, field, value) {
+  const cfg = ensureStructuredConfig(op)
+  const idx = cfg[field].indexOf(value)
+  if (idx === -1) cfg[field].push(value)
+  else cfg[field].splice(idx, 1)
+}
+
+function setHourlyRate(op, val) {
+  const cfg = ensureStructuredConfig(op)
+  cfg.hourly_rate = val ? Number(val) : null
+}
+
+// Ensure op.work_types is the new structured object (migrates old format in place)
+function ensureStructuredConfig(op) {
+  if (!op.work_types || Array.isArray(op.work_types) || typeof op.work_types !== 'object') {
+    op.work_types = {
+      categories:   [],
+      divider_types:[],
+      placements:   [],
+      sizes:        [],
+      hourly_rate:  null,
+    }
+  }
+  return op.work_types
+}
+
+// ─── Save work config ────────────────────────────────────────────────────────
+const savingWt = ref(null)
+
+async function saveWorkConfig(op) {
+  savingWt.value = op.id
+  const cfg = getOpConfig(op)
+  await store.setOperatorWorkTypes(op.id, cfg)
+  savingWt.value = null
+}
+
+// ─── Shift submissions ───────────────────────────────────────────────────────
 const filterStatus = ref('all')
 const expanded = ref(null)
 
-const COLORS = ['#6366f1','#f59e0b','#10b981','#3b82f6','#ec4899','#f97316','#8b5cf6','#14b8a6']
-function opColor(id) {
-  return COLORS[(id - 1) % COLORS.length] || '#334155'
-}
 function operatorName(id) {
   return store.operators.find(o => o.id === id)?.name ?? `Operator #${id}`
 }
@@ -230,30 +423,28 @@ function operatorName(id) {
 const allSubmissions = computed(() =>
   [...store.shiftSubmissions].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 )
-
 const pendingSubmissions = computed(() => allSubmissions.value.filter(s => s.target_name === 'pending'))
 const approvedToday = computed(() => {
   const today = new Date().toISOString().split('T')[0]
   return allSubmissions.value.filter(s => s.target_name === 'approved' && s.transaction_date === today).length
 })
-
 const filteredSubmissions = computed(() => {
   if (filterStatus.value === 'all') return allSubmissions.value
   return allSubmissions.value.filter(s => s.target_name === filterStatus.value)
 })
 
-// Action modal
+// ─── PIN Action modal ────────────────────────────────────────────────────────
 const actionModal = reactive({
   visible: false, type: 'approve', sub: null,
   pin: '', reason: '', error: '', loading: false
 })
 
 function openAction(sub, type) {
-  actionModal.sub = sub
-  actionModal.type = type
-  actionModal.pin = ''
-  actionModal.reason = ''
-  actionModal.error = ''
+  actionModal.sub     = sub
+  actionModal.type    = type
+  actionModal.pin     = ''
+  actionModal.reason  = ''
+  actionModal.error   = ''
   actionModal.loading = false
   actionModal.visible = true
 }
@@ -261,7 +452,7 @@ function openAction(sub, type) {
 async function executeAction() {
   if (!actionModal.pin) return
   actionModal.loading = true
-  actionModal.error = ''
+  actionModal.error   = ''
 
   let result
   if (actionModal.type === 'approve') {
@@ -276,22 +467,6 @@ async function executeAction() {
   } else {
     actionModal.error = result.reason || 'Action failed'
   }
-}
-
-// Work types management
-const savingWt = ref(null)
-
-function toggleWorkType(op, wt) {
-  if (!op.work_types) op.work_types = []
-  const idx = op.work_types.indexOf(wt)
-  if (idx === -1) op.work_types.push(wt)
-  else op.work_types.splice(idx, 1)
-}
-
-async function saveWorkTypes(op) {
-  savingWt.value = op.id
-  await store.setOperatorWorkTypes(op.id, [...(op.work_types || [])])
-  savingWt.value = null
 }
 </script>
 
@@ -338,11 +513,6 @@ async function saveWorkTypes(op) {
 .submission-card--rejected { border-left: 4px solid #ef4444; opacity: 0.8; }
 
 .card-top { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
-.op-avatar {
-  width: 2.75rem; height: 2.75rem; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.1rem; font-weight: 900; color: white; flex-shrink: 0;
-}
 .card-info h3 { color: #f1f5f9; font-size: 1.1rem; margin: 0; }
 .card-info p  { color: #64748b; font-size: 0.8rem; margin: 0.15rem 0 0 0; }
 .status-badge {
@@ -351,7 +521,7 @@ async function saveWorkTypes(op) {
 }
 .status-badge--pending  { background: rgba(245,158,11,0.12); color: #fbbf24; }
 .status-badge--approved { background: rgba(16,185,129,0.12); color: #34d399; }
-.status-badge--rejected { background: rgba(239,68,68,0.12); color: #f87171; }
+.status-badge--rejected { background: rgba(239,68,68,0.12);  color: #f87171; }
 
 .card-stats {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;
@@ -365,11 +535,10 @@ async function saveWorkTypes(op) {
 .stat-val  { display: block; font-size: 1.2rem; font-weight: 800; }
 
 .entry-table-wrap { overflow-x: auto; margin-bottom: 1rem; }
-.entry-table {
-  width: 100%; border-collapse: collapse; font-size: 0.85rem;
-}
+.entry-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .entry-table th { color: #64748b; padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; }
 .entry-table td { padding: 0.5rem 0.75rem; color: #e2e8f0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.cat-pill { font-size: 0.65rem; font-weight: 800; padding: 0.15rem 0.5rem; border-radius: 999px; letter-spacing: 0.06em; }
 
 .card-actions {
   display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
@@ -394,14 +563,13 @@ async function saveWorkTypes(op) {
   display: flex; align-items: center; gap: 0.5rem;
   color: #fca5a5; font-size: 0.82rem; margin-left: auto;
 }
-
 .empty-state {
   display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
   padding: 3rem; color: #334155; font-size: 0.9rem;
 }
 .empty-state .material-symbols-rounded { font-size: 3rem; }
 
-/* Work types admin */
+/* ── Work Assignment Panel ─────────────────────────────────────────────────── */
 .work-types-admin {
   background: #1e293b; border: 1px solid rgba(255,255,255,0.06); border-radius: 1rem; padding: 1.5rem;
 }
@@ -415,34 +583,83 @@ async function saveWorkTypes(op) {
   background: rgba(239,68,68,0.1); color: #fca5a5;
   border: 1px solid rgba(239,68,68,0.2); border-radius: 999px;
 }
-.operator-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem; }
+.operator-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1rem; }
 .op-config-card {
   background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
   border-radius: 0.85rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;
 }
 .op-config-header { display: flex; align-items: center; gap: 0.75rem; }
-.op-mini-avatar {
-  width: 2.25rem; height: 2.25rem; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 900; color: white; font-size: 0.85rem;
-}
-.op-name { font-weight: 700; color: #e2e8f0; margin: 0; }
+.op-header-text { flex: 1; min-width: 0; }
+.op-name { font-weight: 700; color: #e2e8f0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .op-role { font-size: 0.72rem; color: #64748b; margin: 0; text-transform: capitalize; }
-.wt-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.wt-chip {
-  padding: 0.35rem 0.75rem; border-radius: 0.4rem; cursor: pointer;
-  background: #0f172a; border: 1px solid rgba(255,255,255,0.08);
-  color: #475569; font-size: 0.78rem; font-weight: 700; transition: all 0.15s;
+.op-cat-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
+.cat-badge {
+  font-size: 0.6rem; font-weight: 800; padding: 0.15rem 0.5rem;
+  border-radius: 999px; border: 1px solid; letter-spacing: 0.06em;
 }
-.wt-chip--active { background: rgba(99,102,241,0.15); border-color: #6366f1; color: #a5b4fc; }
-.btn-save-wt {
-  background: #6366f1; color: white; border: none; border-radius: 0.55rem;
-  padding: 0.6rem; font-weight: 700; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;
-}
-.btn-save-wt:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-save-wt:not(:disabled):hover { background: #4f46e5; }
 
-/* Modal */
+/* Config sections inside each operator card */
+.config-section { display: flex; flex-direction: column; gap: 0.5rem; }
+.config-section-label {
+  display: flex; align-items: center; gap: 0.35rem;
+  font-size: 0.68rem; font-weight: 700; color: #64748b;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  padding-bottom: 0.3rem; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.config-section-label .material-symbols-rounded { font-size: 0.95rem; }
+.config-hint {
+  margin-left: auto; font-size: 0.6rem; font-weight: 600;
+  color: #475569; text-transform: none; letter-spacing: 0;
+}
+
+/* Chip rows */
+.chip-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+/* Base chip */
+.cfg-chip {
+  display: flex; align-items: center; gap: 0.3rem;
+  padding: 0.35rem 0.75rem; border-radius: 0.45rem; cursor: pointer;
+  background: #0f172a; border: 1px solid rgba(255,255,255,0.08);
+  color: #475569; font-size: 0.8rem; font-weight: 700;
+  transition: all 0.13s ease; -webkit-tap-highlight-color: transparent;
+}
+.cfg-chip:hover { background: #1e293b; color: #94a3b8; border-color: rgba(255,255,255,0.15); }
+.cfg-chip:active { transform: scale(0.96); }
+
+/* Small variant for types/placements/sizes */
+.cfg-chip--sm { padding: 0.28rem 0.6rem; font-size: 0.75rem; }
+
+/* Active state — base (for category chips using inline :style) */
+.cfg-chip--active { font-weight: 800; }
+
+/* Color-coded active states for specific groups */
+.cfg-chip--indigo.cfg-chip--active { background: rgba(99,102,241,0.2); border-color: #6366f1; color: #a5b4fc; }
+.cfg-chip--emerald.cfg-chip--active { background: rgba(16,185,129,0.2); border-color: #10b981; color: #34d399; }
+.cfg-chip--amber.cfg-chip--active { background: rgba(245,158,11,0.2); border-color: #f59e0b; color: #fbbf24; }
+
+/* Hourly rate input */
+.rate-input-row { display: flex; align-items: center; gap: 0.75rem; }
+.rate-input {
+  width: 120px; background: #0f172a; border: 1px solid rgba(255,255,255,0.1);
+  color: #f1f5f9; padding: 0.6rem 0.85rem; border-radius: 0.5rem;
+  font-size: 1rem; font-weight: 700;
+}
+.rate-input:focus { outline: none; border-color: #3b82f6; }
+.rate-unit { font-size: 0.82rem; color: #64748b; font-weight: 600; }
+
+/* Save button */
+.btn-save-wt {
+  display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white; border: none; border-radius: 0.55rem;
+  padding: 0.65rem; font-weight: 700; cursor: pointer; font-size: 0.88rem;
+  transition: all 0.2s; margin-top: auto;
+}
+.btn-save-wt:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-save-wt:not(:disabled):hover { filter: brightness(1.1); }
+.btn-save-wt:not(:disabled):active { transform: scale(0.98); }
+
+/* ── Modal ─────────────────────────────────────────────────────────────────── */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
   display: flex; align-items: center; justify-content: center; z-index: 100;

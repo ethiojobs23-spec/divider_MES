@@ -308,21 +308,23 @@
               <thead>
                 <tr>
                   <th>Date & Time</th>
+                  <th>Category</th>
                   <th>Type</th>
                   <th>Size</th>
                   <th>Placement</th>
-                  <th class="align-right">Good</th>
+                  <th class="align-right">Qty/Hrs</th>
                   <th class="align-right">Waste</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="entry in myProduction" :key="entry.id">
                   <td>{{ new Date(entry.timestamp).toLocaleString([], {weekday: 'short', hour: '2-digit', minute:'2-digit'}) }}</td>
-                  <td>{{ entry.dividerType }}</td>
-                  <td>{{ entry.size }}</td>
+                  <td>{{ entry.workCategory || 'MFG' }}</td>
+                  <td>{{ entry.dividerType || '—' }}</td>
+                  <td>{{ entry.size || '—' }}</td>
                   <td>{{ entry.placement || '—' }}</td>
-                  <td class="align-right"><strong style="color:#34d399">{{ entry.goodProduction }}</strong></td>
-                  <td class="align-right"><strong style="color:#f87171">{{ entry.wasteMaterial || 0 }}</strong></td>
+                  <td class="align-right"><strong style="color:#34d399">{{ entry.workCategory === 'TIME' ? entry.hoursWorked + ' h' : entry.goodProduction }}</strong></td>
+                  <td class="align-right"><strong style="color:#f87171">{{ entry.workCategory === 'TIME' ? '—' : (entry.wasteMaterial || 0) }}</strong></td>
                 </tr>
                 <tr v-if="!myProduction.length"><td colspan="6" class="empty-text">No production logged yet.</td></tr>
               </tbody>
@@ -696,8 +698,7 @@ const todayWaste = computed(() => todayEntries.value.reduce((s,e) => s + (Number
 const todayEarnings = computed(() => {
   let total = 0
   todayEntries.value.forEach(e => {
-    const rate = mesStore.pieceRates?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
-    total += rate * (Number(e.goodProduction) || 0)
+    total += mesStore.calculateEntryEarnings(e, employee.value.id)
   })
   return total.toFixed(2)
 })

@@ -26,8 +26,22 @@
           </select>
         </div>
 
-        <!-- Placement Toggles -->
+        <!-- Category Toggles -->
         <div class="toggle-cluster">
+          <p class="cluster-label">Work Category</p>
+          <div class="toggle-row">
+            <button
+              v-for="cat in ['MFG', 'PP', 'PL', 'C', 'TIME']"
+              :key="cat"
+              class="mega-toggle"
+              :class="{ 'mega-toggle--active': activeCategory === cat }"
+              @click="activeCategory = cat"
+            >{{ cat }}</button>
+          </div>
+        </div>
+
+        <!-- Placement Toggles -->
+        <div class="toggle-cluster" v-if="activeCategory === 'MFG' || activeCategory === 'C'">
           <p class="cluster-label">Placement</p>
           <div class="toggle-row">
             <button
@@ -36,12 +50,12 @@
               class="mega-toggle"
               :class="{ 'mega-toggle--active': activePlacement === p }"
               @click="activePlacement = p"
-            >{{ p }}</button>
+            >{{ p === 'Other' ? (store.systemConfig.otherPlacement?.label || 'Other') : p }}</button>
           </div>
         </div>
 
         <!-- Size Toggles -->
-        <div class="toggle-cluster">
+        <div class="toggle-cluster" v-if="activeCategory !== 'TIME'">
           <p class="cluster-label">Size</p>
           <div class="toggle-row">
             <button
@@ -65,7 +79,7 @@
               <tr>
                 <th class="day-col">Day</th>
                 <th v-for="col in columns" :key="col" class="type-col">
-                  <span class="col-badge">{{ col }}</span>
+                  <span class="col-badge">{{ col === 'Other' ? (store.systemConfig.otherDividerType?.label || 'Other') : col }}</span>
                 </th>
                 <th class="total-col">TOTAL</th>
               </tr>
@@ -192,39 +206,55 @@ const isAdmin = computed(() => {
 const targetOperatorId = ref('all') // Default to 'all' for admins to see everyone's entries. Non-admins will be filtered below.
 
 // ─── Constants ─────────────────────────────────────────────────────────────
-const columns   = ['50', '40', '30', '16', '12', '45', 'Other']
+const allDividerTypes = ['50', '40', '30', '16', '12', '45', 'Other']
 const days      = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const placements = ['ብተና', 'ውስጥ', 'የተለየ']
 const sizes      = ['9cm', '7cm']
 
+const placements = computed(() => {
+  return store.systemConfig.otherPlacement?.enabled ? ['ብተና', 'ውስጥ', 'የተለየ', 'Other'] : ['ብተና', 'ውስጥ', 'የተለየ']
+})
+
 // ─── Active Filters ────────────────────────────────────────────────────────
+const activeCategory  = ref('MFG')
 const activePlacement = ref('ብተና')
 const activeSize      = ref('9cm')
+
+const columns = computed(() => activeCategory.value === 'TIME' ? ['Hours'] : allDividerTypes)
 
 // ─── Grid Data Store ───────────────────────────────────────────────────────
 function getCellValue(dayName, col, placement, size) {
   const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 }
   const targetDay = dayMap[dayName]
   
-  // If not admin, force it to their own ID. If admin, use the dropdown value.
   const filterId = isAdmin.value ? targetOperatorId.value : (sysAuth.currentEmployeeId || store.activeOperator?.id)
 
   return store.ledgerEntries
     .filter(e => {
        const dayMatch = new Date(e.productionDate || e.timestamp).getDay() === targetDay
-       const colMatch = String(e.dividerType || '').trim() === String(col).trim()
-       const placeMatch = String(e.placement || '').trim() === String(placement).trim()
-       const sizeMatch = String(e.size || '').trim() === String(size).trim()
        const opMatch = filterId === 'all' || String(e.operator_id) === String(filterId)
+       const catMatch = (e.workCategory || 'MFG') === activeCategory.value
        
-       return dayMatch && colMatch && placeMatch && sizeMatch && opMatch
+       if (activeCategory.value === 'TIME') {
+         return dayMatch && opMatch && catMatch
+       }
+       
+       const colMatch = String(e.dividerType || '').trim() === String(col).trim()
+       const placeMatch = (activeCategory.value === 'MFG' || activeCategory.value === 'C') 
+         ? String(e.placement || '').trim() === String(placement).trim() 
+         : true
+       const sizeMatch = String(e.size || '').trim() === String(size).trim()
+       
+       return dayMatch && colMatch && placeMatch && sizeMatch && opMatch && catMatch
     })
-    .reduce((sum, e) => sum + (Number(e.goodProduction) || 0), 0)
+    .reduce((sum, e) => {
+      if (activeCategory.value === 'TIME') return sum + (Number(e.hoursWorked) || 0)
+      return sum + (Number(e.goodProduction) || 0)
+    }, 0)
 }
 
 // ─── Totals ────────────────────────────────────────────────────────────────
 function getRowTotal(day, placement, size) {
-  return columns.reduce((sum, col) => sum + (getCellValue(day, col, placement, size) || 0), 0)
+  return columns.value.reduce((sum, col) => sum + (getCellValue(day, col, placement, size) || 0), 0)
 }
 function getColTotal(col, placement, size) {
   return days.reduce((sum, day) => sum + (getCellValue(day, col, placement, size) || 0), 0)

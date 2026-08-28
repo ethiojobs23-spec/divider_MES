@@ -557,7 +557,7 @@ const kpiStats = computed(() => {
   const today = new Date().toISOString().split('T')[0]
   const todayLogs = store.ledgerEntries.filter(e => 
     e.operator_id === selectedOp.value.id && 
-    (e.productionDate === today || e.timestamp.startsWith(today))
+    (e.productionDate === today || (e.timestamp && e.timestamp.startsWith(today)))
   )
   const good = todayLogs.reduce((s, e) => s + (Number(e.goodProduction) || 0), 0)
   const waste = todayLogs.reduce((s, e) => s + (Number(e.wasteMaterial) || 0), 0)

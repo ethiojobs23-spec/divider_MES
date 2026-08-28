@@ -1,5 +1,1 @@
-{
-  "appId": "com.divider.mes",
-  "appName": "Divider MES",
-  "webDir": "dist"
-}
+﻿{ "appId": "com.divider.mes", "appName": "Divider MES", "webDir": "dist", "server": { "cleartext": true } }
