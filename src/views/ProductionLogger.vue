@@ -226,11 +226,36 @@ const CAT_INFO = {
 function getCatLabel(id) { return CAT_INFO[id]?.label || id }
 function getCatIcon(id) { return CAT_INFO[id]?.icon || 'work' }
 
-const activeCategory = ref(localStorage.getItem('mes_pl_cat') || 'MFG')
+const activeCategory = ref('MFG')
+const selections = reactive({ dividerType: '50', placement: 'ብተና', size: '9cm' })
 
-watch(activeCategory, (val) => {
-  if (val) localStorage.setItem('mes_pl_cat', val)
-})
+// Per-operator state persistence
+const opStates = JSON.parse(localStorage.getItem('mes_pl_states') || '{}')
+
+watch(selectedOperatorId, (id) => {
+  if (id) {
+    const state = opStates[id] || {}
+    if (state.cat) activeCategory.value = state.cat
+    if (state.type) selections.dividerType = state.type
+    if (state.place) selections.placement = state.place
+    if (state.size) selections.size = state.size
+  }
+}, { immediate: true })
+
+function saveOpState() {
+  if (selectedOperatorId.value) {
+    opStates[selectedOperatorId.value] = {
+      cat: activeCategory.value,
+      type: selections.dividerType,
+      place: selections.placement,
+      size: selections.size
+    }
+    localStorage.setItem('mes_pl_states', JSON.stringify(opStates))
+  }
+}
+
+watch(activeCategory, saveOpState)
+watch(selections, saveOpState, { deep: true })
 
 const opConfig = computed(() => {
   if (!selectedOperatorId.value) return { categories: ['MFG'], divider_types: [], placements: [], sizes: [], hourly_rate: null }
@@ -261,21 +286,10 @@ const hasSizes = computed(() => activeCategory.value !== 'TIME')
 const needsPlacement = computed(() => activeCategory.value === 'MFG' || activeCategory.value === 'C')
 
 // ─── Input State ────────────────────────────────────────────────────────────
-const selections = reactive({ 
-  dividerType: localStorage.getItem('mes_pl_type') || '50', 
-  placement: localStorage.getItem('mes_pl_place') || 'ብተና', 
-  size: localStorage.getItem('mes_pl_size') || '9cm' 
-})
-
 const values     = reactive({ good: '', waste: '', hours: '' })
 const activeField = ref('good')
 const isSaving   = ref(false)
 
-watch(selections, (s) => {
-  localStorage.setItem('mes_pl_type', s.dividerType)
-  localStorage.setItem('mes_pl_place', s.placement)
-  localStorage.setItem('mes_pl_size', s.size)
-}, { deep: true })
 
 // Auto-sync selections if lists update
 watchEffect(() => {
