@@ -226,21 +226,21 @@ const opConfig = computed(() => {
 })
 const opCategories = computed(() => opConfig.value.categories && opConfig.value.categories.length > 0 ? opConfig.value.categories : ['MFG'])
 
-// Switch category if operator changes
-watch(selectedOperatorId, () => {
+// Switch category if operator config changes
+watchEffect(() => {
   const cats = opCategories.value
-  if (cats.length > 0 && !cats.includes(activeCategory.value)) {
+  if (cats && cats.length > 0 && !cats.includes(activeCategory.value)) {
     activeCategory.value = cats[0]
   }
 })
 
 // ─── Form Options (filtered by admin assignment) ───────────────────────────
-const standardTypes = ['50', '40', '30', '16', '12', '45']
-const standardPlacements = ['ብተና', 'ውስጥ', 'የተለየ']
+const standardTypes = computed(() => store.systemConfig.otherDividerType?.enabled ? ['50', '40', '30', '16', '12', '45', 'Other'] : ['50', '40', '30', '16', '12', '45'])
+const standardPlacements = computed(() => store.systemConfig.otherPlacement?.enabled ? ['ብተና', 'ውስጥ', 'የተለየ', 'Other'] : ['ብተና', 'ውስጥ', 'የተለየ'])
 const standardSizes = ['9cm', '7cm']
 
-const availableTypes = computed(() => opConfig.value.divider_types?.length > 0 ? opConfig.value.divider_types : standardTypes)
-const availablePlacements = computed(() => opConfig.value.placements?.length > 0 ? opConfig.value.placements : standardPlacements)
+const availableTypes = computed(() => opConfig.value.divider_types?.length > 0 ? opConfig.value.divider_types : standardTypes.value)
+const availablePlacements = computed(() => opConfig.value.placements?.length > 0 ? opConfig.value.placements : standardPlacements.value)
 const availableSizes = computed(() => opConfig.value.sizes?.length > 0 ? opConfig.value.sizes : standardSizes)
 
 // Visibility
