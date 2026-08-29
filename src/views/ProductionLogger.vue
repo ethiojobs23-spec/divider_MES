@@ -7,7 +7,9 @@
         <div class="sidebar-section">
           <p class="section-title">Select Operator</p>
           <select v-model="selectedOperatorId" class="operator-select">
-            <option v-for="op in clockedInList" :key="op.id" :value="op.id">{{ op.name }}</option>
+            <option v-for="op in clockedInList" :key="op.id" :value="op.id">
+              {{ op.name }} — [{{ store.getOperatorWorkConfig(op.id).categories.map(c => getCatLabel(c)).join(', ') }}]
+            </option>
             <option v-if="clockedInList.length === 0" value="" disabled>No one is clocked in</option>
           </select>
         </div>

@@ -349,7 +349,7 @@ function getOpConfig(op) {
   if (wt && !Array.isArray(wt) && typeof wt === 'object') return wt
   // Legacy flat array — treat operator as MFG-only with no restrictions
   return {
-    categories:   [],
+    categories:   ['MFG'],
     divider_types:[],
     placements:   [],
     sizes:        [],
