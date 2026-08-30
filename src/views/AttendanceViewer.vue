@@ -27,11 +27,24 @@
               <td>
                 <div class="op-info">
                   <OperatorAvatar :avatar="log.operator.avatar" :name="log.operator.name" :color="log.operator.color" size="sm" />
-                  <span>{{ log.operator.name }}</span>
+                  <div style="display:flex; flex-direction:column; gap:0.2rem;">
+                    <span>{{ log.operator.name }}</span>
+                    <div style="display:flex; gap:0.1rem; color:#fbbf24; align-items:center;" title="Weekly Attendance Score">
+                      <span class="material-symbols-rounded" v-for="s in log.stars" :key="s" style="font-size:0.8rem">star</span>
+                      <span class="material-symbols-rounded" v-for="s in (5 - log.stars)" :key="'e'+s" style="font-size:0.8rem; color:rgba(255,255,255,0.1)">star</span>
+                    </div>
+                  </div>
                 </div>
               </td>
               <td>{{ log.shiftDate }}</td>
-              <td>{{ formatTime(log.clockIn) }}</td>
+              <td>
+                <div style="display:flex; flex-direction:column; gap:0.25rem;">
+                  <span>{{ formatTime(log.clockIn) }}</span>
+                  <span v-if="log.lateMins > 0" style="font-size:0.75rem; color:#ef4444; font-weight:700;">
+                    LATE BY {{ Math.floor(log.lateMins / 60) > 0 ? Math.floor(log.lateMins / 60) + 'h ' : '' }}{{ log.lateMins % 60 }}m
+                  </span>
+                </div>
+              </td>
               <td>{{ formatTime(log.clockOut) }}</td>
               <td>
                 <span class="status-badge" :class="log.status">
@@ -60,7 +73,54 @@ import { useMesStore } from '@/store/mesStore.js'
 const attStore = useAttendanceStore()
 const mesStore = useMesStore()
 
+function parseTimeToMins(timeStr) {
+  if (!timeStr) return 0
+  const [h,m] = timeStr.split(':')
+  return parseInt(h) * 60 + parseInt(m)
+}
+
+const operatorScores = computed(() => {
+  const morningWindow = attStore.clockingWindows.find(w => w.id === 'morning_in')
+  const morningEndMin = morningWindow ? parseTimeToMins(morningWindow.end) : 480
+  const currentWeekLogs = attStore.clockInLog.filter(log => log.week === mesStore.currentProductionWeek)
+  
+  const scores = {}
+  const opLogs = {}
+  
+  currentWeekLogs.forEach(log => {
+    if (!opLogs[log.operatorId]) opLogs[log.operatorId] = []
+    opLogs[log.operatorId].push(log)
+  })
+  
+  Object.keys(opLogs).forEach(opId => {
+    let score = 100
+    opLogs[opId].forEach(log => {
+       const clockInTime = new Date(log.timestamp)
+       const clockedInMins = clockInTime.getHours() * 60 + clockInTime.getMinutes()
+       if (clockedInMins > morningEndMin) {
+          const lateMins = clockedInMins - morningEndMin
+          const penalty = Math.min(15, Math.ceil(lateMins / 10) * 2)
+          score -= penalty
+       }
+    })
+    
+    let stars = 5
+    if (score < 90) stars = 4
+    if (score < 75) stars = 3
+    if (score < 60) stars = 2
+    if (score < 40) stars = 1
+    if (score < 20) stars = 0
+    
+    scores[opId] = { stars, score }
+  })
+  
+  return scores
+})
+
 const formattedLogs = computed(() => {
+  const morningWindow = attStore.clockingWindows.find(w => w.id === 'morning_in')
+  const morningEndMin = morningWindow ? parseTimeToMins(morningWindow.end) : 480
+
   const currentWeekLogs = attStore.clockInLog.filter(log => log.week === mesStore.currentProductionWeek)
   
   // Sort by latest shift date and clock in
@@ -73,13 +133,24 @@ const formattedLogs = computed(() => {
       name: 'Unknown', avatar: '', color: 'bg-slate-500'
     }
     
+    let lateMins = 0
+    const clockInTime = new Date(log.timestamp)
+    const clockedInMins = clockInTime.getHours() * 60 + clockInTime.getMinutes()
+    if (clockedInMins > morningEndMin) {
+       lateMins = clockedInMins - morningEndMin
+    }
+    
+    const performance = operatorScores.value[log.operatorId] || { stars: 5 }
+    
     return {
       id: `${log.operatorId}-${log.timestamp}`,
       operator,
       shiftDate: log.shiftDate,
       clockIn: log.timestamp,
-      clockOut: log.clockOut, // Note: clockInLog in attendanceStore doesn't currently map clockOut from Supabase, but let's try to read it if it exists. We might need to adjust attendanceStore if clock_out is needed, but we can just display what's available.
-      status: log.status
+      clockOut: log.clockOut,
+      status: log.status,
+      lateMins,
+      stars: performance.stars
     }
   })
 })
