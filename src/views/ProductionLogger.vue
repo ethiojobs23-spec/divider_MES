@@ -617,6 +617,9 @@ async function saveEntry() {
     height: auto;
     min-height: 100%;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-bottom: 3.5rem;
   }
   .prod-sidebar {
     max-width: 100%;
@@ -628,15 +631,27 @@ async function saveEntry() {
   .prod-main {
     padding: 1rem;
     gap: 1rem;
+    overflow: visible;
   }
   .values-row {
     flex-direction: column;
     gap: 0.5rem;
   }
+  .field-tabs {
+    flex-direction: row;
+    gap: 0.5rem;
+  }
+  .field-tab {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.8rem;
+  }
   .save-btn {
-    height: 3.5rem;
+    min-height: 3.75rem;
+    height: auto;
+    padding: 1rem;
     font-size: 1.1rem;
     margin-top: 1rem;
+    touch-action: pan-y;
   }
 }
 </style>
