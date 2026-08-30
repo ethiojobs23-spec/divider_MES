@@ -221,15 +221,21 @@ function clearNum() {
 </script>
 
 <style scoped>
+/* ── Root ────────────────────────────────────────────────────────────────── */
 .login-page {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   background: #0f172a;
   display: flex;
   flex-direction: column;
   padding: 2rem 2.5rem;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
 }
 
 /* Header */
@@ -252,6 +258,7 @@ function clearNum() {
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
+  touch-action: pan-y;
 }
 .back-btn:hover {
   background: rgba(255, 255, 255, 0.1);
@@ -289,9 +296,9 @@ function clearNum() {
 /* Operator Grid */
 .operator-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 1.25rem;
-  flex: 1;
+  width: 100%;
 }
 
 .operator-card {
@@ -512,6 +519,52 @@ function clearNum() {
 /* Transitions */
 .fade-enter-active, .fade-leave-active { transition: opacity .2s ease; }
 .fade-enter-from,  .fade-leave-to      { opacity: 0; }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .login-page {
+    padding: 1rem 1rem 3rem 1rem;
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .login-header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .header-time-gate, .header-week {
+    margin-left: 0;
+    width: 100%;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .operator-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  .operator-card {
+    padding: 1.25rem 1rem;
+  }
+  .modal-card {
+    padding: 1.5rem;
+    margin: 1rem;
+    max-width: calc(100vw - 2rem);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  .modal-btn {
+    width: 100%;
+    min-width: 0;
+  }
+}
 </style>
 
 
