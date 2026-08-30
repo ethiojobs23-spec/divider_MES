@@ -378,7 +378,7 @@ onUnmounted(() => clearInterval(clockTimer))
   margin: 0 0 .15rem;
 }
 .hub-title {
-  font-size: 1.6rem;
+  font-size: clamp(1.25rem, 5vw, 1.6rem);
   font-weight: 900;
   color: #f1f5f9;
   margin: 0;
