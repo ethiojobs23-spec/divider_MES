@@ -134,25 +134,25 @@ body, #mes-app {
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
-  overscroll-behavior: none;   /* kills pull-to-refresh on Android tablets */
-  touch-action: manipulation;  /* suppresses 300ms tap delay on iOS / Android */
+  touch-action: pan-y manipulation;
   background: #0f172a;
-}
-
-/* Prevent native OS keyboard from appearing on any number input —
-   all numeric entry MUST go through VirtualNumpad.
-   This is a defensive backstop; views should not render <input type="number"> at all. */
-input[type="number"],
-input[type="tel"] {
-  caret-color: transparent;
-  pointer-events: none;
 }
 
 /* App wrapper */
 #mes-app {
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: auto;
+  }
 }
 
 /* ── Crash Recovery Screen ─────────────────────────────────────────────── */

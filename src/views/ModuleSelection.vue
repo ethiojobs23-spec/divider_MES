@@ -31,7 +31,7 @@
     </header>
 
     <!-- ── Module cards grid ────────────────────────────────────────── -->
-    <main class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 min-h-0 z-10 w-full p-4 md:p-6 overflow-y-auto">
+    <main class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 z-10 w-full py-4">
 
       <!-- 1. Attendance Kiosk -->
       <button class="module-card card--emerald" @click="go('/login')">
@@ -308,15 +308,20 @@ onUnmounted(() => clearInterval(clockTimer))
 <style scoped>
 /* ── Root ────────────────────────────────────────────────────────────────── */
 .hub-screen {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   background: #0f172a;          /* slate-900 */
   display: flex;
   flex-direction: column;
   padding: 1.5rem 2rem;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   position: relative;
   font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
 }
 
 /* ── Ambient glows ───────────────────────────────────────────────────────── */
@@ -614,14 +619,15 @@ onUnmounted(() => clearInterval(clockTimer))
 @media (max-width: 768px) {
   .hub-screen {
     height: auto;
-    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 1rem 1rem 3rem 1rem;
     overflow-y: auto;
-    padding: 1rem;
+    -webkit-overflow-scrolling: touch;
   }
   .hub-header {
     flex-wrap: wrap;
     gap: 0.75rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
   }
   .hub-meta {
     width: 100%;
