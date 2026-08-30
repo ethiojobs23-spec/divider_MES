@@ -639,4 +639,56 @@ const typeBreakdown = computed(() => {
 }
 .breakdown-qty  { font-size: 0.72rem; font-weight: 700; color: #a5b4fc; width: 4.5rem; text-align: right; flex-shrink: 0; }
 .breakdown-empty { font-size: 0.8rem; color: #475569; }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .lpd-root {
+    padding: 1rem 1rem 3rem 1rem;
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .lpd-header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+  .kpi-card:last-child {
+    grid-column: 1 / -1;
+  }
+  .kpi-card {
+    padding: 0.75rem 0.85rem;
+  }
+  .lpd-body {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+  .feed-section, .chart-section {
+    width: 100%;
+    flex: none;
+    overflow: visible;
+  }
+  .feed-list {
+    max-height: 360px;
+  }
+  .bar-chart-wrap {
+    min-height: 200px;
+  }
+  .type-pills {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+  .type-pills::-webkit-scrollbar { display: none; }
+  .type-pill {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
 </style>
