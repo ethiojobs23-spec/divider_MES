@@ -219,7 +219,11 @@ const activeCategory  = ref('MFG')
 const activePlacement = ref('ብተና')
 const activeSize      = ref('9cm')
 
-const columns = computed(() => activeCategory.value === 'TIME' ? ['Hours'] : allDividerTypes)
+const columns = computed(() => {
+  if (activeCategory.value === 'TIME') return ['Hours']
+  if (activeCategory.value === 'C') return ['Units']
+  return allDividerTypes
+})
 
 // ─── Grid Data Store ───────────────────────────────────────────────────────
 function getCellValue(dayName, col, placement, size) {
@@ -238,11 +242,13 @@ function getCellValue(dayName, col, placement, size) {
          return dayMatch && opMatch && catMatch
        }
        
-       const colMatch = String(e.dividerType || '').trim() === String(col).trim()
-       const placeMatch = (activeCategory.value === 'MFG' || activeCategory.value === 'C') 
+       const colMatch = activeCategory.value === 'C' ? true : String(e.dividerType || '').trim() === String(col).trim()
+       const placeMatch = activeCategory.value === 'C'
          ? String(e.placement || '').trim() === String(placement).trim() 
          : true
-       const sizeMatch = String(e.size || '').trim() === String(size).trim()
+       const sizeMatch = (activeCategory.value !== 'MFG') 
+         ? String(e.size || '').trim() === String(size).trim()
+         : true
        
        return dayMatch && colMatch && placeMatch && sizeMatch && opMatch && catMatch
     })

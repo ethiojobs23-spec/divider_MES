@@ -67,8 +67,8 @@
           </button>
         </div>
 
-        <!-- Divider Type tabs -->
-        <div class="type-tabs">
+        <!-- Divider Type tabs (Hidden for C) -->
+        <div class="type-tabs" v-if="activeRateCat !== 'C'">
           <button
             v-for="t in allDividerTypesForRates"
             :key="t"
@@ -124,19 +124,19 @@
                   >
                     <div class="rate-meta">
                       <span class="placement-badge">{{ placement === 'Other' ? (store.systemConfig.otherPlacement.label || 'Other') : placement }}</span>
-                      <span class="rate-key">Type {{ selectedType === 'Other' ? (store.systemConfig.otherDividerType.label || 'Custom') : selectedType }} &bull; {{ size }}</span>
+                      <span class="rate-key">{{ size }}</span>
                     </div>
 
                     <!-- Stepper -->
                     <div class="stepper">
-                      <button class="step-btn step-btn--minus" @click="adjustRate(activeRateCat, selectedType, size, placement, -0.25)">
+                      <button class="step-btn step-btn--minus" @click="adjustRate(activeRateCat, null, size, placement, -0.25)">
                         <span class="material-symbols-rounded">remove</span>
                       </button>
                       <div class="step-display">
                         <span class="step-currency">ETB</span>
-                        <span class="step-val">{{ getRate(activeRateCat, selectedType, size, placement).toFixed(2) }}</span>
+                        <span class="step-val">{{ getRate(activeRateCat, null, size, placement).toFixed(2) }}</span>
                       </div>
-                      <button class="step-btn step-btn--plus" @click="adjustRate(activeRateCat, selectedType, size, placement, +0.25)">
+                      <button class="step-btn step-btn--plus" @click="adjustRate(activeRateCat, null, size, placement, +0.25)">
                         <span class="material-symbols-rounded">add</span>
                       </button>
                     </div>

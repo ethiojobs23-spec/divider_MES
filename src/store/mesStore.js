@@ -220,6 +220,7 @@ export const useMesStore = defineStore('mes', () => {
         qty_produced: effectiveQty,
         qty_waste: data.wasteMaterial || 0,
         hours_worked: data.hoursWorked || null,
+        notes: data.notes || null,
         is_overtime: overtime,
         logged_by_admin: data.loggedByAdmin || false
       }
@@ -819,10 +820,10 @@ export const useMesStore = defineStore('mes', () => {
     let rate = 0
     if (cat === 'MFG') {
       rate = pieceRates.value?.['MFG']?.[entry.dividerType] ?? 0
+    } else if (cat === 'C') {
+      rate = pieceRates.value?.['C']?.['null']?.[entry.size]?.[entry.placement] ?? 0
     } else if (cat === 'PP' || cat === 'PL') {
       rate = pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size] ?? 0
-    } else {
-      rate = pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size]?.[entry.placement] ?? 0
     }
     
     const qty = Number(entry.goodProduction || entry.good || 0)
@@ -837,10 +838,13 @@ export const useMesStore = defineStore('mes', () => {
     if (cat === 'MFG') {
       return pieceRates.value?.['MFG']?.[entry.dividerType] ?? 0
     }
+    if (cat === 'C') {
+      return pieceRates.value?.['C']?.['null']?.[entry.size]?.[entry.placement] ?? 0
+    }
     if (cat === 'PP' || cat === 'PL') {
       return pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size] ?? 0
     }
-    return pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size]?.[entry.placement] ?? 0
+    return 0
   }
 
   return {

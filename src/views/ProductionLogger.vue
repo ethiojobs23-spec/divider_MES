@@ -137,8 +137,14 @@
             </button>
           </div>
 
+          <!-- Custom Notes Field -->
+          <div v-if="needsPlacement && (selections.placement === 'የተለየ' || selections.placement === 'Other')" class="custom-note-field" style="margin-top: 1.5rem;">
+            <label style="display:block; font-size:0.85rem; font-weight:700; color:#94a3b8; margin-bottom:0.5rem; text-transform:uppercase; letter-spacing:0.05em;">Custom Job Description (የተለየ)</label>
+            <input type="text" v-model="values.notes" placeholder="Type whatever task was done..." class="mes-input" style="width:100%; font-size:1rem; padding:0.75rem 1rem;" />
+          </div>
+
           <!-- Values Summary -->
-          <div class="values-row">
+          <div class="values-row" :style="needsPlacement && (selections.placement === 'የተለየ' || selections.placement === 'Other') ? 'margin-top: 1.5rem;' : ''">
             <div class="value-chip value-chip--good">
               <span>Good</span>
               <strong>{{ values.good || '0' }}</strong>
@@ -286,7 +292,7 @@ const hasSizes = computed(() => activeCategory.value !== 'TIME' && activeCategor
 const needsPlacement = computed(() => activeCategory.value === 'C')
 
 // ─── Input State ────────────────────────────────────────────────────────────
-const values     = reactive({ good: '', waste: '', hours: '' })
+const values     = reactive({ good: '', waste: '', hours: '', notes: '' })
 const activeField = ref('good')
 const isSaving   = ref(false)
 
@@ -325,8 +331,17 @@ const currentRate = computed(() => {
   const type = selections.dividerType
   const size = selections.size
   const pl = selections.placement
-  if (cat === 'PP' || cat === 'PL') return store.pieceRates?.[cat]?.[type]?.[size] ?? 0
-  return store.pieceRates?.[cat]?.[type]?.[size]?.[pl] ?? 0
+  
+  if (cat === 'MFG') {
+    return store.pieceRates?.['MFG']?.[type] ?? 0
+  }
+  if (cat === 'C') {
+    return store.pieceRates?.['C']?.['null']?.[size]?.[pl] ?? 0
+  }
+  if (cat === 'PP' || cat === 'PL') {
+    return store.pieceRates?.[cat]?.[type]?.[size] ?? 0
+  }
+  return 0
 })
 
 const earningsPreview = computed(() => {
@@ -362,6 +377,7 @@ async function saveEntry() {
     goodProduction: activeCategory.value !== 'TIME' ? (Number(values.good) || 0) : 0,
     wasteMaterial:  activeCategory.value !== 'TIME' ? (Number(values.waste) || 0) : 0,
     hoursWorked:    activeCategory.value === 'TIME' ? (Number(values.hours) || 0) : null,
+    notes:          values.notes
   }
   
   const ok = await store.submitProductionLog(payload)
