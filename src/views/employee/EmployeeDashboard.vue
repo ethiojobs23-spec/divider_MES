@@ -313,7 +313,14 @@
           <!-- Right: Weekly Attendance History -->
           <div class="history-card">
             <div class="week-selector-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-              <h3>Weekly Attendance</h3>
+              <div style="display:flex; align-items:center; gap:1rem;">
+                <h3>Weekly Attendance</h3>
+                <div v-if="attendanceScore.stars > 0" style="display:flex; align-items:center; color:#fbbf24; gap:0.25rem;" title="Performance Score">
+                  <span class="material-symbols-rounded" v-for="s in attendanceScore.stars" :key="s" style="font-size:1.2rem">star</span>
+                  <span class="material-symbols-rounded" v-for="s in (5 - attendanceScore.stars)" :key="'e'+s" style="font-size:1.2rem; color:rgba(255,255,255,0.1)">star</span>
+                  <span style="font-size:0.8rem; margin-left:0.5rem; color:#94a3b8; font-weight:600;">{{ attendanceScore.label }}</span>
+                </div>
+              </div>
               <div class="week-controls" style="display:flex; align-items:center; gap:0.5rem; background:rgba(255,255,255,0.05); padding:0.25rem; border-radius:2rem;">
                 <button class="icon-btn" @click="shiftWeek(-1)" style="background:transparent; border:none; color:#f8fafc; cursor:pointer; display:flex;"><span class="material-symbols-rounded">chevron_left</span></button>
                 <strong style="color:#818cf8">{{ viewWeek }}</strong>
@@ -334,6 +341,10 @@
                       <span style="font-size:0.85rem; color:#94a3b8; display:block; margin-top:0.2rem;" v-if="day.record">
                         In: {{ new Date(day.record.clock_in).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) }} 
                         <span v-if="day.record.clock_out">| Out: {{ new Date(day.record.clock_out).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) }}</span>
+                      </span>
+                      <span v-if="day.lateMins > 0" style="font-size:0.75rem; color:#ef4444; font-weight:700; display:block; margin-top:0.2rem;">
+                        <span class="material-symbols-rounded" style="font-size:0.9rem; vertical-align:middle;">schedule</span>
+                        LATE BY {{ Math.floor(day.lateMins / 60) > 0 ? Math.floor(day.lateMins / 60) + 'h ' : '' }}{{ day.lateMins % 60 }}m
                       </span>
                     </span>
                     <span class="reason" v-else-if="day.status === 'absent'">
@@ -733,7 +744,16 @@ watch(viewWeek, async (newWeek) => {
   if (data) viewWeekAttendance.value = data
 }, { immediate: true })
 
+function parseTimeToMins(timeStr) {
+  if (!timeStr) return 0
+  const [h,m] = timeStr.split(':')
+  return parseInt(h) * 60 + parseInt(m)
+}
+
 const viewWeekDays = computed(() => {
+  const morningWindow = attStore.clockingWindows.find(w => w.id === 'morning_in')
+  const morningEndMin = morningWindow ? parseTimeToMins(morningWindow.end) : 480 // 08:00
+  
   const label = viewWeek.value
   const match = label.match(/W(\d+)-(\d+)/)
   if (!match) return []
@@ -764,8 +784,15 @@ const viewWeekDays = computed(() => {
      const record = viewWeekAttendance.value.find(a => a.shift_date === dateStr)
      
      let status = 'upcoming'
+     let lateMins = 0
+     
      if (record) {
         status = 'present'
+        const clockInTime = new Date(record.clock_in)
+        const clockedInMins = clockInTime.getHours() * 60 + clockInTime.getMinutes()
+        if (clockedInMins > morningEndMin) {
+           lateMins = clockedInMins - morningEndMin
+        }
      } else if (dateStr < todayStr) {
         status = 'absent'
      } else if (dateStr === todayStr) {
@@ -777,10 +804,46 @@ const viewWeekDays = computed(() => {
        dayName: dd.toLocaleDateString('en-US', { weekday: 'short' }),
        formatted: dd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
        record,
-       status
+       status,
+       lateMins
      })
   }
   return days
+})
+
+const attendanceScore = computed(() => {
+  let score = 100
+  let pastDaysCount = 0
+  
+  viewWeekDays.value.forEach(day => {
+    if (day.status === 'absent') {
+      score -= 20
+      pastDaysCount++
+    } else if (day.status === 'present') {
+      pastDaysCount++
+      if (day.lateMins > 0) {
+        const penalty = Math.min(15, Math.ceil(day.lateMins / 10) * 2)
+        score -= penalty
+      }
+    }
+  })
+  
+  if (pastDaysCount === 0) return { stars: 0, label: 'N/A', score }
+  
+  let stars = 5
+  if (score < 90) stars = 4
+  if (score < 75) stars = 3
+  if (score < 60) stars = 2
+  if (score < 40) stars = 1
+  if (score < 20) stars = 0
+  
+  let label = 'Excellent'
+  if (stars === 4) label = 'Good'
+  if (stars === 3) label = 'Average'
+  if (stars === 2) label = 'Poor'
+  if (stars <= 1) label = 'Critical'
+  
+  return { stars, label, score }
 })
 
 const adminOverrideModal = ref({ show: false, action: '', error: '', loading: false })
