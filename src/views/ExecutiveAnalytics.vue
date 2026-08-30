@@ -2,11 +2,9 @@
   <AppLayout>
     <div class="analytics-root">
 
-      <!-- ══════════════════════════════════════════════════════════════════
-           LEFT NAV — View tabs
-           ══════════════════════════════════════════════════════════════════ -->
+      <!-- ── LEFT NAV ── -->
       <aside class="view-nav">
-        <p class="nav-heading">DASHBOARD VIEWS</p>
+        <p class="nav-heading">ANALYTICS</p>
 
         <button
           v-for="tab in TABS"
@@ -23,19 +21,16 @@
           <span v-if="activeView === tab.id" class="tab-indicator" />
         </button>
 
-        <!-- Export -->
         <button class="export-btn" @click="exportTelegram">
           <span class="material-symbols-rounded">send</span>
           Export to Frezer
         </button>
       </aside>
 
-      <!-- ══════════════════════════════════════════════════════════════════
-           MAIN CONTENT AREA
-           ══════════════════════════════════════════════════════════════════ -->
+      <!-- ── MAIN AREA ── -->
       <main class="view-area">
 
-        <!-- ─── VIEW A: Global Factory Overview ──────────────────────── -->
+        <!-- ══════ VIEW A: Global Factory Overview ════════════════════════ -->
         <Transition name="view-fade" mode="out-in">
         <section v-if="activeView === 'global'" class="view-panel" key="global">
 
@@ -45,14 +40,14 @@
           </div>
 
           <!-- KPI Row -->
-          <div class="kpi-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
+          <div class="kpi-grid">
             <AnalyticsDataCard
               title="Total Dividers Produced"
               :value="store.totalGoodAllTime.toLocaleString()"
               icon="factory"
               icon-bg="rgba(99,102,241,.15)"
               icon-color="#a5b4fc"
-              :trend="kpiTrends.production"
+              :trend="null"
             />
             <AnalyticsDataCard
               title="Total Waste Units"
@@ -60,7 +55,7 @@
               icon="delete_sweep"
               icon-bg="rgba(239,68,68,.12)"
               icon-color="#f87171"
-              :trend="kpiTrends.waste"
+              :trend="null"
               :trend-up-is-bad="true"
             />
             <AnalyticsDataCard
@@ -69,31 +64,64 @@
               icon="percent"
               icon-bg="rgba(245,158,11,.12)"
               icon-color="#fbbf24"
-              :trend="kpiTrends.wasteRate"
+              :trend="null"
               :trend-up-is-bad="true"
+            />
+            <AnalyticsDataCard
+              title="Total Dispatched"
+              :value="store.totalDispatched.toLocaleString() + ' units'"
+              icon="local_shipping"
+              icon-bg="rgba(16,185,129,.12)"
+              icon-color="#34d399"
+              :trend="null"
+            />
+            <AnalyticsDataCard
+              title="Downtime Sessions"
+              :value="store.downtimeSessions.length + ' sessions'"
+              icon="timer_off"
+              icon-bg="rgba(239,68,68,.12)"
+              icon-color="#f87171"
+              :trend="null"
+              :trend-up-is-bad="true"
+            />
+            <AnalyticsDataCard
+              title="Total Advances Issued"
+              :value="'ETB ' + store.totalAdvances.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })"
+              icon="payments"
+              icon-bg="rgba(139,92,246,.15)"
+              icon-color="#c084fc"
+              :trend="null"
             />
             <AnalyticsDataCard
               title="Total Payroll Liability"
               :value="'ETB ' + totalPayrollLiability.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })"
               icon="account_balance_wallet"
-              icon-bg="rgba(139,92,246,.15)"
-              icon-color="#c084fc"
+              icon-bg="rgba(245,158,11,.12)"
+              icon-color="#fbbf24"
+              :trend="null"
+            />
+            <AnalyticsDataCard
+              title="Active Operators"
+              :value="store.operators.filter(o => o.role !== 'customer').length + ' people'"
+              icon="groups"
+              icon-bg="rgba(99,102,241,.15)"
+              icon-color="#a5b4fc"
               :trend="null"
             />
           </div>
 
-          <!-- 7-Day Bar Chart -->
-          <div class="chart-card" style="flex:1;min-height:0">
+          <!-- 7-Day Production Bar Chart -->
+          <div class="chart-card" style="flex:1; min-height:0">
             <div class="card-hdr">
               <span class="material-symbols-rounded" style="color:#6366f1">trending_up</span>
               <div>
                 <p class="card-hdr-title">7-Day Production Trend</p>
-                <p class="card-hdr-sub">Good output (purple) vs. waste (red)</p>
+                <p class="card-hdr-sub">Good output (indigo) vs. waste (red) – current week</p>
               </div>
-              <div class="badge">7-Day</div>
+              <div class="badge">{{ store.currentProductionWeek }}</div>
             </div>
-            <div class="bar-chart">
-              <div v-for="day in store.sevenDayTrend" :key="day.label" class="bar-col">
+            <div class="bar-chart" v-if="sevenDayTrend.length > 0">
+              <div v-for="day in sevenDayTrend" :key="day.label" class="bar-col">
                 <div class="bar-col-inner">
                   <div class="bar-seg bar-seg--waste" :style="{ height: barH(day.waste) + '%' }" :title="`Waste: ${day.waste}`" />
                   <div class="bar-seg bar-seg--good"  :style="{ height: barH(day.good)  + '%' }" :title="`Good: ${day.good}`" />
@@ -105,37 +133,35 @@
                 <p class="bar-label">{{ day.label }}</p>
               </div>
             </div>
+            <div v-else class="empty-chart">
+              <span class="material-symbols-rounded" style="font-size:2.5rem; color:#334155;">bar_chart</span>
+              <p>No production data yet for this week.</p>
+            </div>
             <div class="chart-legend">
-              <div class="leg-item"><span class="leg-dot" style="background:#6366f1"/> Good Production</div>
-              <div class="leg-item"><span class="leg-dot" style="background:#ef4444"/> Waste Material</div>
+              <div class="leg-item"><span class="leg-dot" style="background:#6366f1"/>Good Production</div>
+              <div class="leg-item"><span class="leg-dot" style="background:#ef4444"/>Waste Material</div>
             </div>
           </div>
 
         </section>
         </Transition>
 
-        <!-- ─── VIEW B: Employee Performance & Pay ───────────────────── -->
+        <!-- ══════ VIEW B: Employee Performance & Pay ═════════════════════ -->
         <Transition name="view-fade" mode="out-in">
         <section v-if="activeView === 'employee'" class="view-panel" key="employee">
 
           <div class="panel-header">
             <h2 class="panel-title">Employee Performance & Pay</h2>
-            <p class="panel-sub">Tap an operator to expand their full profile</p>
+            <p class="panel-sub">Real-time · from attendance + production data · {{ store.currentProductionWeek }}</p>
           </div>
 
-          <div class="employee-layout flex flex-col md:flex-row">
+          <div class="employee-layout flex flex-col md:flex-row" style="flex:1; overflow:hidden; gap:1rem;">
 
             <!-- Left: operator list -->
-            <div class="operator-list w-full md:w-[260px] max-h-64 md:max-h-none">
-              <!-- Search -->
+            <div class="operator-list" style="width:260px; flex-shrink:0; overflow-y:auto;">
               <div class="search-wrap">
                 <span class="material-symbols-rounded search-icon">search</span>
-                <input
-                  v-model="empSearch"
-                  class="search-input"
-                  placeholder="Search operator…"
-                  type="text"
-                />
+                <input v-model="empSearch" class="search-input" placeholder="Search operator…" type="text" />
               </div>
 
               <button
@@ -160,22 +186,42 @@
             </div>
 
             <!-- Right: detail profile -->
-            <div class="profile-area">
+            <div class="profile-area" style="flex:1; overflow-y:auto;">
               <Transition name="profile-fade" mode="out-in">
                 <div v-if="selectedProfile" class="profile-card" :key="selectedProfile.id">
 
                   <!-- Header -->
                   <div class="profile-hdr">
                     <OperatorAvatar :avatar="selectedProfile.avatar" :name="selectedProfile.name" :color="selectedProfile.color" size="xl" />
-                    <div>
+                    <div style="flex:1">
                       <h3 class="profile-name">{{ selectedProfile.name }}</h3>
                       <p class="profile-role">{{ selectedProfile.role }}</p>
+                      <!-- Work Type Badges -->
+                      <div style="display:flex; gap:.4rem; flex-wrap:wrap; margin-top:.4rem;">
+                        <span
+                          v-for="cat in (selectedProfile.work_types?.categories || ['MFG'])"
+                          :key="cat"
+                          style="font-size:.65rem; font-weight:800; padding:.2rem .5rem; border-radius:.4rem; text-transform:uppercase; background:rgba(99,102,241,.2); color:#a5b4fc; border:1px solid rgba(99,102,241,.4);"
+                        >{{ cat }}</span>
+                      </div>
                     </div>
                     <div
                       class="profile-badge"
                       :class="selectedProfile.wastePercent >= 15 ? 'badge--critical' : selectedProfile.wastePercent >= 8 ? 'badge--warn' : 'badge--ok'"
                     >
                       {{ selectedProfile.wastePercent }}% Waste
+                    </div>
+                  </div>
+
+                  <!-- Stars & Attendance -->
+                  <div class="metric-section" style="margin-top:1rem;">
+                    <p class="section-title"><span class="material-symbols-rounded">star</span> Attendance Performance</p>
+                    <div style="display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;">
+                      <div style="display:flex; gap:.2rem;">
+                        <span v-for="s in 5" :key="s" class="material-symbols-rounded" style="font-size:1.4rem;" :style="{ color: s <= attScore(selectedProfile.id) ? '#f59e0b' : '#334155' }">star</span>
+                      </div>
+                      <span style="font-size:.8rem; color:#94a3b8;">{{ attLabel(attScore(selectedProfile.id)) }}</span>
+                      <span style="font-size:.75rem; font-weight:700; color:#64748b;">· {{ attDays(selectedProfile.id) }}/{{ expectedDays }} days attended</span>
                     </div>
                   </div>
 
@@ -199,7 +245,6 @@
                           <span class="m-value">{{ selectedProfile.wastePercent }}%</span>
                         </div>
                       </div>
-                      <!-- Waste bar -->
                       <div class="waste-bar-track">
                         <div
                           class="waste-bar-fill"
@@ -209,47 +254,22 @@
                       </div>
                     </div>
 
-                    <!-- Attendance -->
-                    <div class="metric-section">
-                      <p class="section-title"><span class="material-symbols-rounded">calendar_month</span> Attendance</p>
-                      <div class="metric-row">
-                        <div class="metric-item">
-                          <span class="m-label">Days Attended</span>
-                          <span class="m-value">{{ selectedProfile.pay.daysAttended }}</span>
-                        </div>
-                        <div class="metric-item">
-                          <span class="m-label">Expected Days</span>
-                          <span class="m-value">{{ selectedProfile.pay.expectedDays }}</span>
-                        </div>
-                        <div class="metric-item">
-                          <span class="m-label">Attendance Rate</span>
-                          <span class="m-value m-value--good">
-                            {{ Math.round((selectedProfile.pay.daysAttended / selectedProfile.pay.expectedDays) * 100) }}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
                     <!-- Financials -->
                     <div class="metric-section metric-section--financial">
-                      <p class="section-title"><span class="material-symbols-rounded">account_balance_wallet</span> Financials</p>
+                      <p class="section-title"><span class="material-symbols-rounded">account_balance_wallet</span> Financials ({{ store.currentProductionWeek }})</p>
                       <div class="financial-rows">
                         <div class="fin-row">
                           <span class="fin-label">Gross Earnings</span>
-                          <span class="fin-value">ETB {{ selectedProfile.pay.gross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
+                          <span class="fin-value">ETB {{ opEarnings(selectedProfile.id).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
                         </div>
                         <div class="fin-row fin-row--deduct">
-                          <span class="fin-label">Loan Deductions</span>
-                          <span class="fin-value fin-value--red">− ETB {{ selectedProfile.pay.loanDeduction.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
-                        </div>
-                        <div class="fin-row fin-row--deduct">
-                          <span class="fin-label">Advance Deductions</span>
-                          <span class="fin-value fin-value--red">− ETB {{ selectedProfile.pay.advanceDeduction.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
+                          <span class="fin-label">Cash Advances</span>
+                          <span class="fin-value fin-value--red">− ETB {{ opAdvances(selectedProfile.id).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
                         </div>
                         <div class="fin-divider" />
                         <div class="fin-row fin-row--net">
                           <span class="fin-label-net">NET PAYOUT</span>
-                          <span class="fin-value-net">ETB {{ selectedProfile.pay.net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
+                          <span class="fin-value-net">ETB {{ Math.max(0, opEarnings(selectedProfile.id) - opAdvances(selectedProfile.id)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
                         </div>
                       </div>
                     </div>
@@ -263,7 +283,7 @@
                       <div class="vt-header">
                         <span>Variant</span><span>Size</span><span>Placement</span><span>Good</span><span>Waste</span><span>Rate (ETB)</span>
                       </div>
-                      <div v-for="row in selectedProfile.variants" :key="row.key" class="vt-row">
+                      <div v-for="row in opVariantBreakdown(selectedProfile)" :key="row.key" class="vt-row">
                         <span class="vt-badge">{{ row.dividerType }}</span>
                         <span>{{ row.size }}</span>
                         <span>{{ row.placement }}</span>
@@ -271,7 +291,7 @@
                         <span class="vt-waste">{{ row.waste }}</span>
                         <span class="vt-rate">ETB {{ row.rate.toFixed(2) }}</span>
                       </div>
-                      <div v-if="!selectedProfile.variants.length" class="vt-empty">No production entries</div>
+                      <div v-if="!opVariantBreakdown(selectedProfile).length" class="vt-empty">No production entries this week</div>
                     </div>
                   </div>
 
@@ -287,17 +307,17 @@
         </section>
         </Transition>
 
-        <!-- ─── VIEW C: Payroll Cost Analysis ────────────────────────── -->
+        <!-- ══════ VIEW C: Payroll Cost Analysis ══════════════════════════ -->
         <Transition name="view-fade" mode="out-in">
         <section v-if="activeView === 'payroll'" class="view-panel" key="payroll">
 
           <div class="panel-header">
             <h2 class="panel-title">Payroll Cost Analysis</h2>
-            <p class="panel-sub">Labor cost per unit · M&amp;T / W&amp;T / F&amp;S breakdown · {{ store.currentProductionWeek }}</p>
+            <p class="panel-sub">Labor cost per unit · Work-type breakdown · {{ store.currentProductionWeek }}</p>
           </div>
 
-          <!-- Cost per unit KPIs -->
-          <div class="cpu-kpi-row flex flex-col md:flex-row gap-3">
+          <!-- Cost KPIs -->
+          <div class="cpu-kpi-row flex flex-col md:flex-row gap-3 flex-shrink-0">
             <div class="cpu-kpi">
               <p class="cpu-label">Total Payroll Liability</p>
               <p class="cpu-value">ETB {{ totalPayrollLiability.toFixed(2) }}</p>
@@ -314,26 +334,31 @@
                   : '—' }}
               </p>
             </div>
+            <div class="cpu-kpi">
+              <p class="cpu-label">Total Advances Issued</p>
+              <p class="cpu-value" style="color:#f87171">ETB {{ store.totalAdvances.toFixed(2) }}</p>
+            </div>
           </div>
 
           <!-- Per-operator cost table -->
-          <div class="chart-card" style="flex:1;min-height:0;overflow:hidden">
+          <div class="chart-card" style="flex:1; min-height:0; overflow:hidden; display:flex; flex-direction:column;">
             <div class="card-hdr">
               <span class="material-symbols-rounded" style="color:#c084fc">bar_chart</span>
               <div>
                 <p class="card-hdr-title">Cost per Unit by Operator</p>
-                <p class="card-hdr-sub">Gross Earnings ÷ Units Produced</p>
+                <p class="card-hdr-sub">Gross Earnings ÷ Units Produced · Real data</p>
               </div>
             </div>
 
-            <div class="cost-table-wrap overflow-x-auto w-full">
+            <div class="cost-table-wrap overflow-x-auto" style="flex:1; overflow-y:auto;">
               <table class="cost-table">
                 <thead>
                   <tr>
                     <th>Operator</th>
+                    <th>Work Types</th>
                     <th>Units Produced</th>
                     <th>Gross (ETB)</th>
-                    <th>Deductions (ETB)</th>
+                    <th>Advances (ETB)</th>
                     <th>Net Payout (ETB)</th>
                     <th>Cost / Unit (ETB)</th>
                     <th>Bar</th>
@@ -347,9 +372,18 @@
                         <span>{{ row.name }}</span>
                       </div>
                     </td>
+                    <td>
+                      <div style="display:flex; gap:.25rem; flex-wrap:wrap;">
+                        <span
+                          v-for="cat in (row.work_types?.categories || ['MFG'])"
+                          :key="cat"
+                          style="font-size:.6rem; font-weight:800; padding:.15rem .4rem; border-radius:.3rem; background:rgba(99,102,241,.15); color:#a5b4fc; border:1px solid rgba(99,102,241,.3);"
+                        >{{ cat }}</span>
+                      </div>
+                    </td>
                     <td class="num">{{ row.good.toLocaleString() }}</td>
                     <td class="num">{{ row.gross.toFixed(2) }}</td>
-                    <td class="num red">{{ (row.loanDeduction + row.advanceDeduction).toFixed(2) }}</td>
+                    <td class="num red">{{ row.advances.toFixed(2) }}</td>
                     <td class="num green">{{ row.net.toFixed(2) }}</td>
                     <td class="num purple">{{ row.good > 0 ? row.costPerUnit.toFixed(4) : '—' }}</td>
                     <td class="bar-cell">
@@ -362,13 +396,13 @@
                     </td>
                   </tr>
                   <tr v-if="costAnalysisRows.length === 0">
-                    <td colspan="7" class="empty-td">No payroll data for current week</td>
+                    <td colspan="8" class="empty-td">No payroll data — no production logged yet.</td>
                   </tr>
                 </tbody>
               </table>
             </div>
 
-            <!-- Week breakdown: M&T / W&T / F&S -->
+            <!-- Weekly Period Breakdown -->
             <div class="week-breakdown">
               <p class="section-title" style="margin-bottom:.75rem">
                 <span class="material-symbols-rounded">date_range</span> Weekly Period Breakdown
@@ -391,6 +425,243 @@
         </section>
         </Transition>
 
+        <!-- ══════ VIEW D: Inventory Status ══════════════════════════════ -->
+        <Transition name="view-fade" mode="out-in">
+        <section v-if="activeView === 'inventory'" class="view-panel" key="inventory">
+
+          <div class="panel-header">
+            <h2 class="panel-title">Inventory Health</h2>
+            <p class="panel-sub">Raw materials · stock levels · alerts for items below 15%</p>
+          </div>
+
+          <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr);">
+            <AnalyticsDataCard
+              title="Total Materials Tracked"
+              :value="inventoryStore.materials.length + ' items'"
+              icon="category"
+              icon-bg="rgba(99,102,241,.15)"
+              icon-color="#a5b4fc"
+              :trend="null"
+            />
+            <AnalyticsDataCard
+              title="Low Stock Alerts"
+              :value="inventoryStore.lowStockAlerts.length + ' items'"
+              icon="warning"
+              icon-bg="rgba(239,68,68,.12)"
+              icon-color="#f87171"
+              :trend="null"
+              :trend-up-is-bad="true"
+            />
+            <AnalyticsDataCard
+              title="Total Withdrawals"
+              :value="inventoryStore.transactions.filter(t => t.transaction_type === 'OUT').length + ' logs'"
+              icon="outbox"
+              icon-bg="rgba(245,158,11,.12)"
+              icon-color="#fbbf24"
+              :trend="null"
+            />
+            <AnalyticsDataCard
+              title="Total Receipts"
+              :value="inventoryStore.transactions.filter(t => t.transaction_type === 'IN').length + ' logs'"
+              icon="inventory"
+              icon-bg="rgba(16,185,129,.12)"
+              icon-color="#34d399"
+              :trend="null"
+            />
+          </div>
+
+          <div class="chart-card" style="flex:1; min-height:0; overflow-y:auto;">
+            <div class="card-hdr">
+              <span class="material-symbols-rounded" style="color:#a5b4fc">inventory_2</span>
+              <div>
+                <p class="card-hdr-title">Material Stock Levels</p>
+                <p class="card-hdr-sub">Items below 15% capacity are highlighted in red</p>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:.75rem; overflow-y:auto;">
+              <div v-for="mat in inventoryStore.materials" :key="mat.id" class="inv-row" :class="isLowStock(mat) ? 'inv-row--danger' : ''">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.4rem;">
+                  <div style="display:flex; align-items:center; gap:.6rem;">
+                    <span class="material-symbols-rounded" style="font-size:1.1rem;" :style="{ color: isLowStock(mat) ? '#f87171' : '#6366f1' }">category</span>
+                    <span style="font-weight:700; color:#f8fafc;">{{ mat.name }}</span>
+                    <span v-if="isLowStock(mat)" style="font-size:.6rem; font-weight:800; background:#e11d48; color:#fff; padding:.15rem .4rem; border-radius:.3rem; text-transform:uppercase;">⚠ Low Stock</span>
+                  </div>
+                  <span style="font-size:.9rem; font-weight:700; font-family:monospace;" :style="{ color: isLowStock(mat) ? '#f87171' : '#f8fafc' }">
+                    {{ (Number(mat.current_stock) || 0).toFixed(1) }} / {{ mat.max_capacity }} {{ mat.unit }}
+                  </span>
+                </div>
+                <div class="h-2 w-full bg-slate-900 rounded-full overflow-hidden">
+                  <div
+                    class="h-full rounded-full"
+                    :class="isLowStock(mat) ? 'bg-rose-500' : 'bg-indigo-500'"
+                    :style="{ width: Math.min(100, ((mat.current_stock || 0) / (mat.max_capacity || 1)) * 100) + '%', height:'6px', transition:'width 0.5s ease' }"
+                  ></div>
+                </div>
+                <p style="font-size:.65rem; color:#64748b; margin-top:.25rem; font-weight:600;">
+                  {{ Math.min(100, ((mat.current_stock || 0) / (mat.max_capacity || 1)) * 100).toFixed(0) }}% remaining · Alert threshold: 15%
+                </p>
+              </div>
+              <div v-if="inventoryStore.materials.length === 0" class="empty-chart">
+                <span class="material-symbols-rounded" style="font-size:2.5rem; color:#334155;">inventory_2</span>
+                <p>No materials tracked yet.</p>
+              </div>
+            </div>
+          </div>
+
+        </section>
+        </Transition>
+
+        <!-- ══════ VIEW E: Dispatch & Customers ══════════════════════════ -->
+        <Transition name="view-fade" mode="out-in">
+        <section v-if="activeView === 'dispatch'" class="view-panel" key="dispatch">
+
+          <div class="panel-header">
+            <h2 class="panel-title">Dispatch & Customers</h2>
+            <p class="panel-sub">Total dispatched per customer · logistics overview</p>
+          </div>
+
+          <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr);">
+            <AnalyticsDataCard
+              title="Total Dispatched"
+              :value="store.totalDispatched.toLocaleString() + ' units'"
+              icon="local_shipping"
+              icon-bg="rgba(16,185,129,.12)"
+              icon-color="#34d399"
+              :trend="null"
+            />
+            <AnalyticsDataCard
+              title="Total Customers"
+              :value="store.clients.length + ' clients'"
+              icon="group"
+              icon-bg="rgba(99,102,241,.15)"
+              icon-color="#a5b4fc"
+              :trend="null"
+            />
+            <AnalyticsDataCard
+              title="Dispatch Entries"
+              :value="store.dispatchLogs.length + ' logs'"
+              icon="receipt_long"
+              icon-bg="rgba(245,158,11,.12)"
+              icon-color="#fbbf24"
+              :trend="null"
+            />
+            <AnalyticsDataCard
+              title="Total Expenses"
+              :value="'ETB ' + store.totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })"
+              icon="receipt"
+              icon-bg="rgba(239,68,68,.12)"
+              icon-color="#f87171"
+              :trend="null"
+            />
+          </div>
+
+          <div class="chart-card" style="flex:1; min-height:0; overflow:hidden; display:flex; flex-direction:column;">
+            <div class="card-hdr">
+              <span class="material-symbols-rounded" style="color:#34d399">local_shipping</span>
+              <div>
+                <p class="card-hdr-title">Dispatch by Customer</p>
+                <p class="card-hdr-sub">Units dispatched per client</p>
+              </div>
+            </div>
+            <div style="flex:1; overflow-y:auto;">
+              <div v-if="dispatchByCustomer.length > 0" style="display:flex; flex-direction:column; gap:.5rem;">
+                <div v-for="cust in dispatchByCustomer" :key="cust.id" class="inv-row">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.4rem;">
+                    <span style="font-weight:700; color:#f8fafc;">{{ cust.name }}</span>
+                    <span style="font-size:.9rem; font-weight:700; font-family:monospace; color:#34d399;">{{ cust.total.toLocaleString() }} units</span>
+                  </div>
+                  <div class="h-2 w-full bg-slate-900 rounded-full overflow-hidden">
+                    <div
+                      style="height:6px; background:#10b981; border-radius:9999px; transition:width 0.5s ease;"
+                      :style="{ width: maxDispatch > 0 ? Math.min(100, (cust.total / maxDispatch) * 100) + '%' : '0%' }"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="empty-chart">
+                <span class="material-symbols-rounded" style="font-size:2.5rem; color:#334155;">local_shipping</span>
+                <p>No dispatch records yet.</p>
+              </div>
+            </div>
+          </div>
+
+        </section>
+        </Transition>
+
+        <!-- ══════ VIEW F: Attendance Leaderboard ═════════════════════════ -->
+        <Transition name="view-fade" mode="out-in">
+        <section v-if="activeView === 'attendance'" class="view-panel" key="attendance">
+
+          <div class="panel-header">
+            <h2 class="panel-title">Attendance Performance</h2>
+            <p class="panel-sub">Stars, lateness, and attendance rates · {{ store.currentProductionWeek }}</p>
+          </div>
+
+          <div class="chart-card" style="flex:1; min-height:0; overflow:hidden; display:flex; flex-direction:column;">
+            <div class="card-hdr">
+              <span class="material-symbols-rounded" style="color:#f59e0b">military_tech</span>
+              <div>
+                <p class="card-hdr-title">Attendance Leaderboard</p>
+                <p class="card-hdr-sub">Ranked by performance stars · current week</p>
+              </div>
+            </div>
+            <div style="flex:1; overflow-y:auto;">
+              <table class="cost-table" style="width:100%;">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Operator</th>
+                    <th>Days Attended</th>
+                    <th>Performance Stars</th>
+                    <th>Rating</th>
+                    <th>Lateness</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, idx) in attendanceLeaderboard" :key="row.id">
+                    <td>
+                      <span v-if="idx === 0" style="font-size:1.2rem;">🥇</span>
+                      <span v-else-if="idx === 1" style="font-size:1.2rem;">🥈</span>
+                      <span v-else-if="idx === 2" style="font-size:1.2rem;">🥉</span>
+                      <span v-else style="font-size:.9rem; color:#64748b; font-weight:700;">#{{ idx + 1 }}</span>
+                    </td>
+                    <td>
+                      <div class="op-cell">
+                        <OperatorAvatar :avatar="row.avatar" :name="row.name" :color="row.color" size="sm" />
+                        <span>{{ row.name }}</span>
+                      </div>
+                    </td>
+                    <td class="num">{{ row.days }} / {{ expectedDays }}</td>
+                    <td>
+                      <div style="display:flex; gap:.2rem;">
+                        <span v-for="s in 5" :key="s" class="material-symbols-rounded" style="font-size:1.1rem;" :style="{ color: s <= row.stars ? '#f59e0b' : '#334155' }">star</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span :style="{
+                        fontSize:'.7rem', fontWeight:'800', padding:'.15rem .5rem', borderRadius:'.4rem',
+                        background: row.stars >= 4 ? 'rgba(16,185,129,.2)' : row.stars >= 3 ? 'rgba(245,158,11,.2)' : 'rgba(239,68,68,.2)',
+                        color: row.stars >= 4 ? '#34d399' : row.stars >= 3 ? '#fbbf24' : '#f87171'
+                      }">{{ attLabel(row.stars) }}</span>
+                    </td>
+                    <td>
+                      <span v-if="row.totalLateMins > 0" style="color:#f87171; font-size:.75rem; font-weight:700;">
+                        Late {{ row.totalLateMins >= 60 ? Math.floor(row.totalLateMins/60) + 'h ' + (row.totalLateMins%60) + 'm' : row.totalLateMins + 'm' }}
+                      </span>
+                      <span v-else style="color:#34d399; font-size:.75rem; font-weight:700;">✓ On time</span>
+                    </td>
+                  </tr>
+                  <tr v-if="attendanceLeaderboard.length === 0">
+                    <td colspan="6" class="empty-td">No attendance data for this week.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+        </Transition>
+
       </main><!-- /view-area -->
 
     </div><!-- /analytics-root -->
@@ -399,7 +670,7 @@
     <Transition name="toast">
       <div v-if="exportToast" class="export-toast">
         <span class="material-symbols-rounded">send</span>
-        Report compiled &amp; forwarded to Frezer
+        Report compiled & forwarded to Frezer
       </div>
     </Transition>
   </AppLayout>
@@ -407,97 +678,134 @@
 
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
 import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useMesStore } from '@/store/mesStore.js'
+import { useAttendanceStore } from '@/store/attendanceStore.js'
+import { useInventoryStore } from '@/store/inventoryStore.js'
 
 const store = useMesStore()
+const attStore = useAttendanceStore()
+const inventoryStore = useInventoryStore()
 
-// ── Tab definitions ───────────────────────────────────────────────────────────
+// ── Tab definitions ──────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'global',   icon: 'dashboard',   title: 'Global Overview',       sub: 'KPIs & production trend'    },
-  { id: 'employee', icon: 'badge',        title: 'Employee Performance',  sub: 'Per-operator pay & output'  },
-  { id: 'payroll',  icon: 'payments',     title: 'Payroll Cost Analysis', sub: 'Cost per unit & liability'  },
+  { id: 'global',     icon: 'dashboard',       title: 'Global Overview',       sub: 'KPIs & production trend'    },
+  { id: 'employee',   icon: 'badge',            title: 'Employee Performance',  sub: 'Per-operator output & pay'  },
+  { id: 'payroll',    icon: 'payments',         title: 'Payroll Cost Analysis', sub: 'Cost per unit & liability'  },
+  { id: 'inventory',  icon: 'inventory_2',      title: 'Inventory Health',      sub: 'Stock levels & alerts'      },
+  { id: 'dispatch',   icon: 'local_shipping',   title: 'Dispatch & Customers',  sub: 'Logistics by client'        },
+  { id: 'attendance', icon: 'military_tech',    title: 'Attendance Board',      sub: 'Stars & lateness rankings'  },
 ]
 const activeView = ref('global')
 
-// ── Mock weekly payroll data linked to operators ──────────────────────────────
-// In production this comes from payrollStore / API. Here we model it richly
-// so every screen shows real structural relationships.
-const WEEK = store.currentProductionWeek
+// ── 7-Day Trend built from real ledger data ──────────────────────────────────
+const sevenDayTrend = computed(() => {
+  const now = new Date()
+  const days = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    const label = d.toLocaleDateString('en-US', { weekday: 'short' })
+    const dateStr = d.toISOString().split('T')[0]
+    const entries = store.ledgerEntries?.filter(e => {
+      const eDate = new Date(e.timestamp).toISOString().split('T')[0]
+      return eDate === dateStr
+    }) ?? []
+    days.push({
+      label,
+      good:  entries.reduce((s, e) => s + (Number(e.goodProduction) || 0), 0),
+      waste: entries.reduce((s, e) => s + (Number(e.wasteMaterial)  || 0), 0),
+    })
+  }
+  return days
+})
 
-const mockPayroll = {
-  1: { // Zelalem
-    daysAttended: 5, expectedDays: 6,
-    gross: 1250.00, loanDeduction: 200.00, advanceDeduction: 150.00,
-    variants: [
-      { key: 'Z1', dividerType: '50', size: '9cm', placement: 'ብተና', good: 180, waste: 14, rate: 2.50 },
-      { key: 'Z2', dividerType: '40', size: '7cm', placement: 'ውስጥ',  good: 120, waste:  9, rate: 2.25 },
-      { key: 'Z3', dividerType: '30', size: '9cm', placement: 'የተለየ', good:  80, waste:  6, rate: 3.00 },
-    ],
-  },
-  2: { // Aben
-    daysAttended: 6, expectedDays: 6,
-    gross: 1380.00, loanDeduction: 0,    advanceDeduction: 100.00,
-    variants: [
-      { key: 'A1', dividerType: '50', size: '9cm', placement: 'ብተና', good: 210, waste: 10, rate: 2.50 },
-      { key: 'A2', dividerType: '45', size: '7cm', placement: 'ውስጥ',  good:  90, waste:  8, rate: 2.40 },
-    ],
-  },
-  3: { // Teme
-    daysAttended: 4, expectedDays: 6,
-    gross: 980.00, loanDeduction: 300.00, advanceDeduction: 0,
-    variants: [
-      { key: 'T1', dividerType: '30', size: '9cm', placement: 'ብተና', good: 140, waste: 22, rate: 2.00 },
-      { key: 'T2', dividerType: '16', size: '7cm', placement: 'ውስጥ',  good:  75, waste: 12, rate: 1.75 },
-    ],
-  },
-  4: { // Selam (Supervisor — lighter production)
-    daysAttended: 6, expectedDays: 6,
-    gross: 900.00, loanDeduction: 0, advanceDeduction: 0,
-    variants: [
-      { key: 'S1', dividerType: '50', size: '9cm', placement: 'ውስጥ', good: 100, waste: 5, rate: 3.00 },
-    ],
-  },
-  5: { // Biruk
-    daysAttended: 5, expectedDays: 6,
-    gross: 1100.00, loanDeduction: 100.00, advanceDeduction: 50.00,
-    variants: [
-      { key: 'B1', dividerType: '40', size: '9cm', placement: 'ብተና', good: 190, waste: 18, rate: 2.25 },
-      { key: 'B2', dividerType: '12', size: '7cm', placement: 'የተለየ', good:  60, waste:  7, rate: 2.00 },
-    ],
-  },
-  6: { // Meron
-    daysAttended: 6, expectedDays: 6,
-    gross: 1290.00, loanDeduction: 0, advanceDeduction: 200.00,
-    variants: [
-      { key: 'M1', dividerType: '50', size: '9cm', placement: 'ብተና', good: 200, waste: 12, rate: 2.50 },
-      { key: 'M2', dividerType: '45', size: '9cm', placement: 'ውስጥ',  good: 115, waste:  9, rate: 2.90 },
-    ],
-  },
+const maxTrend = computed(() => Math.max(...sevenDayTrend.value.map(d => d.good + d.waste), 1))
+const barH = (val) => maxTrend.value > 0 ? Math.max(2, (val / maxTrend.value) * 100) : 2
+
+// ── Attendance helpers ───────────────────────────────────────────────────────
+const expectedDays = 6
+
+function parseTimeToMins(timeStr) {
+  if (!timeStr) return 0
+  const [h, m] = timeStr.split(':')
+  return parseInt(h) * 60 + parseInt(m)
 }
 
-// ── Enriched operator list (for View B list) ──────────────────────────────────
-const enrichedOperators = computed(() =>
-  store.operatorEfficiency.map(op => ({
-    ...op,
-    pay: {
-      ...mockPayroll[op.id],
-      net: Math.max(0,
-        (mockPayroll[op.id]?.gross ?? 0)
-        - (mockPayroll[op.id]?.loanDeduction ?? 0)
-        - (mockPayroll[op.id]?.advanceDeduction ?? 0)
-      ),
-    },
-    variants: mockPayroll[op.id]?.variants ?? [],
-  }))
+const morningEndMin = computed(() => {
+  const w = attStore.clockingWindows?.find(w => w.id === 'morning_in')
+  return w ? parseTimeToMins(w.end) : 480 // default 08:00
+})
+
+const currentWeekLogs = computed(() =>
+  attStore.clockInLog.filter(log => log.week === store.currentProductionWeek)
 )
 
-// ── Employee search / selection ────────────────────────────────────────────────
+function attDays(opId) {
+  const logs = currentWeekLogs.value.filter(l => l.operatorId === opId)
+  return new Set(logs.map(l => l.shiftDate)).size
+}
+
+function attScore(opId) {
+  let score = 100
+  const logs = currentWeekLogs.value.filter(l => l.operatorId === opId)
+  // Penalise absences
+  const daysPresent = new Set(logs.map(l => l.shiftDate)).size
+  score -= Math.max(0, (expectedDays - daysPresent)) * 10
+  // Penalise lateness
+  logs.forEach(log => {
+    const t = new Date(log.timestamp)
+    const mins = t.getHours() * 60 + t.getMinutes()
+    if (mins > morningEndMin.value) {
+      score -= Math.min(15, Math.ceil((mins - morningEndMin.value) / 10) * 2)
+    }
+  })
+  let stars = 5
+  if (score < 90) stars = 4
+  if (score < 75) stars = 3
+  if (score < 60) stars = 2
+  if (score < 40) stars = 1
+  if (score < 20) stars = 0
+  return stars
+}
+
+function attLabel(stars) {
+  return ['Poor', 'Below Avg', 'Average', 'Good', 'Excellent', 'Excellent'][stars] ?? 'N/A'
+}
+
+function totalLateMins(opId) {
+  let total = 0
+  currentWeekLogs.value.filter(l => l.operatorId === opId).forEach(log => {
+    const t = new Date(log.timestamp)
+    const mins = t.getHours() * 60 + t.getMinutes()
+    if (mins > morningEndMin.value) total += mins - morningEndMin.value
+  })
+  return total
+}
+
+// ── Leaderboard ──────────────────────────────────────────────────────────────
+const attendanceLeaderboard = computed(() => {
+  return store.operators
+    .filter(op => op.role !== 'customer')
+    .map(op => ({
+      ...op,
+      days: attDays(op.id),
+      stars: attScore(op.id),
+      totalLateMins: totalLateMins(op.id),
+    }))
+    .sort((a, b) => b.stars - a.stars || b.days - a.days)
+})
+
+// ── Employee view helpers ────────────────────────────────────────────────────
 const empSearch    = ref('')
 const selectedOpId = ref(null)
+
+const enrichedOperators = computed(() =>
+  store.operatorEfficiency.map(op => ({ ...op }))
+)
 
 const filteredOperators = computed(() => {
   const q = empSearch.value.trim().toLowerCase()
@@ -508,40 +816,80 @@ const selectedProfile = computed(() =>
   enrichedOperators.value.find(o => o.id === selectedOpId.value) ?? null
 )
 
-// ── Total payroll liability ───────────────────────────────────────────────────
+function opEarnings(opId) {
+  return store.cashEntries
+    ?.filter(e => e.operatorId === opId && e.type === 'shift_submission')
+    .reduce((s, e) => s + Number(e.amount || 0), 0) ?? 0
+}
+
+function opAdvances(opId) {
+  return store.cashEntries
+    ?.filter(e => (String(e.operatorId) === String(opId) || String(e.operator?.id) === String(opId)) && e.type === 'advance')
+    .reduce((s, e) => s + Number(e.amount || 0), 0) ?? 0
+}
+
+function opVariantBreakdown(op) {
+  if (!op) return []
+  const entries = store.ledgerEntries?.filter(e => e.operator === op.name) ?? []
+  const groups = {}
+  entries.forEach(e => {
+    const key = `${e.dividerType}-${e.size || ''}-${e.placement || ''}`
+    if (!groups[key]) groups[key] = { key, dividerType: e.dividerType, size: e.size || '—', placement: e.placement || '—', good: 0, waste: 0, rate: store.getEntryRate?.(e) ?? 0 }
+    groups[key].good  += Number(e.goodProduction) || 0
+    groups[key].waste += Number(e.wasteMaterial)  || 0
+  })
+  return Object.values(groups)
+}
+
+// ── Total payroll liability (from actual earnings) ───────────────────────────
 const totalPayrollLiability = computed(() =>
-  Object.values(mockPayroll).reduce((sum, p) => sum + p.gross, 0)
+  store.operatorEfficiency.reduce((sum, op) => sum + opEarnings(op.id), 0)
 )
 
-// ── Cost analysis rows (View C) ───────────────────────────────────────────────
+// ── Cost analysis rows ───────────────────────────────────────────────────────
 const costAnalysisRows = computed(() =>
-  enrichedOperators.value.map(op => ({
-    ...op,
-    gross:           mockPayroll[op.id]?.gross           ?? 0,
-    loanDeduction:   mockPayroll[op.id]?.loanDeduction   ?? 0,
-    advanceDeduction:mockPayroll[op.id]?.advanceDeduction ?? 0,
-    net:             op.pay.net,
-    costPerUnit:     op.good > 0 ? (mockPayroll[op.id]?.gross ?? 0) / op.good : 0,
-  }))
+  store.operatorEfficiency.map(op => {
+    const gross = opEarnings(op.id)
+    const advances = opAdvances(op.id)
+    return {
+      ...op,
+      gross,
+      advances,
+      net: Math.max(0, gross - advances),
+      costPerUnit: op.good > 0 ? gross / op.good : 0,
+    }
+  })
 )
 
 const maxCostPerUnit = computed(() =>
   Math.max(...costAnalysisRows.value.map(r => r.costPerUnit), 0.01)
 )
 
-// ── Week agg max (for period bars) ───────────────────────────────────────────
 const weekAggMax = computed(() =>
-  Math.max(...Object.values(store.weeklyAggregation), 1)
+  Math.max(...Object.values(store.weeklyAggregation ?? {}), 1)
 )
 
-// ── KPI trends (mocked — in prod these compare to last week from API) ─────────
-const kpiTrends = { production: 12, waste: -5, wasteRate: -3 }
+// ── Inventory helpers ────────────────────────────────────────────────────────
+function isLowStock(mat) {
+  if (!mat?.max_capacity) return false
+  return Number(mat.current_stock) <= mat.max_capacity * 0.15
+}
 
-// ── Bar chart helpers ─────────────────────────────────────────────────────────
-const maxTrend = computed(() => Math.max(...store.sevenDayTrend.map(d => d.good + d.waste), 1))
-const barH = (val) => maxTrend.value > 0 ? Math.max(2, (val / maxTrend.value) * 100) : 2
+// ── Dispatch by customer ─────────────────────────────────────────────────────
+const dispatchByCustomer = computed(() => {
+  const map = {}
+  store.dispatchLogs.forEach(d => {
+    const key = d.customerId || d.customerName || 'Unknown'
+    const name = d.customerName || store.clients?.find(c => c.id === d.customerId)?.name || 'Unknown'
+    if (!map[key]) map[key] = { id: key, name, total: 0 }
+    map[key].total += Number(d.quantity) || 0
+  })
+  return Object.values(map).sort((a, b) => b.total - a.total)
+})
 
-// ── Export ────────────────────────────────────────────────────────────────────
+const maxDispatch = computed(() => Math.max(...dispatchByCustomer.value.map(c => c.total), 1))
+
+// ── Export ───────────────────────────────────────────────────────────────────
 const exportToast = ref(false)
 let exportTimer = null
 function exportTelegram() {
@@ -552,7 +900,7 @@ function exportTelegram() {
 </script>
 
 <style scoped>
-/* ══ Root layout ══════════════════════════════════════════════════════════════ */
+/* ══ Root layout ════════════════════════════════════════════════════════════ */
 .analytics-root {
   display: flex;
   width: 100%;
@@ -561,7 +909,7 @@ function exportTelegram() {
   font-family: 'Inter', sans-serif;
 }
 
-/* ══ Left view-nav ══════════════════════════════════════════════════════════════ */
+/* ══ Left view-nav ══════════════════════════════════════════════════════════ */
 .view-nav {
   width: 220px;
   flex-shrink: 0;
@@ -588,7 +936,7 @@ function exportTelegram() {
   display: flex;
   align-items: center;
   gap: .75rem;
-  padding: .85rem .9rem;
+  padding: .75rem .9rem;
   border-radius: .75rem;
   border: 1px solid transparent;
   background: transparent;
@@ -597,7 +945,6 @@ function exportTelegram() {
   transition: all .15s ease;
   position: relative;
   color: #64748b;
-  -webkit-tap-highlight-color: transparent;
 }
 .nav-tab:hover { background: rgba(255,255,255,.04); color: #94a3b8; }
 .nav-tab--active {
@@ -608,8 +955,8 @@ function exportTelegram() {
 
 .tab-icon { font-size: 1.3rem; flex-shrink: 0; }
 .tab-labels { display: flex; flex-direction: column; gap: .1rem; }
-.tab-title { font-size: .82rem; font-weight: 700; line-height: 1.2; }
-.tab-sub   { font-size: .6rem; opacity: .6; }
+.tab-title { font-size: .8rem; font-weight: 700; line-height: 1.2; }
+.tab-sub   { font-size: .58rem; opacity: .6; }
 
 .tab-indicator {
   position: absolute;
@@ -633,10 +980,9 @@ function exportTelegram() {
   font-size: .8rem;
   font-weight: 800;
   cursor: pointer;
-  transition: filter .15s ease, transform .08s ease;
+  transition: filter .15s ease;
 }
-.export-btn:hover  { filter: brightness(1.1); }
-.export-btn:active { transform: scale(.97); }
+.export-btn:hover { filter: brightness(1.1); }
 
 /* ══ Main view area ══════════════════════════════════════════════════════════ */
 .view-area {
@@ -681,8 +1027,10 @@ function exportTelegram() {
   gap: .85rem;
   flex-shrink: 0;
 }
+@media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .kpi-grid { grid-template-columns: 1fr; } }
 
-/* ══ Chart card (shared) ═════════════════════════════════════════════════════ */
+/* ══ Chart card (shared) ══════════════════════════════════════════════════════ */
 .chart-card {
   background: #1e293b;
   border: 1px solid rgba(255,255,255,.07);
@@ -699,286 +1047,235 @@ function exportTelegram() {
   gap: .65rem;
   flex-shrink: 0;
 }
-.card-hdr .material-symbols-rounded { font-size: 1.3rem; }
-.card-hdr-title { font-size: .88rem; font-weight: 800; color: #f1f5f9; }
-.card-hdr-sub   { font-size: .62rem; color: #64748b; }
+.card-hdr-title { font-weight: 700; color: #f1f5f9; font-size: .9rem; margin: 0; }
+.card-hdr-sub   { font-size: .65rem; color: #64748b; margin: .1rem 0 0; }
 .badge {
   margin-left: auto;
-  background: rgba(99,102,241,.15);
-  border: 1px solid rgba(99,102,241,.25);
+  background: rgba(99,102,241,.2);
   color: #a5b4fc;
-  font-size: .6rem;
-  font-weight: 700;
-  padding: .15rem .5rem;
-  border-radius: 999px;
+  font-size: .65rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  padding: .2rem .6rem;
+  border-radius: 2rem;
 }
 
-/* ══ Bar chart ═══════════════════════════════════════════════════════════════ */
+/* ══ 7-Day Bar Chart ══════════════════════════════════════════════════════════ */
 .bar-chart {
   display: flex;
   align-items: flex-end;
   gap: .5rem;
   flex: 1;
   min-height: 0;
+  padding: .5rem 0;
 }
 .bar-col {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .2rem;
-  height: 100%;
+  gap: .25rem;
+  min-width: 0;
 }
 .bar-col-inner {
-  flex: 1;
   width: 100%;
+  flex: 1;
   display: flex;
-  flex-direction: column-reverse;
-  align-items: center;
+  flex-direction: column;
+  justify-content: flex-end;
   gap: 1px;
 }
-.bar-seg { width: 80%; border-radius: .25rem; min-height: 2px; transition: height .4s ease; }
-.bar-seg--good  { background: linear-gradient(180deg,#6366f1,#8b5cf6); }
-.bar-seg--waste { background: rgba(239,68,68,.7); }
-.bar-values { display: flex; flex-direction: column; align-items: center; }
-.bv-good    { font-size: .52rem; color: #a5b4fc; font-weight: 700; font-variant-numeric: tabular-nums; }
-.bv-waste   { font-size: .52rem; color: #f87171; font-variant-numeric: tabular-nums; }
-.bar-label  { font-size: .58rem; color: #475569; white-space: nowrap; }
+.bar-seg {
+  width: 100%;
+  border-radius: .25rem .25rem 0 0;
+  min-height: 2px;
+  transition: height .4s ease;
+}
+.bar-seg--good  { background: #6366f1; }
+.bar-seg--waste { background: #ef4444; }
+.bar-values { display: flex; flex-direction: column; align-items: center; gap: .05rem; }
+.bv-good  { font-size: .6rem; font-weight: 700; color: #a5b4fc; }
+.bv-waste { font-size: .6rem; font-weight: 700; color: #f87171; }
+.bar-label { font-size: .62rem; font-weight: 600; color: #475569; }
+.chart-legend { display: flex; gap: 1rem; flex-shrink: 0; padding-top: .25rem; }
+.leg-item { display: flex; align-items: center; gap: .35rem; font-size: .65rem; color: #94a3b8; font-weight: 600; }
+.leg-dot  { width: .6rem; height: .6rem; border-radius: 50%; flex-shrink: 0; }
 
-.chart-legend { display: flex; gap: 1rem; flex-shrink: 0; }
-.leg-item { display: flex; align-items: center; gap: .35rem; font-size: .65rem; color: #64748b; }
-.leg-dot  { width: .5rem; height: .5rem; border-radius: 50%; flex-shrink: 0; }
-
-/* ══ Employee layout ═════════════════════════════════════════════════════════ */
-.employee-layout {
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 1rem;
+.empty-chart {
   flex: 1;
-  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  color: #64748b;
+  font-size: .85rem;
 }
 
-/* Operator list */
+/* ══ Employee Performance ════════════════════════════════════════════════════ */
 .operator-list {
   display: flex;
   flex-direction: column;
-  gap: .5rem;
+  gap: .35rem;
   overflow-y: auto;
-  background: #1e293b;
-  border: 1px solid rgba(255,255,255,.07);
-  border-radius: 1rem;
-  padding: .85rem .75rem;
+  flex-shrink: 0;
 }
-
 .search-wrap {
   position: relative;
-  flex-shrink: 0;
-  margin-bottom: .25rem;
+  margin-bottom: .5rem;
 }
 .search-icon {
   position: absolute;
   left: .6rem;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 1rem;
   color: #475569;
+  font-size: 1.1rem;
 }
 .search-input {
   width: 100%;
-  background: #0f172a;
+  background: rgba(255,255,255,.05);
   border: 1px solid rgba(255,255,255,.08);
-  border-radius: .55rem;
-  padding: .55rem .75rem .55rem 2.2rem;
+  border-radius: .6rem;
+  padding: .55rem .75rem .55rem 2rem;
+  color: #f1f5f9;
   font-size: .8rem;
-  color: #e2e8f0;
   outline: none;
-  font-family: inherit;
+  box-sizing: border-box;
 }
-.search-input:focus { border-color: rgba(99,102,241,.4); }
-.search-input::placeholder { color: #334155; }
+.search-input:focus { border-color: rgba(99,102,241,.5); }
 
 .op-card {
   display: flex;
   align-items: center;
   gap: .65rem;
-  padding: .65rem .75rem;
-  border-radius: .65rem;
+  padding: .65rem .8rem;
+  border-radius: .7rem;
   border: 1px solid transparent;
-  background: transparent;
+  background: rgba(255,255,255,.03);
   cursor: pointer;
   text-align: left;
   transition: all .15s ease;
-  -webkit-tap-highlight-color: transparent;
+  width: 100%;
 }
-.op-card:hover { background: rgba(255,255,255,.04); }
-.op-card--active { background: rgba(99,102,241,.15); border-color: rgba(99,102,241,.3); }
-
-.op-avatar {
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: .5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: .95rem;
-  font-weight: 800;
-  color: #fff;
-  flex-shrink: 0;
+.op-card:hover { background: rgba(255,255,255,.07); }
+.op-card--active {
+  background: rgba(99,102,241,.15);
+  border-color: rgba(99,102,241,.35);
 }
 .op-info { flex: 1; min-width: 0; }
-.op-name { font-size: .82rem; font-weight: 700; color: #e2e8f0; margin: 0; }
-.op-role { font-size: .6rem; color: #64748b; margin: 0; }
+.op-name { font-size: .82rem; font-weight: 700; color: #f1f5f9; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.op-role { font-size: .65rem; color: #64748b; margin: 0; }
+.op-quick { text-align: right; }
+.quick-val { display: block; font-size: .85rem; font-weight: 800; color: #a5b4fc; font-family: monospace; }
+.quick-lbl { font-size: .6rem; color: #475569; }
 
-.op-quick { text-align: right; flex-shrink: 0; }
-.quick-val { display: block; font-size: .9rem; font-weight: 800; color: #a5b4fc; font-variant-numeric: tabular-nums; }
-.quick-lbl { display: block; font-size: .55rem; color: #475569; }
-
-.empty-note { font-size: .75rem; color: #334155; text-align: center; padding: 1rem 0; }
-
-/* Profile area */
-.profile-area {
-  overflow-y: auto;
-}
-
+.profile-area { flex: 1; overflow-y: auto; }
 .profile-card {
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 1rem;
+  padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  background: #1e293b;
-  border: 1px solid rgba(255,255,255,.07);
-  border-radius: 1rem;
-  padding: 1.25rem;
-  min-height: 100%;
 }
-
 .profile-hdr {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
-  flex-shrink: 0;
+  flex-wrap: wrap;
 }
-.profile-avatar {
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: .85rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  font-weight: 900;
-  color: #fff;
-  flex-shrink: 0;
-}
-.profile-name { font-size: 1.3rem; font-weight: 900; color: #f1f5f9; margin: 0; }
-.profile-role { font-size: .7rem; color: #64748b; text-transform: uppercase; letter-spacing: .07em; margin: 0; }
+.profile-name { font-size: 1.1rem; font-weight: 900; color: #f8fafc; margin: 0; }
+.profile-role { font-size: .75rem; color: #64748b; margin: .15rem 0 0; }
 .profile-badge {
   margin-left: auto;
+  padding: .35rem .8rem;
+  border-radius: 2rem;
   font-size: .75rem;
   font-weight: 800;
-  padding: .3rem .85rem;
-  border-radius: 999px;
 }
 .badge--ok       { background: rgba(16,185,129,.15); color: #34d399; }
 .badge--warn     { background: rgba(245,158,11,.15); color: #fbbf24; }
 .badge--critical { background: rgba(239,68,68,.15);  color: #f87171; }
 
-/* Metric grid */
-.metric-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1.2fr;
-  gap: .85rem;
-}
-
+.metric-grid { display: flex; flex-direction: column; gap: .85rem; }
 .metric-section {
-  background: #0f172a;
+  background: rgba(255,255,255,.03);
   border: 1px solid rgba(255,255,255,.06);
-  border-radius: .85rem;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: .65rem;
+  border-radius: .75rem;
+  padding: 1rem 1.1rem;
 }
-.metric-section--financial { grid-column: span 1; }
-
+.metric-section--financial { border-color: rgba(139,92,246,.2); }
 .section-title {
-  font-size: .65rem;
-  font-weight: 700;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: #475569;
   display: flex;
   align-items: center;
-  gap: .35rem;
-  margin: 0;
+  gap: .4rem;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin: 0 0 .75rem;
 }
-.section-title .material-symbols-rounded { font-size: .9rem; }
-
-.metric-row { display: flex; gap: .75rem; flex-wrap: wrap; }
-.metric-item { display: flex; flex-direction: column; gap: .15rem; }
-.m-label { font-size: .62rem; color: #64748b; text-transform: uppercase; letter-spacing: .07em; }
-.m-value { font-size: 1.4rem; font-weight: 900; color: #f1f5f9; font-variant-numeric: tabular-nums; }
-.m-value--good { color: #34d399; }
+.section-title .material-symbols-rounded { font-size: 1rem; }
+.metric-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: .75rem; }
+.metric-item { display: flex; flex-direction: column; gap: .2rem; }
+.m-label { font-size: .65rem; color: #64748b; font-weight: 600; }
+.m-value { font-size: 1.2rem; font-weight: 900; color: #f8fafc; font-family: monospace; }
+.m-value--good { color: #a5b4fc; }
 .m-value--bad  { color: #f87171; }
 
-.waste-bar-track { height: .45rem; background: rgba(255,255,255,.07); border-radius: 999px; overflow: hidden; }
-.waste-bar-fill  { height: 100%; border-radius: 999px; transition: width .5s ease; }
+.waste-bar-track { height: .4rem; background: #0f172a; border-radius: 9999px; overflow: hidden; }
+.waste-bar-fill  { height: 100%; border-radius: 9999px; transition: width .5s ease; }
 .fill--ok       { background: #10b981; }
 .fill--warn     { background: #f59e0b; }
 .fill--critical { background: #ef4444; }
 
-/* Financial rows */
-.financial-rows { display: flex; flex-direction: column; gap: .5rem; }
-.fin-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: .82rem;
-}
-.fin-row--deduct { opacity: .8; }
-.fin-row--net {
-  background: rgba(16,185,129,.1);
-  border: 1px solid rgba(16,185,129,.25);
-  border-radius: .5rem;
-  padding: .5rem .65rem;
-}
-.fin-label { color: #64748b; font-weight: 600; }
-.fin-value { font-weight: 700; color: #e2e8f0; font-variant-numeric: tabular-nums; }
+.financial-rows { display: flex; flex-direction: column; gap: .6rem; }
+.fin-row { display: flex; justify-content: space-between; align-items: center; font-size: .85rem; color: #94a3b8; }
+.fin-row--deduct { color: #64748b; }
+.fin-label { font-weight: 600; }
+.fin-value { font-weight: 700; font-family: monospace; }
 .fin-value--red { color: #f87171; }
-.fin-divider { height: 1px; background: rgba(255,255,255,.06); margin: .15rem 0; }
-.fin-label-net { font-size: .75rem; font-weight: 800; color: #34d399; letter-spacing: .06em; }
-.fin-value-net { font-size: 1.15rem; font-weight: 900; color: #34d399; font-variant-numeric: tabular-nums; }
+.fin-divider { height: 1px; background: rgba(255,255,255,.05); margin: .25rem 0; }
+.fin-row--net .fin-label-net { font-size: .9rem; font-weight: 800; color: #f8fafc; text-transform: uppercase; letter-spacing: .05em; }
+.fin-value-net { font-size: 1rem; font-weight: 900; color: #34d399; font-family: monospace; }
 
-/* Variant section */
-.variant-section { flex-shrink: 0; }
-.variant-table { display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,.06); border-radius: .75rem; overflow: hidden; }
+.variant-section {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: .75rem;
+  padding: 1rem 1.1rem;
+}
+.variant-table { font-size: .78rem; }
 .vt-header {
   display: grid;
-  grid-template-columns: 70px 60px 80px 1fr 1fr 100px;
-  padding: .5rem .85rem;
-  background: rgba(255,255,255,.04);
-  font-size: .6rem;
+  grid-template-columns: 2fr 1fr 1.5fr 1fr 1fr 1.5fr;
+  gap: .5rem;
+  padding: .4rem .5rem;
+  font-size: .62rem;
   font-weight: 700;
-  color: #475569;
+  letter-spacing: .08em;
   text-transform: uppercase;
-  letter-spacing: .07em;
+  color: #475569;
 }
 .vt-row {
   display: grid;
-  grid-template-columns: 70px 60px 80px 1fr 1fr 100px;
-  padding: .55rem .85rem;
-  font-size: .8rem;
-  color: #e2e8f0;
-  border-top: 1px solid rgba(255,255,255,.04);
-  align-items: center;
+  grid-template-columns: 2fr 1fr 1.5fr 1fr 1fr 1.5fr;
+  gap: .5rem;
+  padding: .5rem;
+  border-radius: .4rem;
+  color: #94a3b8;
+  font-weight: 600;
 }
-.vt-row:hover { background: rgba(255,255,255,.02); }
-.vt-badge { background: rgba(99,102,241,.15); color: #a5b4fc; border-radius: .3rem; padding: .1rem .4rem; font-size: .7rem; font-weight: 700; width: fit-content; }
-.vt-good  { color: #34d399; font-weight: 700; }
-.vt-waste { color: #f87171; font-weight: 700; }
-.vt-rate  { color: #fbbf24; font-weight: 700; }
-.vt-empty { font-size: .75rem; color: #334155; padding: 1rem; text-align: center; }
+.vt-row:hover { background: rgba(255,255,255,.03); }
+.vt-badge  { background: rgba(99,102,241,.15); color: #a5b4fc; padding: .15rem .4rem; border-radius: .3rem; font-weight: 800; font-size: .7rem; }
+.vt-good   { color: #34d399; font-weight: 700; }
+.vt-waste  { color: #f87171; font-weight: 700; }
+.vt-rate   { color: #fbbf24; font-weight: 700; }
+.vt-empty  { padding: 1rem; text-align: center; color: #475569; }
 
-/* Profile empty state */
 .profile-empty {
   display: flex;
   flex-direction: column;
@@ -987,102 +1284,96 @@ function exportTelegram() {
   height: 100%;
   gap: .75rem;
   color: #334155;
-  font-size: .85rem;
 }
-.pe-icon { font-size: 3.5rem; opacity: .4; }
+.pe-icon { font-size: 3.5rem; }
+.empty-note { text-align: center; font-size: .8rem; color: #475569; padding: 1rem; }
 
-.profile-fade-enter-active, .profile-fade-leave-active { transition: opacity .18s ease; }
-.profile-fade-enter-from,   .profile-fade-leave-to     { opacity: 0; }
-
-/* ══ Cost analysis (View C) ══════════════════════════════════════════════════ */
-.cpu-kpi-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: .85rem;
-  flex-shrink: 0;
-}
+/* ══ Payroll Cost Analysis ════════════════════════════════════════════════════ */
+.cpu-kpi-row { flex-shrink: 0; }
 .cpu-kpi {
-  background: #1e293b;
+  background: rgba(255,255,255,.04);
   border: 1px solid rgba(255,255,255,.07);
-  border-radius: .85rem;
-  padding: 1rem 1.25rem;
+  border-radius: .75rem;
+  padding: .85rem 1.1rem;
+  flex: 1;
 }
-.cpu-kpi--highlight {
-  border-color: rgba(139,92,246,.3);
-  background: linear-gradient(135deg, #1e293b, rgba(139,92,246,.1));
-}
-.cpu-label { font-size: .6rem; color: #64748b; text-transform: uppercase; letter-spacing: .1em; margin: 0 0 .35rem; }
-.cpu-value { font-size: 1.6rem; font-weight: 900; color: #f1f5f9; margin: 0; font-variant-numeric: tabular-nums; }
-.cpu-kpi--highlight .cpu-value { color: #c084fc; }
+.cpu-kpi--highlight { border-color: rgba(99,102,241,.3); background: rgba(99,102,241,.08); }
+.cpu-label { font-size: .65rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .08em; margin: 0 0 .35rem; }
+.cpu-value { font-size: 1.1rem; font-weight: 900; color: #f8fafc; margin: 0; font-family: monospace; }
 
-.cost-table-wrap { flex: 1; overflow-y: auto; min-height: 0; }
+.cost-table-wrap { overflow-x: auto; }
 .cost-table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: .8rem;
+  border-collapse: collapse;
+  font-size: .78rem;
 }
-.cost-table thead th {
+.cost-table th {
+  padding: .6rem .8rem;
   text-align: left;
-  padding: .4rem .65rem;
   font-size: .6rem;
-  font-weight: 700;
-  color: #475569;
+  font-weight: 800;
+  letter-spacing: .1em;
   text-transform: uppercase;
-  letter-spacing: .07em;
-  border-bottom: 1px solid rgba(255,255,255,.06);
+  color: #475569;
+  background: rgba(0,0,0,.2);
   white-space: nowrap;
-  position: sticky;
-  top: 0;
-  background: #1e293b;
 }
-.cost-table tbody td { padding: .5rem .65rem; border-bottom: 1px solid rgba(255,255,255,.04); }
-.cost-table tbody tr:hover td { background: rgba(255,255,255,.03); }
+.cost-table td { padding: .65rem .8rem; border-bottom: 1px solid rgba(255,255,255,.04); color: #94a3b8; }
+.cost-table tr:hover td { background: rgba(255,255,255,.02); }
+.op-cell { display: flex; align-items: center; gap: .5rem; white-space: nowrap; }
+td.num { font-family: monospace; font-weight: 700; color: #f8fafc; text-align: right; }
+td.red { color: #f87171; }
+td.green { color: #34d399; }
+td.purple { color: #c084fc; }
+td.bar-cell { width: 80px; }
+.cost-bar-track { height: .4rem; background: #0f172a; border-radius: 9999px; overflow: hidden; }
+.cost-bar-fill  { height: 100%; background: #6366f1; border-radius: 9999px; transition: width .5s ease; }
+.empty-td { padding: 2rem; text-align: center; color: #475569; }
 
-.op-cell { display: flex; align-items: center; gap: .5rem; }
-.op-dot {
-  width: 1.75rem; height: 1.75rem;
-  border-radius: .35rem;
-  display: flex; align-items: center; justify-content: center;
-  font-size: .75rem; font-weight: 800; color: #fff; flex-shrink: 0;
+.week-breakdown {
+  border-top: 1px solid rgba(255,255,255,.05);
+  padding-top: .75rem;
+  flex-shrink: 0;
 }
-.num    { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; color: #e2e8f0; }
-.red    { color: #f87171; }
-.green  { color: #34d399; }
-.purple { color: #c084fc; }
-.empty-td { text-align: center; color: #334155; padding: 2rem; font-size: .8rem; }
+.period-bars { display: flex; align-items: flex-end; gap: 1rem; height: 60px; }
+.period-item { display: flex; flex-direction: column; align-items: center; gap: .2rem; flex: 1; }
+.period-bar-wrap { flex: 1; display: flex; align-items: flex-end; width: 100%; }
+.period-bar { width: 100%; background: linear-gradient(to top, #6366f1, #818cf8); border-radius: .25rem .25rem 0 0; min-height: 4px; transition: height .4s ease; }
+.period-val   { font-size: .72rem; font-weight: 800; color: #a5b4fc; }
+.period-label { font-size: .6rem; font-weight: 600; color: #475569; }
 
-.bar-cell { min-width: 80px; }
-.cost-bar-track { background: rgba(255,255,255,.07); border-radius: 999px; height: .45rem; overflow: hidden; }
-.cost-bar-fill  { height: 100%; background: linear-gradient(90deg,#7c3aed,#c084fc); border-radius: 999px; transition: width .5s ease; }
+/* ══ Inventory row ═══════════════════════════════════════════════════════════ */
+.inv-row {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: .6rem;
+  padding: .75rem 1rem;
+}
+.inv-row--danger { border-color: rgba(239,68,68,.3); background: rgba(239,68,68,.05); }
 
-/* Period bars */
-.week-breakdown { flex-shrink: 0; padding-top: .5rem; border-top: 1px solid rgba(255,255,255,.06); }
-.period-bars { display: flex; gap: 1.5rem; align-items: flex-end; height: 5rem; }
-.period-item { display: flex; flex-direction: column; align-items: center; gap: .25rem; }
-.period-bar-wrap { flex: 1; display: flex; align-items: flex-end; height: 3.5rem; width: 60px; background: rgba(255,255,255,.04); border-radius: .4rem; overflow: hidden; }
-.period-bar { width: 100%; background: linear-gradient(180deg,#6366f1,#8b5cf6); border-radius: .4rem; transition: height .4s ease; }
-.period-val   { font-size: .82rem; font-weight: 800; color: #a5b4fc; font-variant-numeric: tabular-nums; }
-.period-label { font-size: .65rem; color: #475569; font-weight: 700; }
-
-/* ══ Export toast ════════════════════════════════════════════════════════════ */
+/* ══ Toast ═══════════════════════════════════════════════════════════════════ */
 .export-toast {
   position: fixed;
-  bottom: 1.5rem;
+  bottom: 2rem;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg,#1d4ed8,#3b82f6);
+  background: #2563eb;
   color: #fff;
-  border-radius: .65rem;
   padding: .85rem 1.75rem;
-  font-size: .9rem;
+  border-radius: 3rem;
   font-weight: 700;
+  font-size: .9rem;
   display: flex;
   align-items: center;
   gap: .5rem;
+  box-shadow: 0 20px 40px -10px rgba(37,99,235,.6);
   z-index: 100;
-  white-space: nowrap;
 }
-.toast-enter-active, .toast-leave-active { transition: all .3s ease; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 1rem); }
+.toast-enter-active, .toast-leave-active { transition: all .4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 20px) scale(.9); }
+
+/* ══ Profile Transition ══════════════════════════════════════════════════════ */
+.profile-fade-enter-active, .profile-fade-leave-active { transition: all .2s ease; }
+.profile-fade-enter-from { opacity: 0; transform: translateY(8px); }
+.profile-fade-leave-to   { opacity: 0; }
 </style>
