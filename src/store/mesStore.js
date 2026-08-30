@@ -506,15 +506,31 @@ export const useMesStore = defineStore('mes', () => {
 
   function setPieceRate(category, type, size, placement, value) {
     if (!pieceRates.value[category]) pieceRates.value[category] = {}
+    
+    if (category === 'MFG') {
+      pieceRates.value[category][type] = value
+      return
+    }
+    
+    if (category === 'C') {
+      if (!pieceRates.value[category]['null']) pieceRates.value[category]['null'] = {}
+      if (!pieceRates.value[category]['null'][size]) pieceRates.value[category]['null'][size] = {}
+      pieceRates.value[category]['null'][size][placement] = value
+      return
+    }
+
+    // PP or PL
     if (!pieceRates.value[category][type]) pieceRates.value[category][type] = {}
-    if (!pieceRates.value[category][type][size]) pieceRates.value[category][type][size] = category === 'PP' || category === 'PL' ? 0 : {}
     
     if (category === 'PP' || category === 'PL') {
       pieceRates.value[category][type][size] = value
     } else {
+      // Fallback for any other future categories with placement
+      if (!pieceRates.value[category][type][size]) pieceRates.value[category][type][size] = {}
       pieceRates.value[category][type][size][placement] = value
     }
   }
+
 
   // Waste alert thresholds (used by QualityControl + AdminSettings)
   const wasteThresholds = ref({ warn: 8, critical: 15 })
@@ -819,32 +835,32 @@ export const useMesStore = defineStore('mes', () => {
     
     let rate = 0
     if (cat === 'MFG') {
-      rate = pieceRates.value?.['MFG']?.[entry.dividerType] ?? 0
+      rate = pieceRates.value?.['MFG']?.[entry.dividerType]
     } else if (cat === 'C') {
-      rate = pieceRates.value?.['C']?.['null']?.[entry.size]?.[entry.placement] ?? 0
+      rate = pieceRates.value?.['C']?.['null']?.[entry.size]?.[entry.placement]
     } else if (cat === 'PP' || cat === 'PL') {
-      rate = pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size] ?? 0
+      rate = pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size]
     }
     
+    rate = (typeof rate === 'number' && !isNaN(rate)) ? rate : 0
     const qty = Number(entry.goodProduction || entry.good || 0)
     return rate * qty
   }
 
   function getEntryRate(entry) {
     const cat = entry.workCategory || 'MFG'
-    if (cat === 'TIME') {
-      return 0
-    }
+    if (cat === 'TIME') return 0
+    
+    let rate = 0
     if (cat === 'MFG') {
-      return pieceRates.value?.['MFG']?.[entry.dividerType] ?? 0
+      rate = pieceRates.value?.['MFG']?.[entry.dividerType]
+    } else if (cat === 'C') {
+      rate = pieceRates.value?.['C']?.['null']?.[entry.size]?.[entry.placement]
+    } else if (cat === 'PP' || cat === 'PL') {
+      rate = pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size]
     }
-    if (cat === 'C') {
-      return pieceRates.value?.['C']?.['null']?.[entry.size]?.[entry.placement] ?? 0
-    }
-    if (cat === 'PP' || cat === 'PL') {
-      return pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size] ?? 0
-    }
-    return 0
+    
+    return (typeof rate === 'number' && !isNaN(rate)) ? rate : 0
   }
 
   return {

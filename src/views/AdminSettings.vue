@@ -485,12 +485,17 @@ const allPlacementsForRates = computed(() => {
   return store.systemConfig.otherPlacement.enabled ? [...placements, 'Other'] : placements
 })
 
-function getRate(category, type, size, placement) {
-  if (category === 'PP' || category === 'PL') {
-    return store.pieceRates?.[category]?.[type]?.[size] ?? 0
+  function getRate(category, type, size, placement) {
+    let rate = 0
+    if (category === 'MFG') rate = store.pieceRates?.['MFG']?.[type]
+    else if (category === 'C') rate = store.pieceRates?.['C']?.['null']?.[size]?.[placement]
+    else if (category === 'PP' || category === 'PL') {
+      rate = store.pieceRates?.[category]?.[type]?.[size]
+    } else {
+      rate = store.pieceRates?.[category]?.[type]?.[size]?.[placement]
+    }
+    return (typeof rate === 'number' && !isNaN(rate)) ? rate : 0
   }
-  return store.pieceRates?.[category]?.[type]?.[size]?.[placement] ?? 0
-}
 
 function adjustRate(category, type, size, placement, delta) {
   const current = getRate(category, type, size, placement)

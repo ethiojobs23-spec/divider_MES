@@ -326,22 +326,26 @@ const todayEntries = computed(() => {
 })
 
 const currentRate = computed(() => {
-  if (activeCategory.value === 'TIME') return opConfig.value.hourly_rate || 0
-  const cat = activeCategory.value
-  const type = selections.dividerType
-  const size = selections.size
-  const pl = selections.placement
+  let rate = 0
+  if (activeCategory.value === 'TIME') {
+    rate = opConfig.value.hourly_rate || 0
+  } else {
+    const cat = activeCategory.value
+    const type = selections.dividerType
+    const size = selections.size
+    const pl = selections.placement
+    
+    if (cat === 'MFG') {
+      rate = store.pieceRates?.['MFG']?.[type] ?? 0
+    } else if (cat === 'C') {
+      rate = store.pieceRates?.['C']?.['null']?.[size]?.[pl] ?? 0
+    } else if (cat === 'PP' || cat === 'PL') {
+      rate = store.pieceRates?.[cat]?.[type]?.[size] ?? 0
+    }
+  }
   
-  if (cat === 'MFG') {
-    return store.pieceRates?.['MFG']?.[type] ?? 0
-  }
-  if (cat === 'C') {
-    return store.pieceRates?.['C']?.['null']?.[size]?.[pl] ?? 0
-  }
-  if (cat === 'PP' || cat === 'PL') {
-    return store.pieceRates?.[cat]?.[type]?.[size] ?? 0
-  }
-  return 0
+  // Prevent crash if legacy DB state returns an object instead of a flat rate number
+  return typeof rate === 'number' && !isNaN(rate) ? rate : 0
 })
 
 const earningsPreview = computed(() => {
