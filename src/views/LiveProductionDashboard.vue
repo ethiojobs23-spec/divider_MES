@@ -7,8 +7,20 @@
         <div class="header-left">
           <span class="material-symbols-rounded header-icon">monitoring</span>
           <div>
-            <h1 class="header-title">Live Production Monitor</h1>
-            <p class="header-sub">{{ store.currentProductionWeek }} · Real-time · Auto-refresh every 30s</p>
+            <div class="flex items-center gap-2">
+              <h1 class="header-title">Live Production Monitor</h1>
+              <span 
+                class="text-[0.65rem] font-black uppercase px-2 py-0.5 rounded-full"
+                :style="{
+                  background: store.weekStatus?.isCurrent ? 'rgba(16,185,129,0.15)' : store.weekStatus?.isPast ? 'rgba(245,158,11,0.15)' : 'rgba(99,102,241,0.15)',
+                  color: store.weekStatus?.isCurrent ? '#34d399' : store.weekStatus?.isPast ? '#fbbf24' : '#a5b4fc',
+                  border: '1px solid ' + (store.weekStatus?.isCurrent ? 'rgba(16,185,129,0.3)' : store.weekStatus?.isPast ? 'rgba(245,158,11,0.3)' : 'rgba(99,102,241,0.3)')
+                }"
+              >
+                ● {{ store.weekStatus?.label }}
+              </span>
+            </div>
+            <p class="header-sub">{{ store.currentProductionWeek }} ({{ store.weekStatus?.dateRange }}) · Real-time · Auto-refresh every 30s</p>
           </div>
         </div>
         <div class="pulse-indicator">

@@ -5,6 +5,13 @@ import { supabase } from '@/lib/supabaseClient'
 import { useInventoryStore } from './inventoryStore'
 import { useAttendanceStore } from './attendanceStore'
 import { syncManager } from '@/services/syncManager'
+import { 
+  getISOWeekLabel, 
+  getShiftedWeekLabel, 
+  getWeekStatus, 
+  compareWeekLabels, 
+  getWeekDateRange 
+} from '@/utils/dateUtils'
 
 export const useMesStore = defineStore('mes', () => {
   // ─── Initializing Data ─────────────────────────────────────────────────────
@@ -154,18 +161,35 @@ export const useMesStore = defineStore('mes', () => {
   }
 
   // ─── Production Week ───────────────────────────────────────────────────────
-  const currentProductionWeek = ref(getCurrentWeekLabel())
+  // Default to the real ISO 8601 current week
+  const actualCalendarWeek = computed(() => getISOWeekLabel(new Date()))
+  const currentProductionWeek = ref(getISOWeekLabel(new Date()))
+
+  // Detailed status of the currently selected week (current / past / upcoming)
+  const weekStatus = computed(() => {
+    return getWeekStatus(currentProductionWeek.value)
+  })
 
   function getCurrentWeekLabel() {
-    const now = new Date()
-    const startOfYear = new Date(now.getFullYear(), 0, 1)
-    const week = Math.ceil(((now - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7)
-    return `W${String(week).padStart(2, '0')}-${now.getFullYear()}`
+    return getISOWeekLabel(new Date())
   }
 
   function setProductionWeek(label) {
+    if (!label) return
     currentProductionWeek.value = label
     fetchInitialData() // refresh when week changes
+  }
+
+  function shiftProductionWeek(delta) {
+    const nextLabel = getShiftedWeekLabel(currentProductionWeek.value, delta)
+    setProductionWeek(nextLabel)
+  }
+
+  function resetToCurrentWeek() {
+    const actual = getISOWeekLabel(new Date())
+    if (currentProductionWeek.value !== actual) {
+      setProductionWeek(actual)
+    }
   }
 
   // ─── Production Ledger ─────────────────────────────────────────────────────
@@ -906,6 +930,7 @@ export const useMesStore = defineStore('mes', () => {
     operators, activeOperator, clockedInOperators,
     isOperatorClockedIn, clockIn, clockOut, setOperator,
     currentProductionWeek, setProductionWeek,
+    actualCalendarWeek, weekStatus, shiftProductionWeek, resetToCurrentWeek,
     ledgerEntries, submitProductionLog, weeklyAggregation, isWeekendOvertime,
     inventory,
     cashEntries, addCashEntry, approveCashEntry, rejectCashEntry, totalAdvances, totalExpenses,
@@ -926,7 +951,6 @@ export const useMesStore = defineStore('mes', () => {
     // Only persist the fields that must survive a power-cut or offline reboot.
     // Computed getters, loading flags, and functions are excluded automatically.
     pick: [
-      'currentProductionWeek',
       'ledgerEntries',
       'cashEntries',
       'shiftSubmissions',

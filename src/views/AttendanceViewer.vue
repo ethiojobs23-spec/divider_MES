@@ -6,13 +6,33 @@
           <span class="material-symbols-rounded header-icon">recent_patient</span>
           <div>
             <h1 class="page-title">Attendance Records</h1>
-            <p class="page-subtitle">View daily clock-in/out logs for week: {{ viewWeek }}</p>
+            <p class="page-subtitle">{{ activeWeekStatus?.dateRange }} · {{ activeWeekStatus?.description }}</p>
           </div>
         </div>
-        <div class="week-controls" style="display:flex; align-items:center; gap:0.5rem; background:rgba(255,255,255,0.05); padding:0.25rem 1rem; border-radius:2rem; height:fit-content; margin-top:0.5rem;">
-          <button @click="shiftWeek(-1)" style="background:transparent; border:none; color:#f8fafc; cursor:pointer; display:flex;"><span class="material-symbols-rounded">chevron_left</span></button>
-          <strong style="color:#818cf8; font-size:1.1rem;">{{ viewWeek }}</strong>
-          <button @click="shiftWeek(1)" style="background:transparent; border:none; color:#f8fafc; cursor:pointer; display:flex;"><span class="material-symbols-rounded">chevron_right</span></button>
+        <div class="week-controls" style="display:flex; align-items:center; gap:0.75rem; background:rgba(255,255,255,0.05); padding:0.35rem 1rem; border-radius:1rem; height:fit-content; border:1px solid rgba(255,255,255,0.1);">
+          <span 
+            class="text-[0.65rem] font-extrabold uppercase px-2 py-0.5 rounded-full"
+            :style="{
+              background: activeWeekStatus?.isCurrent ? 'rgba(16,185,129,0.15)' : activeWeekStatus?.isPast ? 'rgba(245,158,11,0.15)' : 'rgba(99,102,241,0.15)',
+              color: activeWeekStatus?.isCurrent ? '#34d399' : activeWeekStatus?.isPast ? '#fbbf24' : '#a5b4fc',
+              border: '1px solid ' + (activeWeekStatus?.isCurrent ? 'rgba(16,185,129,0.3)' : activeWeekStatus?.isPast ? 'rgba(245,158,11,0.3)' : 'rgba(99,102,241,0.3)')
+            }"
+          >
+            ● {{ activeWeekStatus?.label }}
+          </span>
+          <div style="display:flex; align-items:center; gap:0.4rem;">
+            <button @click="shiftWeek(-1)" style="background:transparent; border:none; color:#f87171; cursor:pointer; display:flex;" title="Previous week"><span class="material-symbols-rounded">chevron_left</span></button>
+            <strong style="color:#f8fafc; font-size:1.05rem; font-family:monospace;">{{ viewWeek }}</strong>
+            <button @click="shiftWeek(1)" style="background:transparent; border:none; color:#34d399; cursor:pointer; display:flex;" title="Next week"><span class="material-symbols-rounded">chevron_right</span></button>
+          </div>
+          <button 
+            v-if="!activeWeekStatus?.isCurrent"
+            @click="viewWeek = mesStore.actualCalendarWeek"
+            style="font-size:0.7rem; font-weight:700; color:#a5b4fc; background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3); border-radius:0.5rem; padding:0.2rem 0.5rem; cursor:pointer;"
+            title="Reset to current calendar week"
+          >
+            Live Week
+          </button>
         </div>
       </div>
 
@@ -75,6 +95,7 @@ import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
 import { useMesStore } from '@/store/mesStore.js'
 import { supabase } from '@/lib/supabaseClient'
+import { getShiftedWeekLabel, getWeekStatus } from '@/utils/dateUtils.js'
 
 const attStore = useAttendanceStore()
 const mesStore = useMesStore()
@@ -82,14 +103,12 @@ const mesStore = useMesStore()
 const viewWeek = ref(mesStore.currentProductionWeek)
 const weekLogs = ref([])
 
+const activeWeekStatus = computed(() => {
+  return getWeekStatus(viewWeek.value)
+})
+
 function shiftWeek(delta) {
-  const match = viewWeek.value.match(/W(\d+)-(\d+)/)
-  if (!match) return
-  let w = Number(match[1]) + delta
-  let y = Number(match[2])
-  if (w < 1) { y--; w = 52 }
-  if (w > 52) { y++; w = 1 }
-  viewWeek.value = `W${String(w).padStart(2,'0')}-${y}`
+  viewWeek.value = getShiftedWeekLabel(viewWeek.value, delta)
 }
 
 watch(viewWeek, async (newWeek) => {

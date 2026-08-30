@@ -757,17 +757,13 @@ const isClockedIn = computed(() => {
   return mesStore.isOperatorClockedIn(employee.value.id)
 })
 
+import { getShiftedWeekLabel, getWeekStatus } from '@/utils/dateUtils.js'
+
 const viewWeek = ref(mesStore.currentProductionWeek)
 const viewWeekAttendance = ref([])
 
 function shiftWeek(delta) {
-  const match = viewWeek.value.match(/W(\d+)-(\d+)/)
-  if (!match) return
-  let w = Number(match[1]) + delta
-  let y = Number(match[2])
-  if (w < 1) { y--; w = 52 }
-  if (w > 52) { y++; w = 1 }
-  viewWeek.value = `W${String(w).padStart(2,'0')}-${y}`
+  viewWeek.value = getShiftedWeekLabel(viewWeek.value, delta)
 }
 
 watch(viewWeek, async (newWeek) => {

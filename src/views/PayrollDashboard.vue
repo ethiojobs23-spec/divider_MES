@@ -4,10 +4,48 @@
     <div class="view-area">
       <!-- Header / KPI Row -->
       <div class="view-panel" style="flex: none; padding-bottom: 0; min-height: auto;">
-        <div class="panel-header flex justify-between items-start">
+        <div class="panel-header flex justify-between items-start flex-wrap gap-2">
           <div>
-            <h2 class="panel-title">Weekly Payroll Dashboard</h2>
-            <p class="panel-sub">{{ currentWeek }} &bull; Auto-aggregated from production & HR ledger</p>
+            <div class="flex items-center gap-2">
+              <h2 class="panel-title">Weekly Payroll Dashboard</h2>
+              <span 
+                class="text-[0.65rem] font-black uppercase px-2 py-0.5 rounded-full"
+                :style="{
+                  background: mesStore.weekStatus?.isCurrent ? 'rgba(16,185,129,0.15)' : mesStore.weekStatus?.isPast ? 'rgba(245,158,11,0.15)' : 'rgba(99,102,241,0.15)',
+                  color: mesStore.weekStatus?.isCurrent ? '#34d399' : mesStore.weekStatus?.isPast ? '#fbbf24' : '#a5b4fc',
+                  border: '1px solid ' + (mesStore.weekStatus?.isCurrent ? 'rgba(16,185,129,0.3)' : mesStore.weekStatus?.isPast ? 'rgba(245,158,11,0.3)' : 'rgba(99,102,241,0.3)')
+                }"
+              >
+                ● {{ mesStore.weekStatus?.label }}
+              </span>
+            </div>
+            <p class="panel-sub">{{ currentWeek }} ({{ mesStore.weekStatus?.dateRange }}) &bull; Auto-aggregated from production & HR ledger</p>
+          </div>
+          <div class="flex items-center gap-1.5 bg-slate-800/80 p-1.5 rounded-xl border border-white/10">
+            <button 
+              @click="mesStore.shiftProductionWeek(-1)"
+              class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white border border-white/10 flex items-center justify-center cursor-pointer transition-all active:scale-95"
+              title="Previous Week"
+            >
+              <span class="material-symbols-rounded text-sm">chevron_left</span>
+            </button>
+            <span class="text-xs font-mono font-bold text-slate-200 px-2">{{ currentWeek }}</span>
+            <button 
+              @click="mesStore.shiftProductionWeek(1)"
+              class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white border border-white/10 flex items-center justify-center cursor-pointer transition-all active:scale-95"
+              title="Next Week"
+            >
+              <span class="material-symbols-rounded text-sm">chevron_right</span>
+            </button>
+            <button 
+              v-if="!mesStore.weekStatus?.isCurrent"
+              @click="mesStore.resetToCurrentWeek()"
+              class="px-2.5 py-1 rounded-lg text-[0.7rem] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 transition-all flex items-center gap-1 cursor-pointer active:scale-95 ml-1"
+              title="Return to current active calendar week"
+            >
+              <span class="material-symbols-rounded text-xs">restart_alt</span>
+              Live Week
+            </button>
           </div>
         </div>
 

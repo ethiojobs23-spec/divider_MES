@@ -61,11 +61,76 @@
         </div>
       </div>
 
-      <!-- Live Clock + Shift Status -->
+      <!-- Live Clock -->
       <div class="bg-gradient-to-br from-indigo-500/15 to-purple-500/10 border border-indigo-500/30 rounded-xl p-3 text-center mt-6 md:mt-0">
-        <p class="text-4xl font-extrabold text-slate-200 tracking-wide leading-none tabular-nums">{{ currentTime }}</p>
+        <p class="text-3xl lg:text-4xl font-extrabold text-slate-200 tracking-wide leading-none tabular-nums">{{ currentTime }}</p>
         <p class="text-xs text-slate-400 mt-1">{{ currentDate }}</p>
-        <p class="inline-block mt-1.5 bg-indigo-500/30 text-indigo-300 text-[0.65rem] font-bold rounded-full px-2.5 py-0.5 tracking-wider">{{ mesStore.currentProductionWeek }}</p>
+      </div>
+
+      <!-- Production Week Selector & Status Indicator -->
+      <div 
+        class="rounded-xl p-3 border transition-all duration-200 shadow-md"
+        :class="{
+          'bg-emerald-950/20 border-emerald-500/30': mesStore.weekStatus?.isCurrent,
+          'bg-amber-950/30 border-amber-500/40 shadow-amber-950/30': mesStore.weekStatus?.isPast,
+          'bg-indigo-950/30 border-indigo-500/40': mesStore.weekStatus?.isUpcoming
+        }"
+      >
+        <!-- Top row: Status Tag & Navigation Controls -->
+        <div class="flex items-center justify-between gap-1 mb-2">
+          <div 
+            class="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[0.65rem] font-black tracking-wider uppercase"
+            :class="{
+              'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30': mesStore.weekStatus?.isCurrent,
+              'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse': mesStore.weekStatus?.isPast,
+              'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30': mesStore.weekStatus?.isUpcoming
+            }"
+          >
+            <span class="w-1.5 h-1.5 rounded-full" :class="{
+              'bg-emerald-400': mesStore.weekStatus?.isCurrent,
+              'bg-amber-400': mesStore.weekStatus?.isPast,
+              'bg-indigo-400': mesStore.weekStatus?.isUpcoming
+            }"></span>
+            <span>{{ mesStore.weekStatus?.label || 'WEEK' }}</span>
+          </div>
+
+          <!-- Week Stepper buttons -->
+          <div class="flex items-center gap-1">
+            <button 
+              @click="mesStore.shiftProductionWeek(-1)"
+              class="w-6 h-6 rounded flex items-center justify-center bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white transition-all text-xs cursor-pointer border border-white/10 active:scale-95"
+              title="Previous Week"
+            >
+              <span class="material-symbols-rounded text-sm">chevron_left</span>
+            </button>
+            <button 
+              @click="mesStore.shiftProductionWeek(1)"
+              class="w-6 h-6 rounded flex items-center justify-center bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white transition-all text-xs cursor-pointer border border-white/10 active:scale-95"
+              title="Next Week"
+            >
+              <span class="material-symbols-rounded text-sm">chevron_right</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Week Label & Date Range -->
+        <div class="flex items-baseline justify-between px-0.5">
+          <span class="text-sm font-black font-mono tracking-tight text-white">{{ mesStore.currentProductionWeek }}</span>
+          <span class="text-[0.62rem] text-slate-400 font-semibold">{{ mesStore.weekStatus?.dateRange }}</span>
+        </div>
+
+        <!-- If not in current week, provide a quick jump button -->
+        <button 
+          v-if="!mesStore.weekStatus?.isCurrent"
+          @click="mesStore.resetToCurrentWeek()"
+          class="w-full mt-2 py-1 px-2 rounded-lg text-[0.68rem] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer border active:scale-95"
+          :class="mesStore.weekStatus?.isPast 
+            ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30' 
+            : 'bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border-indigo-500/30'"
+        >
+          <span class="material-symbols-rounded text-xs">restart_alt</span>
+          <span>Back to Live ({{ mesStore.actualCalendarWeek }})</span>
+        </button>
       </div>
 
       <!-- Global Auth Context Strip -->
@@ -150,7 +215,34 @@
     </aside>
 
     <!-- ─── Main Content ──────────────────────────────────────────── -->
-    <main class="flex-1 bg-slate-900 overflow-hidden flex flex-col pt-16 md:pt-0">
+    <main class="flex-1 bg-slate-900 overflow-hidden flex flex-col pt-16 md:pt-0 relative">
+      <!-- Historical / Future Week Warning Alert Strip -->
+      <div 
+        v-if="!mesStore.weekStatus?.isCurrent"
+        class="flex items-center justify-between px-4 py-2 text-xs font-bold shrink-0 z-30 transition-all border-b shadow-md"
+        :class="mesStore.weekStatus?.isPast 
+          ? 'bg-amber-950/90 text-amber-200 border-amber-500/30' 
+          : 'bg-indigo-950/90 text-indigo-200 border-indigo-500/30'"
+      >
+        <div class="flex items-center gap-2 truncate pr-2">
+          <span class="material-symbols-rounded text-base shrink-0" :class="mesStore.weekStatus?.isPast ? 'text-amber-400' : 'text-indigo-400'">
+            {{ mesStore.weekStatus?.isPast ? 'history' : 'calendar_clock' }}
+          </span>
+          <span class="truncate">
+            <strong class="uppercase font-black tracking-wide">{{ mesStore.weekStatus?.label }}:</strong> 
+            Viewing records for <span class="font-mono underline decoration-dotted">{{ mesStore.currentProductionWeek }}</span> ({{ mesStore.weekStatus?.dateRange }}). 
+            <span class="opacity-80 hidden sm:inline">{{ mesStore.weekStatus?.isPast ? 'Historical mode — not live.' : 'Advance planning mode.' }}</span>
+          </span>
+        </div>
+        <button 
+          @click="mesStore.resetToCurrentWeek()"
+          class="flex items-center gap-1 px-2.5 py-1 rounded-md text-[0.68rem] font-extrabold uppercase tracking-wider bg-white/10 hover:bg-white/20 transition-all cursor-pointer border border-white/20 text-white shrink-0 active:scale-95"
+        >
+          <span class="material-symbols-rounded text-xs">restore</span>
+          <span>Jump to Current ({{ mesStore.actualCalendarWeek }})</span>
+        </button>
+      </div>
+
       <slot />
     </main>
   </div>

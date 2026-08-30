@@ -392,19 +392,44 @@
           <!-- Production Week Override -->
           <div class="config-item config-item--text">
             <div class="config-info">
-              <span class="material-symbols-rounded config-icon" style="color:#8b5cf6">calendar_month</span>
+              <span class="material-symbols-rounded config-icon" :style="{ color: store.weekStatus?.isCurrent ? '#10b981' : store.weekStatus?.isPast ? '#f59e0b' : '#6366f1' }">
+                {{ store.weekStatus?.isCurrent ? 'event_available' : store.weekStatus?.isPast ? 'history' : 'event' }}
+              </span>
               <div>
-                <p class="config-label">Production Week</p>
-                <p class="config-desc">Current: {{ store.currentProductionWeek }}</p>
+                <div class="flex items-center gap-2">
+                  <p class="config-label">Production Week</p>
+                  <span 
+                    class="text-[0.65rem] font-extrabold uppercase px-2 py-0.5 rounded-full"
+                    :style="{
+                      background: store.weekStatus?.isCurrent ? 'rgba(16,185,129,0.15)' : store.weekStatus?.isPast ? 'rgba(245,158,11,0.15)' : 'rgba(99,102,241,0.15)',
+                      color: store.weekStatus?.isCurrent ? '#34d399' : store.weekStatus?.isPast ? '#fbbf24' : '#a5b4fc',
+                      border: '1px solid ' + (store.weekStatus?.isCurrent ? 'rgba(16,185,129,0.3)' : store.weekStatus?.isPast ? 'rgba(245,158,11,0.3)' : 'rgba(99,102,241,0.3)')
+                    }"
+                  >
+                    ● {{ store.weekStatus?.label }}
+                  </span>
+                </div>
+                <p class="config-desc">{{ store.weekStatus?.dateRange }} · {{ store.weekStatus?.description }}</p>
               </div>
             </div>
-            <div class="week-steppers">
-              <button class="step-btn step-btn--minus" @click="shiftWeek(-1)">
-                <span class="material-symbols-rounded">chevron_left</span>
-              </button>
-              <span class="week-display">{{ store.currentProductionWeek }}</span>
-              <button class="step-btn step-btn--plus" @click="shiftWeek(+1)">
-                <span class="material-symbols-rounded">chevron_right</span>
+            <div class="flex items-center gap-3">
+              <div class="week-steppers">
+                <button class="step-btn step-btn--minus" @click="store.shiftProductionWeek(-1)">
+                  <span class="material-symbols-rounded">chevron_left</span>
+                </button>
+                <span class="week-display font-mono">{{ store.currentProductionWeek }}</span>
+                <button class="step-btn step-btn--plus" @click="store.shiftProductionWeek(1)">
+                  <span class="material-symbols-rounded">chevron_right</span>
+                </button>
+              </div>
+              <button 
+                v-if="!store.weekStatus?.isCurrent"
+                @click="store.resetToCurrentWeek()"
+                class="px-3 py-2 rounded-xl text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 transition-all flex items-center gap-1 cursor-pointer"
+                title="Reset to current calendar week"
+              >
+                <span class="material-symbols-rounded text-sm">restart_alt</span>
+                Reset to Current ({{ store.actualCalendarWeek }})
               </button>
             </div>
           </div>
