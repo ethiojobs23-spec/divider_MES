@@ -287,7 +287,7 @@ const availablePlacements = computed(() => opConfig.value.placements?.length > 0
 const availableSizes = computed(() => opConfig.value.sizes?.length > 0 ? opConfig.value.sizes : standardSizes)
 
 // Visibility
-const hasTypes = computed(() => activeCategory.value !== 'TIME')
+const hasTypes = computed(() => activeCategory.value !== 'TIME' && activeCategory.value !== 'C')
 const hasSizes = computed(() => activeCategory.value !== 'TIME' && activeCategory.value !== 'MFG')
 const needsPlacement = computed(() => activeCategory.value === 'C')
 
