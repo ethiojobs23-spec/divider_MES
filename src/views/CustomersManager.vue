@@ -77,7 +77,6 @@
           </div>
           <div class="input-group">
             <label>Phone Number</label>
-            <!-- Using VirtualNumpad for phone numbers as requested -->
             <VirtualNumpad v-model="newCustomer.phone_number" label="Phone Number" :maxLen="14" />
           </div>
           <div class="input-group">
@@ -127,11 +126,9 @@ const store = useMesStore()
 
 const customersWithStats = computed(() => {
   return store.clients.map(client => {
-    // Total pieces dispatched to this client
     const dispatches = store.dispatchLogs.filter(d => d.client === client.name)
     const totalDispatched = dispatches.reduce((sum, d) => sum + Number(d.quantity), 0)
     
-    // Total payments received from this client (logged as client_payment)
     const payments = store.cashEntries
       .filter(e => e.type === 'client_payment' && e.operator === client.name)
       .reduce((sum, e) => sum + Number(e.amount), 0)
@@ -343,7 +340,12 @@ async function savePayment() {
 /* ── Mobile Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .cm-main {
-    padding: 1rem;
+    padding: 1rem 1rem 4rem 1rem;
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
   .cm-header {
     flex-direction: column;
@@ -353,6 +355,7 @@ async function savePayment() {
   .add-btn {
     width: 100%;
     justify-content: center;
+    touch-action: pan-y;
   }
   .cards-grid {
     grid-template-columns: 1fr;
@@ -361,6 +364,8 @@ async function savePayment() {
     margin: 1rem;
     padding: 1.5rem;
     max-width: calc(100vw - 2rem);
+    max-height: 90vh;
+    overflow-y: auto;
   }
 }
 </style>
