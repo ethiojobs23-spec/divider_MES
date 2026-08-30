@@ -104,22 +104,19 @@
           <!-- Card 1: My Production / My Hours -->
           <div class="stat-card">
             <div class="card-icon production">
-              <span class="material-symbols-rounded" v-if="employeePayrollConfig?.isPieceRate">precision_manufacturing</span>
-              <span class="material-symbols-rounded" v-else>schedule</span>
+              <span class="material-symbols-rounded">precision_manufacturing</span>
             </div>
             <div class="card-content">
-              <h3 v-if="employeePayrollConfig?.isPieceRate">My Production</h3>
-              <h3 v-else>My Hours Logged</h3>
+              <h3>My Production</h3>
               
               <div class="stat-value" v-if="employeePayrollConfig?.isPieceRate">
                 {{ totalProduction }} <span>pcs</span>
               </div>
-              <div class="stat-value" v-else>
+              <div class="stat-value" v-if="employeePayrollConfig?.isHourly">
                 {{ totalHours }} <span>hrs</span>
               </div>
               
-              <p class="stat-subtext" v-if="employeePayrollConfig?.isPieceRate">Total pieces produced this week</p>
-              <p class="stat-subtext" v-else>Total hours worked this week</p>
+              <p class="stat-subtext">Total output this week</p>
             </div>
           </div>
 
@@ -155,12 +152,12 @@
             My Work Types
             <span class="admin-only-badge">Admin-Managed</span>
           </h3>
-          <div v-if="employee?.work_types?.length" class="work-types-grid">
-            <div v-for="wt in employee.work_types" :key="wt" class="work-type-chip">
-              <span class="material-symbols-rounded" style="font-size:1rem">check_circle</span>
-              {{ wt }}
+            <div v-if="(employee?.work_types?.categories || employee?.work_types)?.length" class="work-types-grid">
+              <div v-for="wt in (employee?.work_types?.categories || employee?.work_types)" :key="wt" class="work-type-chip">
+                <span class="material-symbols-rounded" style="font-size:1rem">check_circle</span>
+                {{ wt === 'TIME' ? 'Hourly (TIME)' : wt }}
+              </div>
             </div>
-          </div>
           <div v-else class="work-types-empty">
             <span class="material-symbols-rounded">info</span>
             No work types assigned yet. Contact admin.
@@ -175,12 +172,12 @@
             <span class="admin-only-badge">Admin-Managed</span>
           </h3>
           <div class="work-types-grid" v-if="employeePayrollConfig">
-            <div class="work-type-chip" :class="{ 'inactive-chip': !employeePayrollConfig.isPieceRate }">
-              <span class="material-symbols-rounded" style="font-size:1rem">{{ employeePayrollConfig.isPieceRate ? 'check_circle' : 'cancel' }}</span>
+            <div class="work-type-chip" v-if="employeePayrollConfig.isPieceRate">
+              <span class="material-symbols-rounded" style="font-size:1rem">check_circle</span>
               Piece-Rate Pay
             </div>
-            <div class="work-type-chip" :class="{ 'inactive-chip': !employeePayrollConfig.isHourly }">
-              <span class="material-symbols-rounded" style="font-size:1rem">{{ employeePayrollConfig.isHourly ? 'check_circle' : 'cancel' }}</span>
+            <div class="work-type-chip" v-if="employeePayrollConfig.isHourly">
+              <span class="material-symbols-rounded" style="font-size:1rem">check_circle</span>
               Hourly Pay
             </div>
             <div class="work-type-chip" v-if="employeePayrollConfig.isHourly">
@@ -356,7 +353,7 @@
               <span class="shift-stat-val" style="color:#34d399">{{ todayGood }}</span>
               <span class="shift-stat-lbl">Good Pcs</span>
             </div>
-            <div class="shift-stat" v-else>
+            <div class="shift-stat" v-if="employeePayrollConfig?.isHourly">
               <span class="shift-stat-val" style="color:#34d399">{{ todayHours }}</span>
               <span class="shift-stat-lbl">Logged Hrs</span>
             </div>
