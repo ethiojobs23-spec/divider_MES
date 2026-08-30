@@ -41,7 +41,7 @@
         </div>
 
         <!-- Placement Toggles -->
-        <div class="toggle-cluster" v-if="activeCategory === 'MFG' || activeCategory === 'C'">
+        <div class="toggle-cluster" v-if="activeCategory === 'C'">
           <p class="cluster-label">Placement</p>
           <div class="toggle-row">
             <button
@@ -55,7 +55,7 @@
         </div>
 
         <!-- Size Toggles -->
-        <div class="toggle-cluster" v-if="activeCategory !== 'TIME'">
+        <div class="toggle-cluster" v-if="activeCategory !== 'TIME' && activeCategory !== 'MFG'">
           <p class="cluster-label">Size</p>
           <div class="toggle-row">
             <button
@@ -130,14 +130,14 @@
         <div class="numpad-panel lg:h-full lg:w-0 w-full transition-all duration-300" :class="{ 'lg:w-[26rem] h-auto lg:h-full p-4 lg:p-0': !!activeCell, 'h-0 overflow-hidden lg:h-full': !activeCell }">
           <div v-if="activeCell" class="numpad-inner">
             <div class="numpad-context">
-              <span class="ctx-badge ctx-placement">{{ activePlacement }}</span>
-              <span class="ctx-badge ctx-size">{{ activeSize }}</span>
+              <span v-if="activeCategory === 'C'" class="ctx-badge ctx-placement">{{ activePlacement }}</span>
+              <span v-if="activeCategory !== 'TIME' && activeCategory !== 'MFG'" class="ctx-badge ctx-size">{{ activeSize }}</span>
               <span class="ctx-badge ctx-day">{{ activeCell.day }}</span>
-              <span class="ctx-badge ctx-col">Type {{ activeCell.col }}</span>
+              <span class="ctx-badge ctx-col">{{ activeCategory === 'TIME' || activeCategory === 'C' ? activeCell.col : `Type ${activeCell.col}` }}</span>
             </div>
 
             <VirtualNumpad
-              :label="`Day ${activeCell.day} · Type ${activeCell.col}`"
+              :label="`Day ${activeCell.day} · ${activeCategory === 'TIME' || activeCategory === 'C' ? activeCell.col : `Type ${activeCell.col}`}`"
               v-model="numpadValue"
               :maxLen="5"
             />
@@ -325,10 +325,12 @@ async function performSave() {
   const currentOpId = sysAuth.currentEmployeeId || store.activeOperator?.id
   const submitOpId = isAdmin.value && targetOperatorId.value !== 'all' ? targetOperatorId.value : currentOpId
   const result = await store.submitProductionLog({
-    dividerType:    activeCell.value.col,
-    placement:      activePlacement.value,
-    size:           activeSize.value,
-    goodProduction: qtyDiff,
+    workCategory:   activeCategory.value,
+    dividerType:    (activeCategory.value === 'TIME' || activeCategory.value === 'C') ? null : activeCell.value.col,
+    placement:      activeCategory.value === 'C' ? activePlacement.value : null,
+    size:           (activeCategory.value === 'MFG' || activeCategory.value === 'TIME') ? null : activeSize.value,
+    goodProduction: activeCategory.value === 'TIME' ? 0 : qtyDiff,
+    hoursWorked:    activeCategory.value === 'TIME' ? qtyDiff : null,
     wasteMaterial:  0,
     operator_id:    submitOpId,
     production_date: targetDateStr,
@@ -337,7 +339,8 @@ async function performSave() {
   })
   
   if (result.ok) {
-    showToast(`✓ Updated ${activeCell.value.day} / Type ${activeCell.value.col} to ${newTotal}`)
+    const colLabel = activeCategory.value === 'TIME' || activeCategory.value === 'C' ? activeCell.value.col : `Type ${activeCell.value.col}`
+    showToast(`✓ Updated ${activeCell.value.day} / ${colLabel} to ${newTotal}`)
   } else {
     showToast(`⚠ Saved locally but sync failed`)
   }
