@@ -79,7 +79,7 @@
               :key="type"
               class="type-pill"
             >
-              <span class="pill-type">Type {{ type }}</span>
+              <span class="pill-type">{{ type === 'Hourly' || type === 'Wood Prep' ? type : `Type ${type}` }}</span>
               <span class="pill-qty">{{ qty }} pcs</span>
             </div>
           </div>
@@ -101,10 +101,12 @@
                     <span v-if="entry.wasteMaterial > 0" class="feed-qty waste">/ {{ entry.wasteMaterial }} waste</span>
                   </p>
                   <p class="feed-meta">
-                    Type <strong>{{ entry.dividerType }}</strong> ·
-                    {{ entry.placement }} ·
-                    {{ entry.size }} ·
-                    {{ fmtTime(entry.timestamp) }}
+                    <span v-if="entry.workCategory === 'TIME'" style="color:#94a3b8; font-weight:bold;">HOURLY</span>
+                    <span v-else-if="entry.workCategory === 'C'" style="color:#34d399; font-weight:bold;">WOOD PREP</span>
+                    <span v-else>Type <strong>{{ entry.dividerType === 'Other' ? 'Custom' : entry.dividerType }}</strong></span>
+                    <span v-if="entry.workCategory !== 'MFG' && entry.workCategory !== 'TIME' && entry.placement"> · {{ entry.placement }}</span>
+                    <span v-if="entry.workCategory !== 'MFG' && entry.workCategory !== 'TIME' && entry.size"> · {{ entry.size }}</span>
+                    · {{ fmtTime(entry.timestamp) }}
                     <span v-if="entry.loggedByAdmin" class="feed-admin-badge" title="Systematically registered / Admin Override">[Admin Logged]</span>
                   </p>
                 </div>
@@ -233,6 +235,12 @@ const ranges = [
 const activeRange = ref('6h')
 const activeRangeLabel = computed(() => ranges.find(r => r.key === activeRange.value)?.label ?? '')
 
+function getEntryTypeLabel(e) {
+  if (e.workCategory === 'TIME') return 'Hourly'
+  if (e.workCategory === 'C') return 'Wood Prep'
+  return e.dividerType === 'Other' ? 'Custom' : e.dividerType
+}
+
 function cutoffMs(rangeKey) {
   const now = Date.now()
   if (rangeKey === '6h')   return now - 6  * 3600_000
@@ -270,12 +278,13 @@ const todayWaste = computed(() => todayEntries.value.reduce((s, e) => s + (Numbe
 const todayByType = computed(() => {
   const map = {}
   todayEntries.value.forEach(e => {
-    map[e.dividerType] = (map[e.dividerType] || 0) + (Number(e.goodProduction) || 0)
+    const lbl = getEntryTypeLabel(e)
+    map[lbl] = (map[lbl] || 0) + (Number(e.goodProduction) || 0)
   })
   return map
 })
 
-const activeTypes = computed(() => new Set(todayEntries.value.map(e => e.dividerType)))
+const activeTypes = computed(() => new Set(todayEntries.value.map(e => getEntryTypeLabel(e))))
 
 const topOperator = computed(() => {
   const map = {}
@@ -358,9 +367,10 @@ const typeBreakdown = computed(() => {
   const entries = store.ledgerEntries.filter(e => new Date(e.timestamp).getTime() >= cutoff)
   const map = {}
   entries.forEach(e => {
-    if (!map[e.dividerType]) map[e.dividerType] = { good: 0, waste: 0 }
-    map[e.dividerType].good  += Number(e.goodProduction) || 0
-    map[e.dividerType].waste += Number(e.wasteMaterial)  || 0
+    const lbl = getEntryTypeLabel(e)
+    if (!map[lbl]) map[lbl] = { good: 0, waste: 0 }
+    map[lbl].good  += Number(e.goodProduction) || 0
+    map[lbl].waste += Number(e.wasteMaterial)  || 0
   })
   const total = Object.values(map).reduce((s, v) => s + v.good, 0) || 1
   return Object.entries(map)
