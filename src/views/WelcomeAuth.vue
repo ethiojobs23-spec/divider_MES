@@ -190,14 +190,18 @@ function triggerShake() {
 <style scoped>
 /* ── Root: full-screen split landscape ───────────────────────────────────── */
 .boot-screen {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   background: #020617;
   display: flex;
   flex-direction: row;           /* ← landscape split */
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   position: relative;
   font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ── Background grid ─────────────────────────────────────────────────────── */
@@ -218,10 +222,8 @@ function triggerShake() {
   filter: blur(120px);
   pointer-events: none;
 }
-.glow--left  { width: 100%;
- max-width: 520px; height: 520px; background: #6366f1; opacity: .12; top: -160px; left: -160px; }
-.glow--right { width: 100%;
- max-width: 420px; height: 420px; background: #2563eb; opacity: .1;  bottom: -100px; right: -80px; }
+.glow--left  { width: 100%; max-width: 520px; height: 520px; background: #6366f1; opacity: .12; top: -160px; left: -160px; }
+.glow--right { width: 100%; max-width: 420px; height: 420px; background: #2563eb; opacity: .1;  bottom: -100px; right: -80px; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    LEFT PANEL
@@ -298,75 +300,71 @@ function triggerShake() {
   cursor: pointer;
   transition: all 0.2s ease;
   letter-spacing: 0.05em;
+  touch-action: pan-y;
 }
 .toggle-btn.active {
   background: #6366f1;
-  color: #fff;
+  color: white;
   box-shadow: 0 4px 12px rgba(99,102,241,0.3);
 }
 
-/* PIN dots section */
+/* PIN section */
 .pin-section {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  width: 100%;
 }
 .pin-label {
-  font-size: .62rem;
+  font-size: .7rem;
   font-weight: 700;
   letter-spacing: .18em;
-  color: #475569;
-  text-transform: uppercase;
+  color: #64748b;
   margin: 0;
+  text-transform: uppercase;
 }
+
+/* Dots row */
 .pin-dots {
   display: flex;
-  gap: 1.2rem;
+  gap: 1.25rem;
+  align-items: center;
 }
 .pin-dot {
-  width: 1.6rem;
-  height: 1.6rem;
+  width: 1.25rem;
+  height: 1.25rem;
   border-radius: 50%;
-  border: 2px solid #1e293b;
+  border: 2px solid rgba(255,255,255,.18);
   background: transparent;
-  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+  transition: all .18s cubic-bezier(.34,1.56,.64,1);
 }
 .pin-dot--filled {
   background: #6366f1;
   border-color: #6366f1;
-  box-shadow: 0 0 16px rgba(99,102,241,.65);
+  box-shadow: 0 0 16px rgba(99,102,241,.8);
+  transform: scale(1.15);
 }
 .pin-dot--error {
-  background: #ef4444;
-  border-color: #ef4444;
-  box-shadow: 0 0 14px rgba(239,68,68,.6);
+  background: #ef4444 !important;
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 16px rgba(239,68,68,.8) !important;
 }
 
-/* Shake */
-@keyframes shake {
-  0%,100% { transform: translateX(0); }
-  14%     { transform: translateX(-12px); }
-  28%     { transform: translateX(12px); }
-  43%     { transform: translateX(-8px); }
-  57%     { transform: translateX(8px); }
-  72%     { transform: translateX(-4px); }
-  86%     { transform: translateX(4px); }
-}
-.shake { animation: shake .64s cubic-bezier(.36,.07,.19,.97); }
-
-/* Error / placeholder */
+/* Error message */
 .error-msg {
-  color: #f87171;
-  font-size: .78rem;
+  font-size: .8rem;
   font-weight: 600;
-  letter-spacing: .04em;
+  color: #f87171;
   margin: 0;
+  min-height: 1.2rem;
 }
-.error-placeholder { color: transparent; font-size: .78rem; margin: 0; }
-.msg-fade-enter-active, .msg-fade-leave-active { transition: opacity .2s ease; }
-.msg-fade-enter-from,   .msg-fade-leave-to     { opacity: 0; }
+.error-placeholder {
+  font-size: .8rem;
+  margin: 0;
+  min-height: 1.2rem;
+}
 
-/* Clock / date */
+/* Footer */
 .left-footer {
   display: flex;
   flex-direction: column;
@@ -374,16 +372,17 @@ function triggerShake() {
   margin-top: auto;
 }
 .clock {
-  font-size: 2.2rem;
+  font-size: 1.6rem;
   font-weight: 800;
-  color: #1e293b;
+  color: #f1f5f9;
   font-variant-numeric: tabular-nums;
-  letter-spacing: .06em;
+  letter-spacing: .04em;
 }
 .date {
-  font-size: .7rem;
-  color: #1e293b;
+  font-size: .75rem;
+  color: #475569;
   letter-spacing: .06em;
+  text-transform: uppercase;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -394,7 +393,7 @@ function triggerShake() {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem 3rem;
+  padding: 3rem;
   z-index: 1;
 }
 
@@ -412,8 +411,8 @@ function triggerShake() {
 
 /* Individual key */
 .num-key {
-  /* height controlled by grid row, not fixed px */
   width: 100%;
+  min-height: 3.5rem;
   font-size: clamp(1.75rem, 4vh, 3rem);
   font-weight: 700;
   color: #e2e8f0;
@@ -427,6 +426,7 @@ function triggerShake() {
   transition: background .1s ease, transform .08s ease, border-color .12s ease;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  touch-action: pan-y;
   letter-spacing: .02em;
 }
 .num-key:hover {
@@ -466,13 +466,16 @@ function triggerShake() {
   .boot-screen {
     flex-direction: column;
     overflow-y: auto;
-    height: 100dvh; /* Use dynamic viewport height if supported */
+    overflow-x: hidden;
+    height: auto;
+    min-height: 100dvh;
+    padding-bottom: 2rem;
   }
 
   .left-panel {
     width: 100%;
-    padding: 2rem 2rem 1.5rem 2rem;
-    gap: 1.5rem;
+    padding: 2rem 1.5rem 1rem 1.5rem;
+    gap: 1.25rem;
     border-right: none;
     border-bottom: 1px solid rgba(255,255,255,.05);
     align-items: center;
@@ -487,12 +490,12 @@ function triggerShake() {
   .brand-icon { font-size: 2rem; }
 
   .brand-title {
-    font-size: clamp(2rem, 8vw, 3rem);
+    font-size: clamp(2rem, 7vw, 2.8rem);
   }
 
   .mode-toggle {
     width: 100%;
-    max-width: 400px;
+    max-width: 360px;
   }
 
   .pin-dots {
@@ -505,14 +508,20 @@ function triggerShake() {
 
   .right-panel {
     width: 100%;
-    padding: 1rem 2rem 2rem 2rem;
+    padding: 1rem 1.5rem 3rem 1.5rem;
     align-items: flex-start;
   }
 
   .numpad {
-    max-width: 400px;
+    max-width: 380px;
     margin: 0 auto;
-    max-height: 50vh;
+    height: auto;
+    max-height: none;
+    gap: 0.65rem;
+  }
+
+  .num-key {
+    min-height: 3.75rem;
   }
 }
 
@@ -522,15 +531,15 @@ function triggerShake() {
     gap: 1rem;
   }
   .right-panel {
-    padding: 1rem;
+    padding: 1rem 1rem 3rem 1rem;
   }
   .numpad {
     gap: 0.5rem;
-    max-height: 45vh;
+    max-width: 100%;
   }
   .num-key {
+    min-height: 3.5rem;
     border-radius: 0.75rem;
   }
 }
 </style>
-
