@@ -199,12 +199,22 @@
                       <thead><tr><th>Type</th><th>Placement</th><th>Size</th><th>Good Pcs</th><th>Rate</th><th class="tar">Earnings</th></tr></thead>
                       <tbody>
                         <tr v-for="(e, i) in shift.entries" :key="i">
-                          <td>{{ e.dividerType }}</td>
-                          <td>{{ e.placement }}</td>
-                          <td>{{ e.size }}</td>
-                          <td style="color:#34d399"><strong>{{ e.good }}</strong></td>
-                          <td style="color:#94a3b8">{{ e.rate }} ETB/pc</td>
-                          <td class="tar" style="color:#fbbf24"><strong>{{ e.earnings.toFixed(2) }}</strong></td>
+                          <td>
+                            <span v-if="e.workCategory === 'TIME'" class="font-bold text-slate-300">HOURLY</span>
+                            <span v-else-if="e.workCategory === 'C'" class="font-bold text-emerald-400">WOOD PREP</span>
+                            <span v-else class="font-bold">{{ e.dividerType === 'Other' ? 'Custom' : e.dividerType }}</span>
+                          </td>
+                          <td>
+                            <span v-if="e.workCategory === 'MFG' || e.workCategory === 'TIME'" class="text-slate-500">—</span>
+                            <span v-else>{{ e.placement || '—' }}</span>
+                          </td>
+                          <td>
+                            <span v-if="e.workCategory === 'MFG' || e.workCategory === 'TIME'" class="text-slate-500">—</span>
+                            <span v-else>{{ e.size || '—' }}</span>
+                          </td>
+                          <td style="color:#34d399"><strong>{{ e.workCategory === 'TIME' ? (e.hoursWorked || 0) + ' hrs' : (e.good || e.goodProduction || 0) }}</strong></td>
+                          <td style="color:#94a3b8">{{ e.rate }} {{ e.workCategory === 'TIME' ? 'ETB/hr' : 'ETB/pc' }}</td>
+                          <td class="tar" style="color:#fbbf24"><strong>{{ (e.earnings || 0).toFixed(2) }}</strong></td>
                         </tr>
                       </tbody>
                     </table>

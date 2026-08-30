@@ -79,10 +79,20 @@
               <tbody>
                 <tr v-for="(e, i) in sub.details?.entries" :key="i">
                   <td><span class="cat-pill" :style="{ background: CAT_COLORS[e.workCategory || 'MFG'] + '22', color: CAT_COLORS[e.workCategory || 'MFG'] }">{{ e.workCategory || 'MFG' }}</span></td>
-                  <td>{{ e.dividerType }}</td>
-                  <td>{{ e.placement || '—' }}</td>
-                  <td>{{ e.size }}</td>
-                  <td style="color:#34d399"><strong>{{ e.good }}</strong></td>
+                  <td>
+                    <span v-if="e.workCategory === 'TIME'" class="text-slate-500">—</span>
+                    <span v-else-if="e.workCategory === 'C'" class="text-emerald-400 font-bold">WOOD</span>
+                    <span v-else>{{ e.dividerType === 'Other' ? 'Custom' : e.dividerType }}</span>
+                  </td>
+                  <td>
+                    <span v-if="e.workCategory === 'MFG' || e.workCategory === 'TIME'" class="text-slate-500">—</span>
+                    <span v-else>{{ e.placement || '—' }}</span>
+                  </td>
+                  <td>
+                    <span v-if="e.workCategory === 'MFG' || e.workCategory === 'TIME'" class="text-slate-500">—</span>
+                    <span v-else>{{ e.size || '—' }}</span>
+                  </td>
+                  <td style="color:#34d399"><strong>{{ e.workCategory === 'TIME' ? (e.hoursWorked || 0) + 'h' : e.good }}</strong></td>
                   <td style="color:#f87171"><strong>{{ e.waste || 0 }}</strong></td>
                   <td style="color:#64748b">{{ new Date(e.time).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) }}</td>
                 </tr>
