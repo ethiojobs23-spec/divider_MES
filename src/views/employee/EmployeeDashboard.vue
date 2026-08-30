@@ -21,6 +21,9 @@
         <button class="nav-btn" :class="{ active: activeTab === 'payment-request' }" @click="activeTab = 'payment-request'">
           <span class="material-symbols-rounded">payments</span> Payment Request
         </button>
+        <button class="nav-btn" :class="{ active: activeTab === 'payroll-history' }" @click="activeTab = 'payroll-history'">
+          <span class="material-symbols-rounded">history</span> Payroll History
+        </button>
         <button class="nav-btn" :class="{ active: activeTab === 'attendance' }" @click="activeTab = 'attendance'">
           <span class="material-symbols-rounded">how_to_reg</span> Attendance & Shift
         </button>
@@ -435,6 +438,31 @@
           </div>
         </div>
       </div>
+      <!-- Payroll History Tab -->
+      <div v-if="activeTab === 'payroll-history'" class="tab-content">
+        <div class="production-list-card">
+          <h3>My Weekly Payroll Payouts</h3>
+          <div class="data-table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date Paid</th>
+                  <th>Amount (ETB)</th>
+                  <th>Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in myPayouts" :key="p.id">
+                  <td>{{ new Date(p.transaction_date || p.created_at).toLocaleDateString([], {weekday:'short', month:'short', day:'numeric', year:'numeric'}) }}</td>
+                  <td class="align-right"><strong style="color:#34d399">{{ Number(p.amount).toFixed(2) }} ETB</strong></td>
+                  <td>{{ p.note }}</td>
+                </tr>
+                <tr v-if="!myPayouts.length"><td colspan="3" class="empty-text">No payroll payouts recorded yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </main>
 
     <!-- Employee PIN Modal -->
@@ -493,6 +521,7 @@ const tabTitles = {
   overview: 'My Dashboard',
   'cash-loan': 'Cash Loan',
   'payment-request': 'Payment Request',
+  'payroll-history': 'My Payroll History',
   attendance: 'Attendance & Shift Management',
   production: 'My Production Log',
   'shift-submit': 'Submit My Shift',
@@ -601,6 +630,13 @@ const myAdvances = computed(() => {
   if (!employee.value) return []
   return mesStore.cashEntries
     .filter(e => (e.type === 'advance' || e.type === 'pending_advance' || e.type === 'rejected_advance') && e.operator === employee.value.name)
+    .reverse()
+})
+
+const myPayouts = computed(() => {
+  if (!employee.value) return []
+  return mesStore.cashEntries
+    .filter(e => e.type === 'payout' && (e.operator_id === employee.value.id || e.operator === employee.value.name))
     .reverse()
 })
 
