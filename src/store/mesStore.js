@@ -817,7 +817,9 @@ export const useMesStore = defineStore('mes', () => {
     }
     
     let rate = 0
-    if (cat === 'PP' || cat === 'PL') {
+    if (cat === 'MFG') {
+      rate = pieceRates.value?.['MFG']?.[entry.dividerType] ?? 0
+    } else if (cat === 'PP' || cat === 'PL') {
       rate = pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size] ?? 0
     } else {
       rate = pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size]?.[entry.placement] ?? 0
@@ -831,6 +833,9 @@ export const useMesStore = defineStore('mes', () => {
     const cat = entry.workCategory || 'MFG'
     if (cat === 'TIME') {
       return 0
+    }
+    if (cat === 'MFG') {
+      return pieceRates.value?.['MFG']?.[entry.dividerType] ?? 0
     }
     if (cat === 'PP' || cat === 'PL') {
       return pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size] ?? 0

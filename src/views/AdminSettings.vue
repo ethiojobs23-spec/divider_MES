@@ -80,69 +80,95 @@
 
         <!-- Rate Matrix for selected type -->
         <div class="rate-grid">
-          <div
-            v-for="size in sizes"
-            :key="size"
-            class="rate-group"
-          >
-            <p class="rate-group-title">
-              <span class="material-symbols-rounded" style="font-size:.9rem;color:#6366f1">straighten</span>
-              {{ size }}
-            </p>
-            <div class="rate-rows">
-              <!-- If category uses placements (MFG, C) -->
-              <template v-if="activeRateCat === 'MFG' || activeRateCat === 'C'">
-                <div
-                  v-for="placement in allPlacementsForRates"
-                  :key="placement"
-                  class="rate-row"
-                >
-                  <div class="rate-meta">
-                    <span class="placement-badge">{{ placement === 'Other' ? (store.systemConfig.otherPlacement.label || 'Other') : placement }}</span>
-                    <span class="rate-key">Type {{ selectedType === 'Other' ? 'Custom' : selectedType }} &bull; {{ size }}</span>
-                  </div>
-
-                  <!-- Stepper -->
-                  <div class="stepper">
-                    <button class="step-btn step-btn--minus" @click="adjustRate(activeRateCat, selectedType, size, placement, -0.25)">
-                      <span class="material-symbols-rounded">remove</span>
-                    </button>
-                    <div class="step-display">
-                      <span class="step-currency">ETB</span>
-                      <span class="step-val">{{ getRate(activeRateCat, selectedType, size, placement).toFixed(2) }}</span>
-                    </div>
-                    <button class="step-btn step-btn--plus" @click="adjustRate(activeRateCat, selectedType, size, placement, +0.25)">
-                      <span class="material-symbols-rounded">add</span>
-                    </button>
-                  </div>
+          
+          <!-- If category ONLY uses Types (MFG) -->
+          <template v-if="activeRateCat === 'MFG'">
+            <div class="rate-row" style="background: rgba(255,255,255,0.02); padding: 1.5rem; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 1rem;">
+              <div class="rate-meta">
+                <span class="placement-badge" style="background: rgba(99,102,241,.15); color: #818cf8;">Flat Rate</span>
+                <span class="rate-key">Type {{ selectedType === 'Other' ? (store.systemConfig.otherDividerType.label || 'Custom') : selectedType }}</span>
+              </div>
+              <div class="stepper">
+                <button class="step-btn step-btn--minus" @click="adjustRate(activeRateCat, selectedType, null, null, -0.25)">
+                  <span class="material-symbols-rounded">remove</span>
+                </button>
+                <div class="step-display">
+                  <span class="step-currency">ETB</span>
+                  <span class="step-val">{{ getRate(activeRateCat, selectedType, null, null).toFixed(2) }}</span>
                 </div>
-              </template>
-
-              <!-- If category does NOT use placements (PP, PL) -->
-              <template v-else>
-                <div class="rate-row">
-                  <div class="rate-meta">
-                    <span class="placement-badge" style="background: rgba(16,185,129,.15); color: #10b981;">No Placement Used</span>
-                    <span class="rate-key">Type {{ selectedType === 'Other' ? 'Custom' : selectedType }} &bull; {{ size }}</span>
-                  </div>
-
-                  <!-- Stepper -->
-                  <div class="stepper">
-                    <button class="step-btn step-btn--minus" @click="adjustRate(activeRateCat, selectedType, size, null, -0.25)">
-                      <span class="material-symbols-rounded">remove</span>
-                    </button>
-                    <div class="step-display">
-                      <span class="step-currency">ETB</span>
-                      <span class="step-val">{{ getRate(activeRateCat, selectedType, size, null).toFixed(2) }}</span>
-                    </div>
-                    <button class="step-btn step-btn--plus" @click="adjustRate(activeRateCat, selectedType, size, null, +0.25)">
-                      <span class="material-symbols-rounded">add</span>
-                    </button>
-                  </div>
-                </div>
-              </template>
+                <button class="step-btn step-btn--plus" @click="adjustRate(activeRateCat, selectedType, null, null, +0.25)">
+                  <span class="material-symbols-rounded">add</span>
+                </button>
+              </div>
             </div>
-          </div>
+          </template>
+
+          <!-- Categories with Sizes (C, PP, PL) -->
+          <template v-else>
+            <div
+              v-for="size in sizes"
+              :key="size"
+              class="rate-group"
+            >
+              <p class="rate-group-title">
+                <span class="material-symbols-rounded" style="font-size:.9rem;color:#6366f1">straighten</span>
+                {{ size }}
+              </p>
+              <div class="rate-rows">
+                <!-- If category uses placements (C) -->
+                <template v-if="activeRateCat === 'C'">
+                  <div
+                    v-for="placement in allPlacementsForRates"
+                    :key="placement"
+                    class="rate-row"
+                  >
+                    <div class="rate-meta">
+                      <span class="placement-badge">{{ placement === 'Other' ? (store.systemConfig.otherPlacement.label || 'Other') : placement }}</span>
+                      <span class="rate-key">Type {{ selectedType === 'Other' ? (store.systemConfig.otherDividerType.label || 'Custom') : selectedType }} &bull; {{ size }}</span>
+                    </div>
+
+                    <!-- Stepper -->
+                    <div class="stepper">
+                      <button class="step-btn step-btn--minus" @click="adjustRate(activeRateCat, selectedType, size, placement, -0.25)">
+                        <span class="material-symbols-rounded">remove</span>
+                      </button>
+                      <div class="step-display">
+                        <span class="step-currency">ETB</span>
+                        <span class="step-val">{{ getRate(activeRateCat, selectedType, size, placement).toFixed(2) }}</span>
+                      </div>
+                      <button class="step-btn step-btn--plus" @click="adjustRate(activeRateCat, selectedType, size, placement, +0.25)">
+                        <span class="material-symbols-rounded">add</span>
+                      </button>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- If category does NOT use placements (PP, PL) -->
+                <template v-else>
+                  <div class="rate-row">
+                    <div class="rate-meta">
+                      <span class="placement-badge" style="background: rgba(16,185,129,.15); color: #10b981;">No Placement Used</span>
+                      <span class="rate-key">Type {{ selectedType === 'Other' ? (store.systemConfig.otherDividerType.label || 'Custom') : selectedType }} &bull; {{ size }}</span>
+                    </div>
+
+                    <!-- Stepper -->
+                    <div class="stepper">
+                      <button class="step-btn step-btn--minus" @click="adjustRate(activeRateCat, selectedType, size, null, -0.25)">
+                        <span class="material-symbols-rounded">remove</span>
+                      </button>
+                      <div class="step-display">
+                        <span class="step-currency">ETB</span>
+                        <span class="step-val">{{ getRate(activeRateCat, selectedType, size, null).toFixed(2) }}</span>
+                      </div>
+                      <button class="step-btn step-btn--plus" @click="adjustRate(activeRateCat, selectedType, size, null, +0.25)">
+                        <span class="material-symbols-rounded">add</span>
+                      </button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
 

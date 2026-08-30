@@ -88,7 +88,7 @@
           <template v-else>
             <p class="summary-row"><span>Type</span><strong>{{ selections.dividerType || '—' }}</strong></p>
             <p class="summary-row" v-if="needsPlacement"><span>Place</span><strong>{{ selections.placement || '—' }}</strong></p>
-            <p class="summary-row"><span>Size</span><strong>{{ selections.size || '—' }}</strong></p>
+            <p class="summary-row" v-if="hasSizes"><span>Size</span><strong>{{ selections.size || '—' }}</strong></p>
             <p class="summary-row"><span>Rate</span><strong class="rate-val">ETB {{ currentRate.toFixed(2) }}/pc</strong></p>
           </template>
           
@@ -282,8 +282,8 @@ const availableSizes = computed(() => opConfig.value.sizes?.length > 0 ? opConfi
 
 // Visibility
 const hasTypes = computed(() => activeCategory.value !== 'TIME')
-const hasSizes = computed(() => activeCategory.value !== 'TIME')
-const needsPlacement = computed(() => activeCategory.value === 'MFG' || activeCategory.value === 'C')
+const hasSizes = computed(() => activeCategory.value !== 'TIME' && activeCategory.value !== 'MFG')
+const needsPlacement = computed(() => activeCategory.value === 'C')
 
 // ─── Input State ────────────────────────────────────────────────────────────
 const values     = reactive({ good: '', waste: '', hours: '' })
