@@ -284,28 +284,72 @@
        </div>
 
       <!-- Attendance & Shift Tab -->
-      <div v-if="activeTab === 'attendance'" class="tab-content centered-content">
-        <div class="attendance-card">
-          <h3>Current Shift Status</h3>
-          <div class="status-indicator" :class="isClockedIn ? 'status--in' : 'status--out'">
-            <span class="status-dot"></span>
-            {{ isClockedIn ? 'CLOCKED IN' : 'CLOCKED OUT' }}
+      <div v-if="activeTab === 'attendance'" class="tab-content">
+        <div class="split-layout">
+          <!-- Left: Current Status -->
+          <div class="attendance-card" style="height: fit-content;">
+            <h3>Current Shift Status</h3>
+            <div class="status-indicator" :class="isClockedIn ? 'status--in' : 'status--out'">
+              <span class="status-dot"></span>
+              {{ isClockedIn ? 'CLOCKED IN' : 'CLOCKED OUT' }}
+            </div>
+            <p class="status-desc" v-if="isClockedIn">You are currently on shift. Remember to clock out when you finish!</p>
+            <p class="status-desc" v-else>You are currently clocked out. Clock in to start tracking your time and piece-rate.</p>
+  
+            <div class="attendance-actions">
+              <button v-if="!isClockedIn" class="btn-clock btn-clock--in" @click="clockIn">
+                <span class="material-symbols-rounded">login</span>
+                {{ attStore.validateClockTime('in').allowed ? 'CLOCK IN NOW' : 'ADMIN OVERRIDE: CLOCK IN' }}
+              </button>
+              <button v-else class="btn-clock btn-clock--out" @click="clockOut">
+                <span class="material-symbols-rounded">logout</span>
+                {{ attStore.validateClockTime('out').allowed ? 'CLOCK OUT NOW' : 'ADMIN OVERRIDE: CLOCK OUT' }}
+              </button>
+            </div>
+            <p v-if="!isClockedIn && !attStore.validateClockTime('in').allowed" class="status-warn">Outside allowed clock-in windows. Admin PIN required.</p>
+            <p v-if="isClockedIn && !attStore.validateClockTime('out').allowed" class="status-warn">Outside allowed clock-out windows. Admin PIN required.</p>
           </div>
-          <p class="status-desc" v-if="isClockedIn">You are currently on shift. Remember to clock out when you finish!</p>
-          <p class="status-desc" v-else>You are currently clocked out. Clock in to start tracking your time and piece-rate.</p>
-
-          <div class="attendance-actions">
-            <button v-if="!isClockedIn" class="btn-clock btn-clock--in" @click="clockIn">
-              <span class="material-symbols-rounded">login</span>
-              {{ attStore.validateClockTime('in').allowed ? 'CLOCK IN NOW' : 'ADMIN OVERRIDE: CLOCK IN' }}
-            </button>
-            <button v-else class="btn-clock btn-clock--out" @click="clockOut">
-              <span class="material-symbols-rounded">logout</span>
-              {{ attStore.validateClockTime('out').allowed ? 'CLOCK OUT NOW' : 'ADMIN OVERRIDE: CLOCK OUT' }}
-            </button>
+          
+          <!-- Right: Weekly Attendance History -->
+          <div class="history-card">
+            <div class="week-selector-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+              <h3>Weekly Attendance</h3>
+              <div class="week-controls" style="display:flex; align-items:center; gap:0.5rem; background:rgba(255,255,255,0.05); padding:0.25rem; border-radius:2rem;">
+                <button class="icon-btn" @click="shiftWeek(-1)" style="background:transparent; border:none; color:#f8fafc; cursor:pointer; display:flex;"><span class="material-symbols-rounded">chevron_left</span></button>
+                <strong style="color:#818cf8">{{ viewWeek }}</strong>
+                <button class="icon-btn" @click="shiftWeek(1)" style="background:transparent; border:none; color:#f8fafc; cursor:pointer; display:flex;"><span class="material-symbols-rounded">chevron_right</span></button>
+              </div>
+            </div>
+            
+            <div class="history-list">
+              <div v-for="day in viewWeekDays" :key="day.dateStr" class="history-item" :style="day.status === 'today' ? 'border:1px solid rgba(99,102,241,0.5)' : ''">
+                <div class="history-left">
+                  <div style="text-align:center; min-width:40px;">
+                    <span style="display:block; font-size:0.8rem; color:#94a3b8; text-transform:uppercase;">{{ day.dayName }}</span>
+                    <strong style="color:#e2e8f0;">{{ day.formatted.split(' ')[1] }}</strong>
+                  </div>
+                  <div>
+                    <span class="reason" v-if="day.status === 'present'">
+                      <strong class="status-active">PRESENT</strong>
+                      <span style="font-size:0.85rem; color:#94a3b8; display:block; margin-top:0.2rem;" v-if="day.record">
+                        In: {{ new Date(day.record.clock_in).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) }} 
+                        <span v-if="day.record.clock_out">| Out: {{ new Date(day.record.clock_out).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) }}</span>
+                      </span>
+                    </span>
+                    <span class="reason" v-else-if="day.status === 'absent'">
+                      <strong class="status-rejected">ABSENT</strong>
+                    </span>
+                    <span class="reason" v-else-if="day.status === 'today'">
+                      <strong style="color:#3b82f6">TODAY</strong>
+                    </span>
+                    <span class="reason" v-else>
+                      <strong style="color:#64748b">UPCOMING</strong>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <p v-if="!isClockedIn && !attStore.validateClockTime('in').allowed" class="status-warn">Outside allowed clock-in windows. Admin PIN required.</p>
-          <p v-if="isClockedIn && !attStore.validateClockTime('out').allowed" class="status-warn">Outside allowed clock-out windows. Admin PIN required.</p>
         </div>
       </div>
 
@@ -665,6 +709,78 @@ function submitPaymentRequest() {
 const isClockedIn = computed(() => {
   if (!employee.value) return false
   return mesStore.isOperatorClockedIn(employee.value.id)
+})
+
+const viewWeek = ref(mesStore.currentProductionWeek)
+const viewWeekAttendance = ref([])
+
+function shiftWeek(delta) {
+  const match = viewWeek.value.match(/W(\d+)-(\d+)/)
+  if (!match) return
+  let w = Number(match[1]) + delta
+  let y = Number(match[2])
+  if (w < 1) { y--; w = 52 }
+  if (w > 52) { y++; w = 1 }
+  viewWeek.value = `W${String(w).padStart(2,'0')}-${y}`
+}
+
+watch(viewWeek, async (newWeek) => {
+  if (!employee.value) return
+  const { data } = await supabase.from('mes_attendance')
+    .select('*')
+    .eq('production_week', newWeek)
+    .eq('operator_id', employee.value.id)
+  if (data) viewWeekAttendance.value = data
+}, { immediate: true })
+
+const viewWeekDays = computed(() => {
+  const label = viewWeek.value
+  const match = label.match(/W(\d+)-(\d+)/)
+  if (!match) return []
+  const w = Number(match[1])
+  const y = Number(match[2])
+  
+  let d = new Date(y, 0, 1)
+  let sanity = 0
+  while(sanity < 365) {
+     const startOfYear = new Date(d.getFullYear(), 0, 1)
+     const weekNum = Math.ceil(((d - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7)
+     if (weekNum === w) break
+     d.setDate(d.getDate() + 1)
+     sanity++
+  }
+  
+  const dayOfWeek = d.getDay() || 7
+  const monday = new Date(d)
+  monday.setDate(d.getDate() - dayOfWeek + 1)
+  
+  const days = []
+  const todayStr = new Date().toISOString().split('T')[0]
+  for (let i=0; i<7; i++) {
+     const dd = new Date(monday)
+     dd.setDate(monday.getDate() + i)
+     const dateStr = dd.toISOString().split('T')[0]
+     
+     const record = viewWeekAttendance.value.find(a => a.shift_date === dateStr)
+     
+     let status = 'upcoming'
+     if (record) {
+        status = 'present'
+     } else if (dateStr < todayStr) {
+        status = 'absent'
+     } else if (dateStr === todayStr) {
+        status = 'today'
+     }
+     
+     days.push({
+       dateStr,
+       dayName: dd.toLocaleDateString('en-US', { weekday: 'short' }),
+       formatted: dd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+       record,
+       status
+     })
+  }
+  return days
 })
 
 const adminOverrideModal = ref({ show: false, action: '', error: '', loading: false })
