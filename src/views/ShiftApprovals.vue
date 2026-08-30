@@ -54,26 +54,80 @@
 
           <!-- Stats -->
           <div class="card-stats">
-            <div class="card-stat">
-              <span class="stat-lbl">Good Pcs</span>
-              <span class="stat-val" style="color:#34d399">{{ sub.details?.totalGood ?? '—' }}</span>
-            </div>
-            <div class="card-stat">
-              <span class="stat-lbl">Waste Pcs</span>
-              <span class="stat-val" style="color:#f87171">{{ sub.details?.totalWaste ?? '—' }}</span>
-            </div>
+            <!-- TIME worker stats -->
+            <template v-if="sub.details?.isTimeWorker">
+              <div class="card-stat">
+                <span class="stat-lbl">Hours Worked</span>
+                <span class="stat-val" style="color:#34d399">{{ sub.details?.hoursWorkedToday ?? '—' }}h</span>
+              </div>
+              <div class="card-stat">
+                <span class="stat-lbl">Hourly Rate</span>
+                <span class="stat-val" style="color:#a5b4fc">ETB {{ sub.details?.hourlyRate ?? '—' }}/hr</span>
+              </div>
+              <div class="card-stat">
+                <span class="stat-lbl">Clock In</span>
+                <span class="stat-val" style="color:#94a3b8; font-size:.85rem;">
+                  {{ sub.details?.clockIn ? new Date(sub.details.clockIn).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—' }}
+                </span>
+              </div>
+              <div class="card-stat">
+                <span class="stat-lbl">Clock Out</span>
+                <span class="stat-val" style="font-size:.85rem;" :style="{ color: sub.details?.clockOut ? '#34d399' : '#f59e0b' }">
+                  {{ sub.details?.clockOut ? new Date(sub.details.clockOut).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Not clocked out' }}
+                </span>
+              </div>
+            </template>
+            <!-- Piece-rate worker stats -->
+            <template v-else>
+              <div class="card-stat">
+                <span class="stat-lbl">Good Pcs</span>
+                <span class="stat-val" style="color:#34d399">{{ sub.details?.totalGood ?? '—' }}</span>
+              </div>
+              <div class="card-stat">
+                <span class="stat-lbl">Waste Pcs</span>
+                <span class="stat-val" style="color:#f87171">{{ sub.details?.totalWaste ?? '—' }}</span>
+              </div>
+              <div class="card-stat">
+                <span class="stat-lbl">Entries</span>
+                <span class="stat-val" style="color:#a5b4fc">{{ sub.details?.entries?.length ?? '—' }}</span>
+              </div>
+            </template>
+            <!-- Always show earnings -->
             <div class="card-stat">
               <span class="stat-lbl">Est. Earnings</span>
               <span class="stat-val" style="color:#fbbf24">ETB {{ Number(sub.amount).toFixed(2) }}</span>
             </div>
-            <div class="card-stat">
-              <span class="stat-lbl">Entries</span>
-              <span class="stat-val" style="color:#a5b4fc">{{ sub.details?.entries?.length ?? '—' }}</span>
+          </div>
+
+          <!-- TIME worker breakdown -->
+          <div v-if="expanded === sub.id && sub.details?.isTimeWorker" class="entry-table-wrap" style="background:rgba(99,102,241,0.05); border:1px solid rgba(99,102,241,0.15); border-radius:.75rem; padding:1.25rem; display:flex; flex-direction:column; gap:.75rem;">
+            <p style="font-size:.75rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.08em; margin:0;">Hourly Work Summary</p>
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1rem;">
+              <div>
+                <p style="font-size:.65rem; color:#64748b; font-weight:700; margin:0 0 .25rem;">Clock In</p>
+                <p style="font-size:1.1rem; font-weight:900; font-family:monospace; color:#a5b4fc; margin:0;">
+                  {{ sub.details?.clockIn ? new Date(sub.details.clockIn).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—' }}
+                </p>
+              </div>
+              <div>
+                <p style="font-size:.65rem; color:#64748b; font-weight:700; margin:0 0 .25rem;">Clock Out</p>
+                <p style="font-size:1.1rem; font-weight:900; font-family:monospace; margin:0;" :style="{ color: sub.details?.clockOut ? '#34d399' : '#f59e0b' }">
+                  {{ sub.details?.clockOut ? new Date(sub.details.clockOut).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Not out yet' }}
+                </p>
+              </div>
+              <div>
+                <p style="font-size:.65rem; color:#64748b; font-weight:700; margin:0 0 .25rem;">Total Hours</p>
+                <p style="font-size:1.1rem; font-weight:900; font-family:monospace; color:#34d399; margin:0;">{{ sub.details?.hoursWorkedToday ?? 0 }}h</p>
+              </div>
+            </div>
+            <div style="border-top:1px solid rgba(255,255,255,.05); padding-top:.75rem; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:.85rem; color:#94a3b8;">{{ sub.details?.hoursWorkedToday ?? 0 }} hrs × ETB {{ sub.details?.hourlyRate ?? 0 }}/hr</span>
+              <span style="font-size:1rem; font-weight:900; color:#fbbf24;">= ETB {{ Number(sub.amount).toFixed(2) }}</span>
             </div>
           </div>
 
-          <!-- Entry breakdown (collapsed by default) -->
-          <div v-if="expanded === sub.id" class="entry-table-wrap w-full overflow-x-auto">
+          <!-- Piece-rate entry breakdown (collapsed by default) -->
+          <div v-if="expanded === sub.id && !sub.details?.isTimeWorker" class="entry-table-wrap w-full overflow-x-auto">
             <table class="entry-table">
               <thead><tr><th>Cat.</th><th>Type</th><th>Placement</th><th>Size</th><th>Good</th><th>Waste</th><th>Time</th></tr></thead>
               <tbody>

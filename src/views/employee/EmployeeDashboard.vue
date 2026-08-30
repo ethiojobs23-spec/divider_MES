@@ -406,16 +406,48 @@
             <span class="material-symbols-rounded">today</span>
             Today's Summary
           </h3>
+
+          <!-- ── TIME worker: clock-based summary card ── -->
+          <div v-if="isTimeWorker" style="margin-bottom:1.5rem;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+              <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:1rem; padding:1.25rem; display:flex; flex-direction:column; gap:.35rem;">
+                <span style="font-size:.7rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.08em;">Clock In</span>
+                <span style="font-size:1.4rem; font-weight:900; font-family:monospace; color:#a5b4fc;">
+                  {{ todayAttendanceRecord ? new Date(todayAttendanceRecord.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Not yet' }}
+                </span>
+              </div>
+              <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2); border-radius:1rem; padding:1.25rem; display:flex; flex-direction:column; gap:.35rem;">
+                <span style="font-size:.7rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.08em;">Clock Out</span>
+                <span style="font-size:1.4rem; font-weight:900; font-family:monospace;" :style="{ color: todayAttendanceRecord?.clockOut ? '#34d399' : '#f59e0b' }">
+                  {{ todayAttendanceRecord?.clockOut ? new Date(todayAttendanceRecord.clockOut).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Still working…' }}
+                </span>
+              </div>
+            </div>
+
+            <div v-if="!todayAttendanceRecord" style="background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); border-radius:.75rem; padding:1rem 1.25rem; color:#f87171; font-size:.9rem; font-weight:600; display:flex; align-items:center; gap:.6rem;">
+              <span class="material-symbols-rounded">warning</span>
+              You have not clocked in today. Please clock in from the Attendance tab first.
+            </div>
+            <div v-else-if="!todayAttendanceRecord.clockOut" style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.2); border-radius:.75rem; padding:1rem 1.25rem; color:#fbbf24; font-size:.9rem; font-weight:600; display:flex; align-items:center; gap:.6rem;">
+              <span class="material-symbols-rounded">info</span>
+              You haven't clocked out yet — hours will be estimated until you do.
+            </div>
+          </div>
+
           <div class="shift-stats">
-            <div class="shift-stat" v-if="employeePayrollConfig?.isPieceRate">
+            <div class="shift-stat" v-if="isTimeWorker">
+              <span class="shift-stat-val" style="color:#34d399">{{ todayHours }}h</span>
+              <span class="shift-stat-lbl">Hours Worked</span>
+            </div>
+            <div class="shift-stat" v-if="isTimeWorker && employeePayrollConfig">
+              <span class="shift-stat-val" style="color:#a5b4fc">{{ employeePayrollConfig.hourlyRate }} ETB</span>
+              <span class="shift-stat-lbl">Rate / Hour</span>
+            </div>
+            <div class="shift-stat" v-if="isPieceRateWorker">
               <span class="shift-stat-val" style="color:#34d399">{{ todayGood }}</span>
               <span class="shift-stat-lbl">Good Pcs</span>
             </div>
-            <div class="shift-stat" v-if="employeePayrollConfig?.isHourly">
-              <span class="shift-stat-val" style="color:#34d399">{{ todayHours }}</span>
-              <span class="shift-stat-lbl">Logged Hrs</span>
-            </div>
-            <div class="shift-stat">
+            <div class="shift-stat" v-if="isPieceRateWorker">
               <span class="shift-stat-val" style="color:#f87171">{{ todayWaste }}</span>
               <span class="shift-stat-lbl">Waste Pcs</span>
             </div>
@@ -423,14 +455,14 @@
               <span class="shift-stat-val" style="color:#fbbf24">{{ todayEarnings }}</span>
               <span class="shift-stat-lbl">Est. Earnings (ETB)</span>
             </div>
-            <div class="shift-stat">
+            <div class="shift-stat" v-if="isPieceRateWorker">
               <span class="shift-stat-val" style="color:#a5b4fc">{{ todayEntries.length }}</span>
               <span class="shift-stat-lbl">Log Entries</span>
             </div>
           </div>
 
-          <!-- Breakdown table -->
-          <div class="data-table-container" style="margin-top:1.5rem">
+          <!-- Piece-rate entry breakdown (hidden for pure TIME workers) -->
+          <div v-if="isPieceRateWorker" class="data-table-container" style="margin-top:1.5rem">
             <table class="data-table">
               <thead><tr><th>Category</th><th>Type</th><th>Placement</th><th>Size</th><th class="align-right">Qty/Hrs</th><th class="align-right">Waste</th></tr></thead>
               <tbody>
@@ -464,12 +496,15 @@
             <button
               v-else
               class="btn-submit-shift"
-              :disabled="!todayEntries.length || isSubmitting"
+              :disabled="!canSubmitShift || isSubmitting"
               @click="submitTodayShift"
             >
               <span class="material-symbols-rounded">task_alt</span>
               {{ isSubmitting ? 'Submitting...' : 'SUBMIT SHIFT FOR APPROVAL' }}
             </button>
+            <p v-if="!canSubmitShift && !alreadySubmittedToday" style="text-align:center; color:#64748b; font-size:.85rem; margin-top:.75rem;">
+              {{ isTimeWorker ? 'Clock in first to enable shift submission.' : 'Log at least one production entry to submit your shift.' }}
+            </p>
             <p v-if="submitMessage" class="success-msg">{{ submitMessage }}</p>
           </div>
         </div>
@@ -481,8 +516,8 @@
             <div v-for="sub in mySubmissions" :key="sub.id" class="submission-row">
               <div class="sub-date">{{ new Date(sub.transaction_date).toLocaleDateString('en-GB', {weekday:'short', day:'2-digit', month:'short'}) }}</div>
               <div class="sub-stats">
-                <span>Good: <strong>{{ sub.details?.totalGood ?? '—' }}</strong></span>
-                <span>Waste: <strong>{{ sub.details?.totalWaste ?? '—' }}</strong></span>
+                <span v-if="sub.details?.isTimeWorker">Hours: <strong>{{ sub.details?.hoursWorkedToday ?? '—' }}h</strong></span>
+                <span v-else>Good: <strong>{{ sub.details?.totalGood ?? '—' }}</strong></span>
                 <span>ETB: <strong>{{ Number(sub.amount).toFixed(2) }}</strong></span>
               </div>
               <div class="sub-status" :class="'sub-status--' + sub.target_name">
@@ -934,15 +969,58 @@ const todayEntries = computed(() => {
   })
 })
 
+// ── Today's attendance record (for TIME workers) ──
+const todayAttendanceRecord = computed(() => {
+  if (!employee.value) return null
+  const today = new Date().toISOString().split('T')[0]
+  return attStore.clockInLog.find(log =>
+    String(log.operatorId) === String(employee.value.id) && log.shiftDate === today
+  ) || null
+})
+
+// Hours worked today derived from clock-in/out (for TIME workers)
+const todayHoursFromClock = computed(() => {
+  const rec = todayAttendanceRecord.value
+  if (!rec || !rec.timestamp) return 0
+  const end = rec.clockOut ? new Date(rec.clockOut) : new Date()
+  const diffMs = end - new Date(rec.timestamp)
+  return Math.max(0, Math.round((diffMs / 3600000) * 100) / 100)
+})
+
+const isTimeWorker = computed(() => {
+  const cats = employee.value?.work_types?.categories || []
+  return cats.includes('TIME')
+})
+const isPieceRateWorker = computed(() => {
+  const cats = employee.value?.work_types?.categories || []
+  return cats.some(c => c !== 'TIME') || cats.length === 0
+})
+
 const todayGood = computed(() => todayEntries.value.reduce((s,e) => s + (Number(e.goodProduction)||0), 0))
-const todayHours = computed(() => todayEntries.value.reduce((s,e) => s + (Number(e.hoursWorked)||0), 0))
+// For display: use clock-derived hours for TIME workers
+const todayHours = computed(() => isTimeWorker.value ? todayHoursFromClock.value : todayEntries.value.reduce((s,e) => s + (Number(e.hoursWorked)||0), 0))
 const todayWaste = computed(() => todayEntries.value.reduce((s,e) => s + (Number(e.wasteMaterial)||0), 0))
 const todayEarnings = computed(() => {
   let total = 0
-  todayEntries.value.forEach(e => {
-    total += mesStore.calculateEntryEarnings(e, employee.value.id)
-  })
+  if (isTimeWorker.value) {
+    const rate = Number(employee.value?.work_types?.hourly_rate || employeePayrollConfig.value?.hourlyRate || 0)
+    total += todayHoursFromClock.value * rate
+  }
+  if (isPieceRateWorker.value) {
+    todayEntries.value.forEach(e => {
+      if ((e.workCategory || 'MFG') !== 'TIME') {
+        total += mesStore.calculateEntryEarnings(e, employee.value.id)
+      }
+    })
+  }
   return total.toFixed(2)
+})
+
+// Can submit if: TIME worker has clocked in today OR piece-rate worker has entries
+const canSubmitShift = computed(() => {
+  if (isTimeWorker.value && todayAttendanceRecord.value) return true
+  if (isPieceRateWorker.value && todayEntries.value.length > 0) return true
+  return false
 })
 
 // ── Shift submissions ──
@@ -969,7 +1047,11 @@ async function submitTodayShift() {
   const result = await mesStore.submitShift(employee.value.id, employee.value.name)
   isSubmitting.value = false
   if (result.ok) {
-    submitMessage.value = `✓ Shift submitted! ${result.totalGood} pcs good, ETB ${result.totalEarnings} est. earnings. Awaiting admin approval.`
+    if (result.isTimeWorker) {
+      submitMessage.value = `✓ Shift submitted! ${result.hoursWorkedToday}h worked · ETB ${result.totalEarnings} est. earnings. Awaiting admin approval.`
+    } else {
+      submitMessage.value = `✓ Shift submitted! ${result.totalGood} pcs good · ETB ${result.totalEarnings} est. earnings. Awaiting admin approval.`
+    }
     setTimeout(() => { submitMessage.value = '' }, 5000)
   } else {
     submitMessage.value = '⚠ Submission failed. Please try again.'

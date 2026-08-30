@@ -669,40 +669,73 @@ export const useMesStore = defineStore('mes', () => {
   async function submitShift(operatorId, operatorName) {
     try {
       const today = new Date().toISOString().split('T')[0]
-      // Get today's production entries for this operator
+      const opConfig = getOperatorWorkConfig(operatorId)
+      const isTimeOnly = opConfig.categories?.includes('TIME') && !opConfig.categories?.some(c => c !== 'TIME')
+
+      // Get today's production entries for this operator (piece-rate workers)
       const myEntries = ledgerEntries.value.filter(e => {
         const d = new Date(e.timestamp).toISOString().split('T')[0]
         return e.operator === operatorName && d === today
       })
       const totalGood  = myEntries.reduce((s,e) => s + (Number(e.goodProduction)||0), 0)
       const totalWaste = myEntries.reduce((s,e) => s + (Number(e.wasteMaterial)||0), 0)
-      const opConfig = getOperatorWorkConfig(operatorId)
-      // Compute earnings using piece rates and hourly rates
+
       let totalEarnings = 0
-      myEntries.forEach(e => {
-        const cat = e.workCategory || 'MFG'
-        if (cat === 'TIME') {
-          // Earnings = hoursWorked * hourly_rate
-          if (e.hoursWorked && opConfig.hourly_rate) {
-            totalEarnings += Number(e.hoursWorked) * Number(opConfig.hourly_rate)
+      let hoursWorkedToday = 0
+      let clockInTime = null
+      let clockOutTime = null
+
+      // ── TIME (hourly) workers: calculate hours from attendance record ──
+      if (opConfig.categories?.includes('TIME')) {
+        const { useAttendanceStore } = await import('./attendanceStore.js')
+        const attStore = useAttendanceStore()
+        // Find today's attendance record for this operator
+        const todayRecord = attStore.clockInLog.find(log => {
+          return String(log.operatorId) === String(operatorId) && log.shiftDate === today
+        })
+        if (todayRecord) {
+          clockInTime  = todayRecord.timestamp
+          clockOutTime = todayRecord.clockOut
+          if (clockInTime && clockOutTime) {
+            const diffMs = new Date(clockOutTime) - new Date(clockInTime)
+            hoursWorkedToday = Math.round((diffMs / 3600000) * 100) / 100 // hours, 2dp
+          } else if (clockInTime && !clockOutTime) {
+            // Not clocked out yet — use current time as estimate
+            const diffMs = Date.now() - new Date(clockInTime)
+            hoursWorkedToday = Math.round((diffMs / 3600000) * 100) / 100
           }
-        } else {
-          // Piece rate lookup
+        }
+        const hourlyRate = Number(opConfig.hourly_rate) || 0
+        totalEarnings += hoursWorkedToday * hourlyRate
+      }
+
+      // ── Piece-rate workers: calculate from production entries ──
+      if (!isTimeOnly) {
+        myEntries.forEach(e => {
+          const cat = e.workCategory || 'MFG'
+          if (cat === 'TIME') return // already handled above
           let rate = 0
           if (cat === 'PP' || cat === 'PL') {
-             rate = pieceRates.value?.[cat]?.[e.dividerType]?.[e.size] ?? 0
+            rate = pieceRates.value?.[cat]?.[e.dividerType]?.[e.size] ?? 0
           } else {
-             rate = pieceRates.value?.[cat]?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
+            rate = pieceRates.value?.[cat]?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
           }
           totalEarnings += rate * (Number(e.goodProduction) || 0)
-        }
-      })
+        })
+      }
+
       const details = {
         entries: myEntries.map(e => ({
           workCategory: e.workCategory || 'MFG',
           dividerType: e.dividerType, placement: e.placement, size: e.size,
           good: e.goodProduction, waste: e.wasteMaterial, time: e.timestamp, hoursWorked: e.hoursWorked
         })),
+        // TIME worker attendance summary
+        isTimeWorker: opConfig.categories?.includes('TIME'),
+        hoursWorkedToday,
+        hourlyRate: opConfig.hourly_rate || 0,
+        clockIn: clockInTime,
+        clockOut: clockOutTime,
         totalGood, totalWaste, totalEarnings: totalEarnings.toFixed(2),
         submittedAt: new Date().toISOString(), week: currentProductionWeek.value
       }
@@ -715,7 +748,7 @@ export const useMesStore = defineStore('mes', () => {
         notes: JSON.stringify(details)
       }
       shiftSubmissions.value.push({ id: Date.now(), ...payload, details })
-      
+
       if (navigator.onLine) {
         supabase.from('mes_financial_ledger').insert(payload).catch(() => {
           syncManager.enqueue({ action: 'insert', table: 'mes_financial_ledger', payload })
@@ -723,7 +756,11 @@ export const useMesStore = defineStore('mes', () => {
       } else {
         syncManager.enqueue({ action: 'insert', table: 'mes_financial_ledger', payload })
       }
-      return { ok: true, totalGood, totalWaste, totalEarnings: totalEarnings.toFixed(2) }
+      return {
+        ok: true, totalGood, totalWaste,
+        totalEarnings: totalEarnings.toFixed(2),
+        hoursWorkedToday, isTimeWorker: opConfig.categories?.includes('TIME')
+      }
     } catch (err) {
       console.error('[Store] Shift submit failed:', err)
       return { ok: false }
