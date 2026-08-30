@@ -101,15 +101,25 @@
       <!-- Overview Tab -->
       <div v-if="activeTab === 'overview'" class="tab-content">
         <div class="dashboard-grid">
-          <!-- Card 1: My Production -->
+          <!-- Card 1: My Production / My Hours -->
           <div class="stat-card">
             <div class="card-icon production">
-              <span class="material-symbols-rounded">precision_manufacturing</span>
+              <span class="material-symbols-rounded" v-if="employeePayrollConfig?.isPieceRate">precision_manufacturing</span>
+              <span class="material-symbols-rounded" v-else>schedule</span>
             </div>
             <div class="card-content">
-              <h3>My Production</h3>
-              <div class="stat-value">{{ totalProduction }} <span>pcs</span></div>
-              <p class="stat-subtext">Total dividers produced this week</p>
+              <h3 v-if="employeePayrollConfig?.isPieceRate">My Production</h3>
+              <h3 v-else>My Hours Logged</h3>
+              
+              <div class="stat-value" v-if="employeePayrollConfig?.isPieceRate">
+                {{ totalProduction }} <span>pcs</span>
+              </div>
+              <div class="stat-value" v-else>
+                {{ totalHours }} <span>hrs</span>
+              </div>
+              
+              <p class="stat-subtext" v-if="employeePayrollConfig?.isPieceRate">Total pieces produced this week</p>
+              <p class="stat-subtext" v-else>Total hours worked this week</p>
             </div>
           </div>
 
@@ -338,21 +348,25 @@
         <!-- Today's Summary -->
         <div class="shift-summary-card">
           <h3>
-            <span class="material-symbols-rounded">summarize</span>
-            Today's Production Summary
+            <span class="material-symbols-rounded">today</span>
+            Today's Summary
           </h3>
           <div class="shift-stats">
-            <div class="shift-stat">
+            <div class="shift-stat" v-if="employeePayrollConfig?.isPieceRate">
               <span class="shift-stat-val" style="color:#34d399">{{ todayGood }}</span>
               <span class="shift-stat-lbl">Good Pcs</span>
+            </div>
+            <div class="shift-stat" v-else>
+              <span class="shift-stat-val" style="color:#34d399">{{ todayHours }}</span>
+              <span class="shift-stat-lbl">Logged Hrs</span>
             </div>
             <div class="shift-stat">
               <span class="shift-stat-val" style="color:#f87171">{{ todayWaste }}</span>
               <span class="shift-stat-lbl">Waste Pcs</span>
             </div>
             <div class="shift-stat">
-              <span class="shift-stat-val" style="color:#fbbf24">ETB {{ todayEarnings }}</span>
-              <span class="shift-stat-lbl">Est. Earnings</span>
+              <span class="shift-stat-val" style="color:#fbbf24">{{ todayEarnings }}</span>
+              <span class="shift-stat-lbl">Est. Earnings (ETB)</span>
             </div>
             <div class="shift-stat">
               <span class="shift-stat-val" style="color:#a5b4fc">{{ todayEntries.length }}</span>
@@ -363,14 +377,21 @@
           <!-- Breakdown table -->
           <div class="data-table-container" style="margin-top:1.5rem">
             <table class="data-table">
-              <thead><tr><th>Type</th><th>Placement</th><th>Size</th><th class="align-right">Good</th><th class="align-right">Waste</th></tr></thead>
+              <thead><tr><th>Category</th><th>Type</th><th>Placement</th><th>Size</th><th class="align-right">Qty/Hrs</th><th class="align-right">Waste</th></tr></thead>
               <tbody>
                 <tr v-for="e in todayEntries" :key="e.id">
-                  <td>{{ e.dividerType }}</td><td>{{ e.placement }}</td><td>{{ e.size }}</td>
-                  <td class="align-right" style="color:#34d399">{{ e.goodProduction }}</td>
-                  <td class="align-right" style="color:#f87171">{{ e.wasteMaterial || 0 }}</td>
+                  <td>{{ e.workCategory || 'MFG' }}</td>
+                  <td>{{ e.dividerType || '—' }}</td>
+                  <td>{{ e.placement || '—' }}</td>
+                  <td>{{ e.size || '—' }}</td>
+                  <td class="align-right" style="color:#34d399">
+                    {{ e.workCategory === 'TIME' ? (e.hoursWorked || 0) + ' h' : (e.goodProduction || 0) }}
+                  </td>
+                  <td class="align-right" style="color:#f87171">
+                    {{ e.workCategory === 'TIME' ? '—' : (e.wasteMaterial || 0) }}
+                  </td>
                 </tr>
-                <tr v-if="!todayEntries.length"><td colspan="5" class="empty-text">No entries logged today.</td></tr>
+                <tr v-if="!todayEntries.length"><td colspan="6" class="empty-text">No entries logged today.</td></tr>
               </tbody>
             </table>
           </div>
@@ -487,7 +508,8 @@ const employee = computed(() => {
 })
 
 const employeePayrollConfig = computed(() => {
-  return employee.value?.payroll_config
+  if (!employee.value) return null
+  return payrollStore.getWorkerProfile(employee.value.id)
 })
 
 // ── Overview ──
@@ -496,6 +518,13 @@ const totalProduction = computed(() => {
   return mesStore.ledgerEntries
     .filter(e => e.operator === employee.value.name && e.week === currentWeek.value)
     .reduce((sum, e) => sum + (Number(e.goodProduction) || 0), 0)
+})
+
+const totalHours = computed(() => {
+  if (!employee.value) return 0
+  return mesStore.ledgerEntries
+    .filter(e => e.operator === employee.value.name && e.week === currentWeek.value)
+    .reduce((sum, e) => sum + (Number(e.hoursWorked) || 0), 0)
 })
 
 const daysAttended = computed(() => {
@@ -694,6 +723,7 @@ const todayEntries = computed(() => {
 })
 
 const todayGood = computed(() => todayEntries.value.reduce((s,e) => s + (Number(e.goodProduction)||0), 0))
+const todayHours = computed(() => todayEntries.value.reduce((s,e) => s + (Number(e.hoursWorked)||0), 0))
 const todayWaste = computed(() => todayEntries.value.reduce((s,e) => s + (Number(e.wasteMaterial)||0), 0))
 const todayEarnings = computed(() => {
   let total = 0
