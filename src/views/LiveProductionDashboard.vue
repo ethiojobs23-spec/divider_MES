@@ -80,7 +80,7 @@
               class="type-pill"
             >
               <span class="pill-type">{{ type === 'Hourly' || type === 'Wood Prep' ? type : `Type ${type}` }}</span>
-              <span class="pill-qty">{{ qty }} pcs</span>
+              <span class="pill-qty">{{ qty }} {{ type === 'Hourly' ? 'hrs' : 'pcs' }}</span>
             </div>
           </div>
 
@@ -97,7 +97,8 @@
                   <p class="feed-primary">
                     <strong>{{ entry.operator }}</strong>
                     logged
-                    <span class="feed-qty good">{{ entry.goodProduction }} pcs good</span>
+                    <span v-if="entry.workCategory === 'TIME'" class="feed-qty good">{{ entry.hoursWorked }} hours</span>
+                    <span v-else class="feed-qty good">{{ entry.goodProduction }} pcs good</span>
                     <span v-if="entry.wasteMaterial > 0" class="feed-qty waste">/ {{ entry.wasteMaterial }} waste</span>
                   </p>
                   <p class="feed-meta">
@@ -110,8 +111,8 @@
                     <span v-if="entry.loggedByAdmin" class="feed-admin-badge" title="Systematically registered / Admin Override">[Admin Logged]</span>
                   </p>
                 </div>
-                <div class="feed-badge" :class="entry.goodProduction > 0 ? 'feed-badge--good' : 'feed-badge--waste'">
-                  {{ entry.goodProduction > 0 ? '+' + entry.goodProduction : '⚠ ' + entry.wasteMaterial }}
+                <div class="feed-badge" :class="(entry.workCategory === 'TIME' ? entry.hoursWorked : entry.goodProduction) > 0 ? 'feed-badge--good' : 'feed-badge--waste'">
+                  {{ (entry.workCategory === 'TIME' ? entry.hoursWorked : entry.goodProduction) > 0 ? '+' + (entry.workCategory === 'TIME' ? entry.hoursWorked + 'h' : entry.goodProduction) : '⚠ ' + entry.wasteMaterial }}
                 </div>
               </div>
             </TransitionGroup>
@@ -191,7 +192,7 @@
                     :style="{ width: row.pct + '%' }"
                   ></div>
                 </div>
-                <span class="breakdown-qty">{{ row.good }} pcs</span>
+                <span class="breakdown-qty">{{ row.good }} {{ row.type === 'Hourly' ? 'hrs' : 'pcs' }}</span>
               </div>
               <div v-if="!typeBreakdown.length" class="breakdown-empty">No data</div>
             </div>
@@ -279,7 +280,8 @@ const todayByType = computed(() => {
   const map = {}
   todayEntries.value.forEach(e => {
     const lbl = getEntryTypeLabel(e)
-    map[lbl] = (map[lbl] || 0) + (Number(e.goodProduction) || 0)
+    const qty = e.workCategory === 'TIME' ? Number(e.hoursWorked) : Number(e.goodProduction)
+    map[lbl] = (map[lbl] || 0) + (qty || 0)
   })
   return map
 })
@@ -368,8 +370,9 @@ const typeBreakdown = computed(() => {
   const map = {}
   entries.forEach(e => {
     const lbl = getEntryTypeLabel(e)
+    const qty = e.workCategory === 'TIME' ? Number(e.hoursWorked) : Number(e.goodProduction)
     if (!map[lbl]) map[lbl] = { good: 0, waste: 0 }
-    map[lbl].good  += Number(e.goodProduction) || 0
+    map[lbl].good  += qty || 0
     map[lbl].waste += Number(e.wasteMaterial)  || 0
   })
   const total = Object.values(map).reduce((s, v) => s + v.good, 0) || 1
