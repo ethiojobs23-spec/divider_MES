@@ -1070,7 +1070,18 @@ const payload = {
 
 .success-msg { color: #34d399; font-weight: 600; margin-top: 1rem; text-align: center; }
 
-.history-list { display: flex; flex-direction: column; gap: 1rem; }
+.history-list { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.history-list::-webkit-scrollbar {
+  display: none;
+}
 .history-item {
   display: flex; justify-content: space-between; align-items: center;
   padding: 1rem;
@@ -1144,7 +1155,7 @@ const payload = {
   padding: 2rem;
 }
 .production-list-card h3 { margin: 0 0 1.5rem 0; font-size: 1.4rem; color: #f8fafc; }
-.data-table {
+.data-table-container { overflow-x: auto; overflow-y: auto; max-height: 400px; width: 100%; scrollbar-width: none; -ms-overflow-style: none; } .data-table-container::-webkit-scrollbar { display: none; } .data-table {
   width: 100%;
   border-collapse: collapse;
 }
@@ -1372,7 +1383,7 @@ const payload = {
     width: 100%;
   }
   
-  .data-table {
+  .data-table-container { overflow-x: auto; overflow-y: auto; max-height: 400px; width: 100%; scrollbar-width: none; -ms-overflow-style: none; } .data-table-container::-webkit-scrollbar { display: none; } .data-table {
     white-space: nowrap;
   }
   
