@@ -6,8 +6,13 @@
           <span class="material-symbols-rounded header-icon">recent_patient</span>
           <div>
             <h1 class="page-title">Attendance Records</h1>
-            <p class="page-subtitle">View daily clock-in/out logs for week: {{ mesStore.currentProductionWeek }}</p>
+            <p class="page-subtitle">View daily clock-in/out logs for week: {{ viewWeek }}</p>
           </div>
+        </div>
+        <div class="week-controls" style="display:flex; align-items:center; gap:0.5rem; background:rgba(255,255,255,0.05); padding:0.25rem 1rem; border-radius:2rem; height:fit-content; margin-top:0.5rem;">
+          <button @click="shiftWeek(-1)" style="background:transparent; border:none; color:#f8fafc; cursor:pointer; display:flex;"><span class="material-symbols-rounded">chevron_left</span></button>
+          <strong style="color:#818cf8; font-size:1.1rem;">{{ viewWeek }}</strong>
+          <button @click="shiftWeek(1)" style="background:transparent; border:none; color:#f8fafc; cursor:pointer; display:flex;"><span class="material-symbols-rounded">chevron_right</span></button>
         </div>
       </div>
 
@@ -64,14 +69,40 @@
 
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
 import { useMesStore } from '@/store/mesStore.js'
+import { supabase } from '@/lib/supabaseClient'
 
 const attStore = useAttendanceStore()
 const mesStore = useMesStore()
+
+const viewWeek = ref(mesStore.currentProductionWeek)
+const weekLogs = ref([])
+
+function shiftWeek(delta) {
+  const match = viewWeek.value.match(/W(\d+)-(\d+)/)
+  if (!match) return
+  let w = Number(match[1]) + delta
+  let y = Number(match[2])
+  if (w < 1) { y--; w = 52 }
+  if (w > 52) { y++; w = 1 }
+  viewWeek.value = `W${String(w).padStart(2,'0')}-${y}`
+}
+
+watch(viewWeek, async (newWeek) => {
+  const { data } = await supabase.from('mes_attendance')
+    .select('*')
+    .eq('production_week', newWeek)
+  
+  if (data) {
+    weekLogs.value = data
+  } else {
+    weekLogs.value = []
+  }
+}, { immediate: true })
 
 function parseTimeToMins(timeStr) {
   if (!timeStr) return 0
@@ -82,20 +113,20 @@ function parseTimeToMins(timeStr) {
 const operatorScores = computed(() => {
   const morningWindow = attStore.clockingWindows.find(w => w.id === 'morning_in')
   const morningEndMin = morningWindow ? parseTimeToMins(morningWindow.end) : 480
-  const currentWeekLogs = attStore.clockInLog.filter(log => log.week === mesStore.currentProductionWeek)
   
   const scores = {}
   const opLogs = {}
   
-  currentWeekLogs.forEach(log => {
-    if (!opLogs[log.operatorId]) opLogs[log.operatorId] = []
-    opLogs[log.operatorId].push(log)
+  weekLogs.value.forEach(log => {
+    const opId = log.operator_id || log.operatorId
+    if (!opLogs[opId]) opLogs[opId] = []
+    opLogs[opId].push(log)
   })
   
   Object.keys(opLogs).forEach(opId => {
     let score = 100
     opLogs[opId].forEach(log => {
-       const clockInTime = new Date(log.timestamp)
+       const clockInTime = new Date(log.clock_in || log.timestamp)
        const clockedInMins = clockInTime.getHours() * 60 + clockInTime.getMinutes()
        if (clockedInMins > morningEndMin) {
           const lateMins = clockedInMins - morningEndMin
@@ -121,33 +152,33 @@ const formattedLogs = computed(() => {
   const morningWindow = attStore.clockingWindows.find(w => w.id === 'morning_in')
   const morningEndMin = morningWindow ? parseTimeToMins(morningWindow.end) : 480
 
-  const currentWeekLogs = attStore.clockInLog.filter(log => log.week === mesStore.currentProductionWeek)
-  
   // Sort by latest shift date and clock in
-  const sorted = [...currentWeekLogs].sort((a, b) => {
-    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  const sorted = [...weekLogs.value].sort((a, b) => {
+    return new Date(b.clock_in || b.timestamp).getTime() - new Date(a.clock_in || a.timestamp).getTime()
   })
 
   return sorted.map(log => {
-    const operator = mesStore.operators.find(op => op.id === log.operatorId) || {
+    const opId = log.operator_id || log.operatorId
+    const operator = mesStore.operators.find(op => op.id === opId) || {
       name: 'Unknown', avatar: '', color: 'bg-slate-500'
     }
     
     let lateMins = 0
-    const clockInTime = new Date(log.timestamp)
+    const clockIn = log.clock_in || log.timestamp
+    const clockInTime = new Date(clockIn)
     const clockedInMins = clockInTime.getHours() * 60 + clockInTime.getMinutes()
     if (clockedInMins > morningEndMin) {
        lateMins = clockedInMins - morningEndMin
     }
     
-    const performance = operatorScores.value[log.operatorId] || { stars: 5 }
+    const performance = operatorScores.value[opId] || { stars: 5 }
     
     return {
-      id: `${log.operatorId}-${log.timestamp}`,
+      id: `${opId}-${clockIn}`,
       operator,
-      shiftDate: log.shiftDate,
-      clockIn: log.timestamp,
-      clockOut: log.clockOut,
+      shiftDate: log.shift_date || log.shiftDate,
+      clockIn: clockIn,
+      clockOut: log.clock_out || log.clockOut,
       status: log.status,
       lateMins,
       stars: performance.stars
