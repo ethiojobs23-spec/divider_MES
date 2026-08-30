@@ -105,7 +105,9 @@
                   <span class="cell-value">
                     {{ getCellValue(day, col, activePlacement, activeSize) || '' }}
                   </span>
-                  <span v-if="getCellValue(day, col, activePlacement, activeSize) > 0" class="cell-unit">pcs</span>
+                  <span v-if="getCellValue(day, col, activePlacement, activeSize) > 0" class="cell-unit">
+                    {{ activeCategory === 'TIME' ? 'hrs' : 'pcs' }}
+                  </span>
                 </td>
                 <td class="total-cell">
                   <strong>{{ getRowTotal(day, activePlacement, activeSize) || '—' }}</strong>
@@ -207,7 +209,7 @@ const targetOperatorId = ref('all') // Default to 'all' for admins to see everyo
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 const allDividerTypes = ['50', '40', '30', '16', '12', '45', 'Other']
-const days      = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const days      = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const sizes      = ['9cm', '7cm']
 
 const placements = computed(() => {
