@@ -1423,7 +1423,10 @@ td.bar-cell { width: 80px; }
     flex-direction: column;
     height: auto;
     min-height: 100%;
-    overflow-y: visible;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-bottom: 4rem;
   }
   .view-nav {
     width: 100%;
@@ -1442,10 +1445,17 @@ td.bar-cell { width: 80px; }
     padding: 0.5rem 0.85rem;
     border-radius: 0.5rem;
     flex-shrink: 0;
+    touch-action: pan-y;
   }
   .tab-sub { display: none; }
+  .export-btn {
+    white-space: nowrap;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
   .view-area {
-    padding: 1rem;
+    padding: 1rem 1rem 3rem 1rem;
     overflow-y: visible;
   }
   .view-panel {
