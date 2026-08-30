@@ -440,6 +440,7 @@ onUnmounted(() => clearInterval(clockTimer))
   overflow: hidden;
   transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
   -webkit-tap-highlight-color: transparent;
+  touch-action: pan-y;
   text-align: left;
   gap: 0;
   min-height: 160px;

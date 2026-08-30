@@ -17,8 +17,9 @@ import './style.css'
 import { registerSW } from 'virtual:pwa-register'
 
 const updateSW = registerSW({
+  immediate: true,
   onNeedRefresh() {
-    console.log('[PWA] New content available, please refresh.')
+    updateSW(true)
   },
   onOfflineReady() {
     console.log('[PWA] App is ready to work fully offline.')

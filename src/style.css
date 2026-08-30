@@ -1,28 +1,43 @@
 @import "tailwindcss";
 
-/* ΓöÇΓöÇΓöÇ Global Reset & Base ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ */
+/* Global Reset & Base */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-html, body, #app {
+html, body {
   width: 100%;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: #0f172a;
   color: #e2e8f0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Prevent text selection on touch targets */
-button, [role="button"] {
+#app {
+  width: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #0f172a;
+}
+
+/* Prevent text selection on touch targets & allow vertical swipe to scroll */
+button, [role="button"], a, select, input {
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  touch-action: pan-y;
 }
 
 /* Material Symbols font class */
@@ -48,13 +63,3 @@ button, [role="button"] {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(99,102,241,.3); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,.5); }
-
-/* Global Responsive Fallback */
-@media (max-width: 640px) {
-  /* Prevent fixed-width cards and panels from overflowing the screen */
-  [class*="card"], [class*="panel"], [class*="modal"], .card, .panel {
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100vw !important;
-  }
-}
