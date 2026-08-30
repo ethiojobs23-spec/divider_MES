@@ -754,7 +754,12 @@ async function executeAction() {
 /* ── Mobile Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .sa-root {
-    padding: 1rem !important;
+    padding: 1rem 1rem 4rem 1rem !important;
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
   .sa-header {
     flex-direction: column;
