@@ -614,4 +614,26 @@ function saveCell() {
 /* ── Modal Animation ─────────────────────────────────────────────────────── */
 .modal-enter-active, .modal-leave-active { transition: all .2s ease; }
 .modal-enter-from, .modal-leave-to       { opacity: 0; transform: scale(.95); }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .pbm-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  .legend {
+    flex-wrap: wrap;
+  }
+  .header-week-nav {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .modal-card {
+    width: 100% !important;
+    max-width: calc(100vw - 2rem) !important;
+    margin: 1rem;
+  }
+}
 </style>

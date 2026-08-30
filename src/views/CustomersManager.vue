@@ -339,4 +339,28 @@ async function savePayment() {
 .btn-cancel { background: rgba(255,255,255,0.05); color: #94a3b8; }
 .btn-save { background: #10b981; color: white; }
 .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .cm-main {
+    padding: 1rem;
+  }
+  .cm-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .add-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .cards-grid {
+    grid-template-columns: 1fr;
+  }
+  .modal-content {
+    margin: 1rem;
+    padding: 1.5rem;
+    max-width: calc(100vw - 2rem);
+  }
+}
 </style>

@@ -11,10 +11,10 @@
           </div>
           <button 
             @click="openActionPanel('add_stock')"
-            class="hidden md:flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all border-none cursor-pointer btn-action-primary shadow-lg"
+            class="flex items-center gap-1.5 md:gap-2 px-3 md:px-6 py-2 md:py-3 text-xs md:text-sm rounded-xl font-bold transition-all border-none cursor-pointer btn-action-primary shadow-lg shrink-0"
           >
-            <span class="material-symbols-rounded">manage_history</span>
-            Manage Stock
+            <span class="material-symbols-rounded text-base md:text-lg">manage_history</span>
+            <span>Manage Stock</span>
           </button>
         </div>
       </div>
@@ -95,45 +95,47 @@
         <div>
           <h3 class="text-xl font-black text-white mb-6 flex items-center gap-2"><span class="material-symbols-rounded text-emerald-400">history</span> Withdrawal & Receiving Logs</h3>
           <div class="chart-card p-0 overflow-hidden">
-            <table class="w-full text-left border-collapse">
-              <thead>
-                <tr class="bg-slate-900/50 border-b border-white/5">
-                  <th class="p-4 text-xs font-bold text-slate-400 uppercase">Date</th>
-                  <th class="p-4 text-xs font-bold text-slate-400 uppercase">Material</th>
-                  <th class="p-4 text-xs font-bold text-slate-400 uppercase">Type</th>
-                  <th class="p-4 text-xs font-bold text-slate-400 uppercase">Qty / Unit</th>
-                  <th class="p-4 text-xs font-bold text-slate-400 uppercase">Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="log in inventoryStore.transactions" :key="log.id" class="border-b border-white/5 hover:bg-white/[0.02]">
-                  <td class="p-4 text-slate-300 text-sm whitespace-nowrap">{{ formatDate(log.transaction_date) }}</td>
-                  <td class="p-4 font-bold text-white">{{ getMaterialName(log.material_id) }}</td>
-                  <td class="p-4">
-                    <span 
-                      class="px-2 py-1 rounded text-xs font-black uppercase tracking-wider"
-                      :class="log.transaction_type === 'IN' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'"
-                    >
-                      {{ log.transaction_type === 'IN' ? 'RECEIVED' : 'WITHDRAWN' }}
-                    </span>
-                  </td>
-                  <td class="p-4 font-mono font-bold" :class="log.transaction_type === 'IN' ? 'text-emerald-400' : 'text-rose-400'">
-                    {{ log.transaction_type === 'IN' ? '+' : '-' }}{{ log.quantity }} {{ getMaterialUnit(log.material_id) }}
-                  </td>
-                  <td class="p-4 text-slate-400 text-sm italic max-w-xs truncate">{{ log.notes || '—' }}</td>
-                </tr>
-                <tr v-if="inventoryStore.transactions.length === 0">
-                  <td colspan="5" class="p-8 text-center text-slate-500">No transactions recorded yet.</td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="overflow-x-auto w-full">
+              <table class="w-full text-left border-collapse min-w-[500px]">
+                <thead>
+                  <tr class="bg-slate-900/50 border-b border-white/5">
+                    <th class="p-4 text-xs font-bold text-slate-400 uppercase">Date</th>
+                    <th class="p-4 text-xs font-bold text-slate-400 uppercase">Material</th>
+                    <th class="p-4 text-xs font-bold text-slate-400 uppercase">Type</th>
+                    <th class="p-4 text-xs font-bold text-slate-400 uppercase">Qty / Unit</th>
+                    <th class="p-4 text-xs font-bold text-slate-400 uppercase">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="log in inventoryStore.transactions" :key="log.id" class="border-b border-white/5 hover:bg-white/[0.02]">
+                    <td class="p-4 text-slate-300 text-sm whitespace-nowrap">{{ formatDate(log.transaction_date) }}</td>
+                    <td class="p-4 font-bold text-white whitespace-nowrap">{{ getMaterialName(log.material_id) }}</td>
+                    <td class="p-4">
+                      <span 
+                        class="px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider"
+                        :class="log.transaction_type === 'IN' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'"
+                      >
+                        {{ log.transaction_type === 'IN' ? 'Received (IN)' : 'Withdrawn (OUT)' }}
+                      </span>
+                    </td>
+                    <td class="p-4 font-mono font-bold whitespace-nowrap" :class="log.transaction_type === 'IN' ? 'text-emerald-400' : 'text-rose-400'">
+                      {{ log.transaction_type === 'IN' ? '+' : '-' }}{{ log.quantity }} {{ getMaterialUnit(log.material_id) }}
+                    </td>
+                    <td class="p-4 text-slate-400 text-sm italic max-w-xs truncate">{{ log.notes || '—' }}</td>
+                  </tr>
+                  <tr v-if="inventoryStore.transactions.length === 0">
+                    <td colspan="5" class="p-8 text-center text-slate-500">No transactions recorded yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- ── Action Panel (Slide In) ── -->
       <div 
-        class="absolute inset-y-0 right-0 w-full md:w-full max-w-[420px] bg-slate-800 border-l border-white/10 shadow-2xl flex flex-col transition-transform duration-300 z-20"
+        class="fixed sm:absolute inset-y-0 right-0 w-full max-w-full sm:max-w-[420px] bg-slate-800 border-l border-white/10 shadow-2xl flex flex-col transition-transform duration-300 z-50"
         :class="showActionPanel ? 'translate-x-0' : 'translate-x-full'"
       >
         <!-- Panel Header -->

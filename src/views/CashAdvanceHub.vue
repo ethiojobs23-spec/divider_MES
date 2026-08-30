@@ -680,4 +680,34 @@ const recentEntries = computed(() => [...store.cashEntries].reverse().slice(0, 8
 .empty-state {
   text-align: center; padding: 4rem 1rem; color: #64748b; font-size: 1.1rem; font-weight: 600;
 }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .settings-top-nav {
+    overflow-x: auto;
+    padding: 0.75rem 1rem;
+    scrollbar-width: none;
+  }
+  .settings-top-nav::-webkit-scrollbar { display: none; }
+  .snav-item { white-space: nowrap; flex-shrink: 0; }
+  .tab-panel {
+    padding: 1rem;
+  }
+  .presets {
+    flex-wrap: wrap;
+  }
+  .preset-btn {
+    flex: 1;
+    min-width: 4rem;
+  }
+  .pending-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .pending-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
 </style>

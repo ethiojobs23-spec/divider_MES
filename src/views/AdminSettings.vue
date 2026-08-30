@@ -1011,4 +1011,45 @@ async function saveProfile() {
 .mes-input { background: #0f172a; border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.75rem 1rem; border-radius: 0.5rem; outline: none; }
 .mes-input:disabled { opacity: 0.5; cursor: not-allowed; }
 .mes-input:focus { border-color: #6366f1; }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .admin-main {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+  }
+  .settings-top-nav {
+    overflow-x: auto;
+    padding: 0.75rem 1rem;
+    scrollbar-width: none;
+  }
+  .settings-top-nav::-webkit-scrollbar { display: none; }
+  .snav-item { white-space: nowrap; flex-shrink: 0; }
+  .tab-panel {
+    padding: 1rem;
+  }
+  .cat-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .cat-tabs::-webkit-scrollbar { display: none; }
+  .cat-tab {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .config-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .window-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .other-config-row {
+    flex-direction: column;
+  }
+}
 </style>

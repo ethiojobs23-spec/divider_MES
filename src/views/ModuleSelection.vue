@@ -609,4 +609,24 @@ onUnmounted(() => clearInterval(clockTimer))
   z-index: 1;
 }
 .footer-sep { color: #1e293b; }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .hub-screen {
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+    padding: 1rem;
+  }
+  .hub-header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .hub-meta {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+}
 </style>

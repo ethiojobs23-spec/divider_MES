@@ -609,4 +609,34 @@ async function saveEntry() {
 }
 .toast-enter-active, .toast-leave-active { transition: all .25s ease; }
 .toast-enter-from, .toast-leave-to       { opacity: 0; transform: translate(-50%, 1rem); }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .prod-layout {
+    flex-direction: column;
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+  }
+  .prod-sidebar {
+    max-width: 100%;
+    border-right: none;
+    border-bottom: 1px solid rgba(99,102,241,.2);
+    padding: 1rem;
+    gap: 1rem;
+  }
+  .prod-main {
+    padding: 1rem;
+    gap: 1rem;
+  }
+  .values-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .save-btn {
+    height: 3.5rem;
+    font-size: 1.1rem;
+    margin-top: 1rem;
+  }
+}
 </style>

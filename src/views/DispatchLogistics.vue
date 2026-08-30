@@ -394,4 +394,31 @@ function fmtTime(iso) {
 }
 .toast-enter-active, .toast-leave-active { transition: all .25s ease; }
 .toast-enter-from, .toast-leave-to       { opacity: 0; transform: translate(-50%, 1rem); }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .dispatch-main {
+    padding: 1rem;
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+  }
+  .main-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .input-area {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .setup-col, .numpad-col, .log-panel {
+    flex: none;
+    width: 100%;
+  }
+  .dispatch-btn {
+    height: 3.75rem;
+    font-size: 1.15rem;
+  }
+}
 </style>

@@ -733,4 +733,41 @@ function showToast(msg) {
 }
 .toast-enter-active, .toast-leave-active { transition: all .25s ease; }
 .toast-enter-from, .toast-leave-to       { opacity: 0; transform: translate(-50%, 1rem); }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .dpl-wrapper {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+  }
+  .dpl-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  .toggle-cluster {
+    width: 100%;
+    overflow-x: auto;
+  }
+  .toggle-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .toggle-row::-webkit-scrollbar { display: none; }
+  .numpad-panel.panel--open {
+    position: fixed;
+    inset: 0;
+    width: 100% !important;
+    height: 100%;
+    z-index: 100;
+    border-left: none;
+  }
+  .numpad-inner {
+    padding: 1.5rem;
+    justify-content: center;
+  }
+}
 </style>

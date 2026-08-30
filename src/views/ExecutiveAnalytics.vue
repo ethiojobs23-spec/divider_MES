@@ -1416,4 +1416,60 @@ td.bar-cell { width: 80px; }
 .profile-fade-enter-active, .profile-fade-leave-active { transition: all .2s ease; }
 .profile-fade-enter-from { opacity: 0; transform: translateY(8px); }
 .profile-fade-leave-to   { opacity: 0; }
+
+/* ══ Mobile Responsiveness ══════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .analytics-root {
+    flex-direction: column;
+    height: auto;
+    min-height: 100%;
+    overflow-y: visible;
+  }
+  .view-nav {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0.75rem 1rem;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .view-nav::-webkit-scrollbar { display: none; }
+  .nav-heading { display: none; }
+  .nav-tab {
+    white-space: nowrap;
+    padding: 0.5rem 0.85rem;
+    border-radius: 0.5rem;
+    flex-shrink: 0;
+  }
+  .tab-sub { display: none; }
+  .view-area {
+    padding: 1rem;
+    overflow-y: visible;
+  }
+  .view-panel {
+    gap: 1rem;
+  }
+  .employee-layout {
+    flex-direction: column !important;
+    gap: 1rem;
+  }
+  .operator-list {
+    width: 100% !important;
+    max-height: 160px !important;
+  }
+  .profile-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .cpu-kpi-row {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+}
 </style>

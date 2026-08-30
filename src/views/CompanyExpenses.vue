@@ -691,4 +691,43 @@ function showToast(msg) {
 }
 .toast-enter-active, .toast-leave-active { transition: all .25s ease; }
 .toast-enter-from, .toast-leave-to       { opacity: 0; transform: translate(-50%, 1rem); }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .cex-wrapper {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+  }
+  .cex-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  .header-stats {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .cex-body {
+    flex-direction: column;
+    overflow-y: visible;
+  }
+  .cex-form-panel {
+    max-width: 100%;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 1rem;
+  }
+  .cex-ledger-panel {
+    padding: 1rem;
+  }
+  .ledger-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .search-wrap {
+    width: 100%;
+  }
+}
 </style>

@@ -750,4 +750,52 @@ async function executeAction() {
 .btn-confirm--approve { background: #10b981; color: white; }
 .btn-confirm--reject  { background: #ef4444; color: white; }
 .btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sa-root {
+    padding: 1rem !important;
+  }
+  .sa-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .header-counts {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .filters {
+    overflow-x: auto;
+    width: 100%;
+    padding-bottom: 0.25rem;
+    scrollbar-width: none;
+  }
+  .filters::-webkit-scrollbar { display: none; }
+  .filter-btn { white-space: nowrap; flex-shrink: 0; }
+  .card-stats {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem;
+  }
+  .operator-cards {
+    grid-template-columns: 1fr !important;
+  }
+  .modal {
+    margin: 1rem;
+    padding: 1.5rem;
+    max-width: calc(100vw - 2rem);
+  }
+  .card-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .action-btns {
+    margin-left: 0;
+    width: 100%;
+  }
+  .btn-reject, .btn-approve {
+    flex: 1;
+    justify-content: center;
+  }
+}
 </style>
