@@ -1,0 +1,1 @@
+ALTER TABLE mes_production_logs ALTER COLUMN divider_type DROP NOT NULL, ALTER COLUMN divider_type SET DEFAULT 0, ALTER COLUMN placement_style DROP NOT NULL, ALTER COLUMN placement_style SET DEFAULT '', ALTER COLUMN size_cm DROP NOT NULL, ALTER COLUMN size_cm SET DEFAULT 0;
