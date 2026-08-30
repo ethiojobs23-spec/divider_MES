@@ -550,6 +550,7 @@ export const useMesStore = defineStore('mes', () => {
     exportRecipient: 'Frezer',
     botToken: '',
     chatId: '',
+    payoutDay: 'Friday',
     otherDividerType: {
       enabled: false,
       label: 'Other'

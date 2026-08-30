@@ -348,6 +348,26 @@
             </div>
           </div>
 
+          <!-- Payout Day -->
+          <div class="config-item config-item--text">
+            <div class="config-info">
+              <span class="material-symbols-rounded config-icon" style="color:#10b981">payments</span>
+              <div>
+                <p class="config-label">Weekly Payout Day</p>
+                <p class="config-desc">The specific day of the week when "Approve & Pay" is allowed.</p>
+              </div>
+            </div>
+            <div class="recipient-pills">
+              <button
+                v-for="day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']"
+                :key="day"
+                class="recipient-pill"
+                :class="{ 'recipient-pill--active': store.systemConfig.payoutDay === day }"
+                @click="store.updateSystemConfig('payoutDay', day)"
+              >{{ day.substring(0,3) }}</button>
+            </div>
+          </div>
+
           <!-- Attendance Clocking Windows -->
           <div class="config-item config-item--text clocking-windows-config">
             <div class="config-info">

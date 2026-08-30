@@ -332,7 +332,7 @@
                         min="0"
                         step="10"
                         placeholder="0.00"
-                        :disabled="selectedWorker.payoutStatus.status === 'approved'"
+                        :disabled="selectedWorker.payoutStatus.status === 'approved' || !isPayoutDayAllowed"
                         :value="bonusInputDisplay"
                         @input="onBonusAmountInput($event)"
                         @focus="bonusInputActive = true"
@@ -346,7 +346,7 @@
                       class="bonus-reason-input"
                       type="text"
                       placeholder="e.g. Perfect attendance, hit 5,000 pcs target…"
-                      :disabled="selectedWorker.payoutStatus.status === 'approved'"
+                      :disabled="selectedWorker.payoutStatus.status === 'approved' || !isPayoutDayAllowed"
                       :value="currentBonus.reason || ''"
                       @input="onBonusReasonInput($event)"
                     />
@@ -407,15 +407,15 @@
             <button 
               class="btn-massive btn-approve w-full md:w-auto"
               style="min-height: 3.5rem;"
-              :disabled="selectedWorker.payoutStatus.status === 'approved'"
+              :disabled="selectedWorker.payoutStatus.status === 'approved' || !isPayoutDayAllowed"
               @click="confirmApprove(selectedWorker)"
             >
-              {{ selectedWorker.payoutStatus.status === 'approved' ? 'PAID ✓' : 'APPROVE & LOG PAYMENT' }}
+              {{ selectedWorker.payoutStatus.status === 'approved' ? 'PAID \u2714' : (isPayoutDayAllowed ? 'APPROVE & LOG PAYMENT' : "NOT PAYOUT DAY") }}
             </button>
             <button 
               class="btn-massive btn-hold w-full md:w-auto"
               style="min-height: 3.5rem;"
-              :disabled="selectedWorker.payoutStatus.status === 'approved'"
+              :disabled="selectedWorker.payoutStatus.status === 'approved' || !isPayoutDayAllowed"
               @click="openHoldMenu(selectedWorker)"
             >
               HOLD / DISPUTE

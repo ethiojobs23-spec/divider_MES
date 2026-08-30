@@ -34,8 +34,27 @@ export const usePayrollStore = defineStore('payroll', () => {
     const mesStore = useMesStore()
     const op = mesStore.operators.find(o => o.id === workerId)
     const opConfig = op?.payroll_config || {}
-    return { ...DEFAULT_PROFILE, ...opConfig, ...workerProfiles.value[workerId] }
+    
+    let isHourly = opConfig.isHourly || false
+    let isPieceRate = opConfig.isPieceRate !== false
+    let hourlyRate = opConfig.hourlyRate || HOURLY_MIN
+    
+    if (op?.work_types && Array.isArray(op.work_types.categories)) {
+      isHourly = op.work_types.categories.includes('TIME')
+      isPieceRate = op.work_types.categories.some(c => c !== 'TIME')
+      if (op.work_types.hourly_rate) hourlyRate = op.work_types.hourly_rate
+    }
+    
+    return { 
+      ...DEFAULT_PROFILE, 
+      ...opConfig, 
+      ...workerProfiles.value[workerId],
+      isHourly,
+      isPieceRate,
+      hourlyRate
+    }
   }
+
   async function setWorkerProfile(workerId, profileData) {
     const incoming = { ...profileData }
     if ('hourlyRate' in incoming) {
