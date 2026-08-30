@@ -500,4 +500,23 @@ function formatDate(isoStr) {
   opacity: 0;
   transform: translate(-50%, 20px) scale(0.9);
 }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .view-area {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+  .view-panel {
+    padding: 1rem 1rem 4rem 1rem;
+  }
+  .panel-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+}
 </style>
