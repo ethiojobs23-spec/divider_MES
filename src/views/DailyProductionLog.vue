@@ -740,6 +740,9 @@ function showToast(msg) {
     height: auto;
     min-height: 100%;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-bottom: 3.5rem;
   }
   .dpl-header {
     flex-direction: column;
@@ -757,6 +760,10 @@ function showToast(msg) {
     scrollbar-width: none;
   }
   .toggle-row::-webkit-scrollbar { display: none; }
+  .grid-container {
+    padding: 0.75rem 0.5rem;
+    overflow-x: auto;
+  }
   .numpad-panel.panel--open {
     position: fixed;
     inset: 0;
@@ -764,10 +771,14 @@ function showToast(msg) {
     height: 100%;
     z-index: 100;
     border-left: none;
+    background: rgba(15, 23, 42, 0.98);
+    backdrop-filter: blur(12px);
   }
   .numpad-inner {
-    padding: 1.5rem;
+    padding: 1.5rem 1rem;
     justify-content: center;
+    max-width: 380px;
+    margin: 0 auto;
   }
 }
 </style>
