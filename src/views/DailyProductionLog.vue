@@ -383,7 +383,26 @@ function showToast(msg) {
   background: #1e293b;
   border-bottom: 1px solid rgba(99,102,241,.25);
   flex-shrink: 0;
+  
+  /* Make header horizontally scrollable */
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
+
+.dpl-header::-webkit-scrollbar {
+  height: 6px;
+}
+.dpl-header::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dpl-header::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+}
+.dpl-header::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.2);
+}
+
 .header-left {
   display: flex;
   align-items: center;
@@ -421,6 +440,7 @@ function showToast(msg) {
   display: flex;
   flex-direction: column;
   gap: .3rem;
+  flex-shrink: 0; /* Prevents squeezing, forces horizontal scrolling instead */
 }
 .cluster-label {
   font-size: .6rem;
