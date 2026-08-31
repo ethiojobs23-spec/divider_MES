@@ -442,4 +442,23 @@ function submitDefect() {
 }
 .toast-enter-active, .toast-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 20px); }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .view-area {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-bottom: 4rem;
+  }
+  .btn-action, .custom-select, .mega-toggle {
+    touch-action: pan-y;
+  }
+  .alerts-container {
+    max-height: none;
+    overflow: visible;
+  }
+}
 </style>
