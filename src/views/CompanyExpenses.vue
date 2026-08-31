@@ -687,6 +687,201 @@ function showToast(msg) {
   gap: .4rem;
   backdrop-filter: blur(8px);
   z-index: 10;
+  letter-spacing: .12em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .6rem;
+  transition: all .13s ease;
+  box-shadow: 0 8px 24px rgba(16,185,129,.25);
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+.log-expense-btn:disabled { opacity: .3; cursor: not-allowed; box-shadow: none; }
+.log-expense-btn:not(:disabled):hover  { filter: brightness(1.1); box-shadow: 0 12px 32px rgba(16,185,129,.35); }
+.log-expense-btn:not(:disabled):active { transform: scale(.98); }
+.log-expense-btn .material-symbols-rounded { font-size: 1.5rem; }
+
+/* ── Ledger Panel ────────────────────────────────────────────────────────── */
+.cex-ledger {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 1rem 1.25rem;
+  gap: .75rem;
+}
+.ledger-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+.ledger-title {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .85rem;
+  font-weight: 700;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+.ledger-title .material-symbols-rounded { font-size: 1.1rem; color: #10b981; }
+
+.ledger-controls { display: flex; gap: .65rem; flex: 1; justify-content: flex-end; }
+.search-input {
+  height: 2.6rem;
+  min-width: 14rem;
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: .55rem;
+  color: #e2e8f0;
+  font-size: .85rem;
+  padding: 0 .85rem;
+  outline: none;
+  font-family: inherit;
+  transition: border-color .13s;
+}
+.search-input:focus { border-color: #10b981; }
+.clear-btn {
+  height: 2.6rem;
+  padding: 0 1rem;
+  background: rgba(239,68,68,.1);
+  border: 1px solid rgba(239,68,68,.25);
+  border-radius: .55rem;
+  color: #f87171;
+  font-size: .75rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  transition: all .13s ease;
+}
+.clear-btn:hover { background: rgba(239,68,68,.2); }
+
+/* ── Expense Table ───────────────────────────────────────────────────────── */
+.ledger-scroll { flex: 1; overflow-y: auto; }
+.expense-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 3px;
+}
+.expense-table thead th {
+  padding: .55rem .75rem;
+  background: #1e293b;
+  color: #64748b;
+  font-size: .62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  text-align: left;
+}
+.expense-table thead th:first-child { border-radius: .45rem 0 0 .45rem; }
+.expense-table thead th:last-child  { border-radius: 0 .45rem .45rem 0; }
+
+.expense-row td {
+  padding: .65rem .75rem;
+  background: rgba(255,255,255,.02);
+  border-top: 1px solid rgba(255,255,255,.04);
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  vertical-align: middle;
+  transition: background .1s;
+}
+.expense-row:hover td { background: rgba(255,255,255,.05); }
+.row--even td { background: rgba(255,255,255,.03); }
+.expense-row td:first-child { border-radius: .45rem 0 0 .45rem; border-left: 1px solid rgba(255,255,255,.06); }
+.expense-row td:last-child  { border-radius: 0 .45rem .45rem 0; border-right: 1px solid rgba(255,255,255,.06); }
+
+.col-num    { color: #475569; font-size: .7rem; font-weight: 700; width: 2.5rem; }
+.col-date   { color: #94a3b8; font-size: .78rem; font-weight: 600; white-space: nowrap; }
+.col-emp    { }
+.emp-badge  {
+  display: inline-block;
+  background: rgba(99,102,241,.15);
+  color: #a5b4fc;
+  border-radius: .35rem;
+  padding: .2rem .55rem;
+  font-size: .75rem;
+  font-weight: 700;
+}
+.col-desc  { color: #94a3b8; font-size: .8rem; max-width: 16rem; }
+.col-amount {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #34d399;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.unit-br { font-size: .65rem; color: #059669; font-weight: 600; }
+.col-action { width: 3rem; }
+.del-btn {
+  width: 2.1rem; height: 2.1rem;
+  background: rgba(239,68,68,.1);
+  border: none;
+  border-radius: .4rem;
+  color: #f87171;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .13s ease;
+}
+.del-btn:hover { background: rgba(239,68,68,.25); }
+.del-btn .material-symbols-rounded { font-size: .95rem; }
+
+/* Totals Footer */
+.totals-row td {
+  padding: .65rem .75rem;
+  background: rgba(16,185,129,.08);
+  border-top: 1px solid rgba(16,185,129,.2);
+}
+.totals-label {
+  color: #64748b;
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.totals-amount {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: #34d399;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Empty State */
+.ledger-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: .65rem;
+  color: #334155;
+  padding: 3rem;
+}
+.empty-icon  { font-size: 4rem; display: block; }
+.empty-title { font-size: 1rem; font-weight: 700; }
+.empty-sub   { font-size: .78rem; color: #475569; text-align: center; }
+
+/* ── Toast ───────────────────────────────────────────────────────────────── */
+.cex-toast {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(16,185,129,.9);
+  color: #fff;
+  border-radius: .65rem;
+  padding: .75rem 1.5rem;
+  font-size: .9rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  backdrop-filter: blur(8px);
+  z-index: 10;
   white-space: nowrap;
 }
 .toast-enter-active, .toast-leave-active { transition: all .25s ease; }
@@ -698,6 +893,9 @@ function showToast(msg) {
     height: auto;
     min-height: 100%;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-bottom: 4rem;
   }
   .cex-header {
     flex-direction: column;
@@ -719,6 +917,9 @@ function showToast(msg) {
     border-bottom: 1px solid rgba(255,255,255,0.06);
     padding: 1rem;
   }
+  .qname-btn, .qdesc-btn, .submit-btn {
+    touch-action: pan-y;
+  }
   .cex-ledger-panel {
     padding: 1rem;
   }
@@ -728,6 +929,14 @@ function showToast(msg) {
   }
   .search-wrap {
     width: 100%;
+  }
+  .ledger-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+  .expense-table {
+    min-width: 500px;
   }
 }
 </style>
