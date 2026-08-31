@@ -588,7 +588,11 @@ async function applyChanges() {
 
 // ─── Profile Logic ──────────────────────────────────────────────────────────
 const adminOperator = computed(() => {
-  return store.operators.find(o => o.id === sysAuth.currentEmployeeId)
+  if (sysAuth.currentEmployeeId) {
+    const found = (store.operators || []).find(o => o.id === sysAuth.currentEmployeeId)
+    if (found) return found
+  }
+  return (store.operators || []).find(o => ['admin', 'System Admin', 'manager', 'Supervisor'].includes(o.role)) || (store.operators || [])[0] || null
 })
 
 const profileForm = ref({ full_name: '', phone_number: '', dob: '', avatar: '', pinConfirm: '' })

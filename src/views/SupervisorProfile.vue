@@ -37,7 +37,7 @@
 
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useMesStore } from '@/store/mesStore.js'
@@ -47,18 +47,32 @@ import { supabase } from '@/lib/supabaseClient'
 const store = useMesStore()
 const sysAuth = useSystemAuthStore()
 
-const me = computed(() => store.operators.find(o => o.id === sysAuth.currentEmployeeId))
+const me = computed(() => {
+  if (sysAuth.currentEmployeeId) {
+    const found = (store.operators || []).find(o => o.id === sysAuth.currentEmployeeId)
+    if (found) return found
+  }
+  return (store.operators || []).find(o => ['admin', 'System Admin', 'manager', 'Supervisor'].includes(o.role)) || (store.operators || [])[0] || null
+})
 
 const formPhone = ref('')
 const formFullName = ref('')
 const formPin = ref('')
 const saved = ref(false)
 
-onMounted(() => {
+function populateForm() {
   if (me.value) {
     formPhone.value = me.value.phone_number || ''
-    formFullName.value = me.value.full_name || ''
+    formFullName.value = me.value.full_name || me.value.name || ''
   }
+}
+
+onMounted(() => {
+  populateForm()
+})
+
+watch(me, () => {
+  populateForm()
 })
 
 async function saveProfile() {
@@ -99,6 +113,8 @@ async function saveProfile() {
   padding: 1rem;
   background: #0f172a;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 @media (min-width: 768px) {
   .sup-profile-root {
@@ -148,13 +164,12 @@ async function saveProfile() {
 .profile-info p {
   color: #94a3b8;
   margin: 0;
-  text-transform: uppercase;
-  font-size: 0.8rem;
-  letter-spacing: 0.1em;
+  text-transform: capitalize;
 }
+
 .edit-section h3 {
+  font-size: 1.2rem;
   color: #f1f5f9;
-  font-size: 1.1rem;
   margin-bottom: 1rem;
 }
 .form-group {
@@ -162,52 +177,57 @@ async function saveProfile() {
 }
 .form-group label {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: #94a3b8;
   margin-bottom: 0.4rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 .mes-input {
   width: 100%;
+  padding: 0.8rem 1rem;
   background: #0f172a;
   border: 1px solid rgba(255,255,255,0.1);
-  color: #fff;
-  padding: 0.8rem 1rem;
   border-radius: 0.5rem;
+  color: #fff;
   font-size: 1rem;
+  outline: none;
+  box-sizing: border-box;
 }
 .mes-input:focus {
-  outline: none;
   border-color: #6366f1;
 }
+
 .save-btn {
   width: 100%;
+  padding: 1rem;
   background: #6366f1;
   color: #fff;
-  font-weight: 700;
-  padding: 1rem;
-  border-radius: 0.5rem;
   border: none;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  font-size: 1rem;
   cursor: pointer;
   margin-top: 1rem;
-  font-size: 1rem;
   transition: opacity 0.2s;
+  touch-action: pan-y;
 }
 .save-btn:hover {
   opacity: 0.9;
 }
+
 .toast {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: rgba(16, 185, 129, 0.2);
-  border: 1px solid #10b981;
-  color: #34d399;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-size: 0.8rem;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #10b981;
+  color: #fff;
+  padding: 0.6rem 1.2rem;
+  border-radius: 2rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
+
 .fade-enter-active, .fade-leave-active {
   transition: opacity 0.3s;
 }
