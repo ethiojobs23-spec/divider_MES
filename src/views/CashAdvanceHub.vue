@@ -2,80 +2,140 @@
   <AppLayout>
     <!-- MAIN: Input Area -->
     <main class="cash-main">
-      <nav class="settings-top-nav">
-        <button class="snav-item" :class="{'snav-item--active': activeTab === 'new'}" @click="activeTab = 'new'">
-          <span class="material-symbols-rounded snav-icon">add_circle</span>
-          <span class="snav-label">New Entry</span>
-        </button>
-        <button class="snav-item" :class="{'snav-item--active': activeTab === 'pending'}" @click="activeTab = 'pending'">
-          <span class="material-symbols-rounded snav-icon">pending_actions</span>
-          <span class="snav-label">Pending Approvals</span>
-          <span class="badge" v-if="pendingCount > 0">{{ pendingCount }}</span>
-        </button>
-        <button class="snav-item" :class="{'snav-item--active': activeTab === 'history'}" @click="activeTab = 'history'">
-          <span class="material-symbols-rounded snav-icon">history</span>
-          <span class="snav-label">History</span>
+      <nav class="settings-top-nav flex justify-between items-center flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <button class="snav-item" :class="{'snav-item--active': activeTab === 'new'}" @click="activeTab = 'new'">
+            <span class="material-symbols-rounded snav-icon">add_circle</span>
+            <span class="snav-label">New Entry</span>
+          </button>
+          <button class="snav-item" :class="{'snav-item--active': activeTab === 'pending'}" @click="activeTab = 'pending'">
+            <span class="material-symbols-rounded snav-icon">pending_actions</span>
+            <span class="snav-label">Pending Approvals</span>
+            <span class="badge" v-if="pendingCount > 0">{{ pendingCount }}</span>
+          </button>
+          <button class="snav-item" :class="{'snav-item--active': activeTab === 'history'}" @click="activeTab = 'history'">
+            <span class="material-symbols-rounded snav-icon">history</span>
+            <span class="snav-label">History</span>
+          </button>
+        </div>
+
+        <button class="sync-btn cursor-pointer" :disabled="isSyncing" @click="manualSync" title="Sync cash & loans now">
+          <span class="material-symbols-rounded" :class="{ 'spin-icon': isSyncing }">sync</span>
+          <span>{{ isSyncing ? 'Syncing...' : 'Sync' }}</span>
         </button>
       </nav>
 
+      <!-- NEW ENTRY TAB -->
       <div v-if="activeTab === 'new'" class="tab-panel">
+        
+        <!-- Entry Type Switcher -->
+        <div class="entry-type-row mb-4">
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">1. Select Entry Type</label>
+          <div class="flex gap-2">
+            <button
+              class="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all border cursor-pointer flex items-center justify-center gap-2"
+              :class="entryType === 'advance' ? 'bg-amber-500/20 text-amber-400 border-amber-500/40 shadow-lg shadow-amber-500/10' : 'bg-slate-900 border-white/5 text-slate-400'"
+              @click="entryType = 'advance'"
+            >
+              <span class="material-symbols-rounded text-base">payments</span>
+              Operator Advance
+            </button>
+            <button
+              class="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all border cursor-pointer flex items-center justify-center gap-2"
+              :class="entryType === 'expense' ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 shadow-lg shadow-rose-500/10' : 'bg-slate-900 border-white/5 text-slate-400'"
+              @click="entryType = 'expense'"
+            >
+              <span class="material-symbols-rounded text-base">receipt</span>
+              Company Expense
+            </button>
+          </div>
+        </div>
+
+        <!-- Operator Selection (if Advance) -->
+        <div v-if="entryType === 'advance'" class="operator-select-row mb-4">
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">2. Select Operator / Beneficiary</label>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-1 bg-slate-900/50 rounded-xl border border-white/5">
+            <button
+              v-for="op in store.operators.filter(o => o.role !== 'customer')"
+              :key="op.id"
+              class="flex items-center gap-2 p-2 rounded-lg border text-left cursor-pointer transition-all"
+              :class="selectedOp?.id === op.id ? 'bg-indigo-600/30 border-indigo-500 text-white' : 'bg-slate-900 border-white/5 text-slate-400 hover:text-white'"
+              @click="selectedOp = op"
+            >
+              <OperatorAvatar :avatar="op.avatar" :name="op.name" :color="op.color" size="sm" />
+              <div class="min-w-0 flex-1">
+                <p class="text-xs font-bold m-0 truncate">{{ op.name }}</p>
+                <p class="text-[0.65rem] text-slate-500 m-0">{{ op.role }}</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
         <!-- Quick Presets -->
-      <div class="presets-row">
-        <p class="presets-label">Quick Amount</p>
-        <div class="presets">
-          <button
-            v-for="preset in presets"
-            :key="preset"
-            class="preset-btn"
-            @click="inputAmount = String(preset)"
-          >{{ preset }} ETB</button>
+        <div class="presets-row">
+          <p class="presets-label">{{ entryType === 'advance' ? '3. Quick Amount' : '2. Quick Amount' }}</p>
+          <div class="presets">
+            <button
+              v-for="preset in presets"
+              :key="preset"
+              class="preset-btn cursor-pointer"
+              @click="inputAmount = String(preset)"
+            >{{ preset }} ETB</button>
+          </div>
         </div>
-      </div>
 
-      <!-- Numpad -->
-      <div class="cash-numpad">
-        <VirtualNumpad
-          label="Amount (ETB)"
-          v-model="inputAmount"
-        />
-      </div>
-
-      <!-- Note input (tap to open custom numpad-style picker — uses selector)  -->
-      <div class="note-row">
-        <p class="note-label">Note / Description</p>
-        <div class="note-chips">
-          <button
-            v-for="n in noteOptions"
-            :key="n"
-            class="note-chip"
-            :class="{ 'note-chip--active': note === n }"
-            @click="note = n"
-          >{{ n }}</button>
+        <!-- Numpad -->
+        <div class="cash-numpad">
+          <VirtualNumpad
+            label="Amount (ETB)"
+            v-model="inputAmount"
+            :allowDecimal="true"
+          />
         </div>
-      </div>
 
-      <!-- Submit -->
-      <button
-        class="submit-btn"
-        :disabled="!canSubmit"
-        @click="submitEntry"
-      >
-        <span class="material-symbols-rounded">payments</span>
-        LOG {{ entryType === 'advance' ? 'ADVANCE' : 'EXPENSE' }}
-        {{ inputAmount ? `– ${inputAmount} ETB` : '' }}
-      </button>
-
-      <!-- Toast -->
-      <Transition name="toast">
-        <div v-if="toast.visible" class="toast">
-          <span class="material-symbols-rounded">check_circle</span>
-          {{ toast.message }}
+        <!-- Note input -->
+        <div class="note-row">
+          <p class="note-label">{{ entryType === 'advance' ? '4. Reason / Note' : '3. Expense Description' }}</p>
+          <div class="note-chips">
+            <button
+              v-for="n in (entryType === 'advance' ? advanceNoteOptions : expenseNoteOptions)"
+              :key="n"
+              class="note-chip cursor-pointer"
+              :class="{ 'note-chip--active': note === n }"
+              @click="note = n"
+            >{{ n }}</button>
+          </div>
+          <input
+            v-model="customNote"
+            type="text"
+            placeholder="Or type custom description..."
+            class="w-full mt-2 bg-slate-900 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-amber-400"
+          />
         </div>
-      </Transition>
+
+        <!-- Submit -->
+        <button
+          class="submit-btn cursor-pointer mt-4"
+          :disabled="!canSubmit || isSaving"
+          @click="submitEntry"
+        >
+          <span class="material-symbols-rounded">payments</span>
+          {{ isSaving ? 'SAVING...' : `LOG ${entryType === 'advance' ? 'ADVANCE' : 'EXPENSE'}` }}
+          {{ inputAmount ? `– ${Number(inputAmount).toFixed(2)} ETB` : '' }}
+        </button>
+
+        <!-- Toast -->
+        <Transition name="toast">
+          <div v-if="toast.visible" class="toast">
+            <span class="material-symbols-rounded">check_circle</span>
+            {{ toast.message }}
+          </div>
+        </Transition>
       </div>
 
+      <!-- PENDING APPROVALS TAB -->
       <div v-if="activeTab === 'pending'" class="tab-panel approvals-panel">
-        <h3 class="panel-heading">Pending Requests</h3>
+        <h3 class="panel-heading">Pending Requests ({{ pendingCount }})</h3>
         <div class="pending-list">
           <!-- Pending Loans -->
           <div v-for="loan in pendingLoans" :key="'loan-'+loan.id" class="pending-item">
@@ -87,8 +147,8 @@
               </div>
             </div>
             <div class="pending-actions">
-              <button class="btn-approve" @click="handleApproveLoan(loan.id)"><span class="material-symbols-rounded">check</span></button>
-              <button class="btn-reject" @click="handleRejectLoan(loan.id)"><span class="material-symbols-rounded">close</span></button>
+              <button class="btn-approve cursor-pointer" @click="handleApproveLoan(loan.id)"><span class="material-symbols-rounded">check</span></button>
+              <button class="btn-reject cursor-pointer" @click="handleRejectLoan(loan.id)"><span class="material-symbols-rounded">close</span></button>
             </div>
           </div>
 
@@ -102,29 +162,32 @@
               </div>
             </div>
             <div class="pending-actions">
-              <button class="btn-approve" @click="handleApproveAdvance(adv.id)"><span class="material-symbols-rounded">check</span></button>
-              <button class="btn-reject" @click="handleRejectAdvance(adv.id)"><span class="material-symbols-rounded">close</span></button>
+              <button class="btn-approve cursor-pointer" @click="handleApproveAdvance(adv.id)"><span class="material-symbols-rounded">check</span></button>
+              <button class="btn-reject cursor-pointer" @click="handleRejectAdvance(adv.id)"><span class="material-symbols-rounded">close</span></button>
             </div>
           </div>
           
           <div v-if="pendingCount === 0" class="empty-state">
-            No pending approvals right now.
+            <span class="material-symbols-rounded text-3xl text-emerald-500 mb-2">check_circle</span>
+            <p>No pending approvals right now.</p>
           </div>
         </div>
       </div>
 
-      <!-- History Panel -->
+      <!-- HISTORY PANEL TAB -->
       <div v-if="activeTab === 'history'" class="tab-panel history-panel">
-        <div class="history-controls">
-          <label>Select Week: </label>
-          <select v-model="historyWeek" @change="fetchHistory" class="week-select">
-            <option v-for="week in availableWeeks" :key="week" :value="week">{{ week }}</option>
-          </select>
+        <div class="history-controls flex items-center justify-between flex-wrap gap-2 mb-4">
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-bold text-slate-400">Select Production Week: </label>
+            <select v-model="historyWeek" @change="fetchHistory" class="week-select bg-slate-900 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white outline-none">
+              <option v-for="week in availableWeeks" :key="week" :value="week">{{ week }}</option>
+            </select>
+          </div>
         </div>
         
-        <h3 class="panel-heading">Loan & Advance History ({{ historyWeek }})</h3>
+        <h3 class="panel-heading mb-4">Loan & Advance History ({{ historyWeek }})</h3>
         
-        <div class="chart-container" v-if="historyChartData.length">
+        <div class="chart-container mb-6" v-if="historyChartData.length">
           <h4 style="margin-bottom: 1rem; color: #a5b4fc;">Top Borrowers this Week</h4>
           <div v-for="item in historyChartData" :key="item.operator" class="chart-row">
             <div class="chart-label">{{ item.operator }} ({{ item.totalAmount.toFixed(2) }} ETB)</div>
@@ -173,26 +236,64 @@
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, watch, onMounted, onUnmounted } from 'vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import PinModal from '@/components/ui/PinModal.vue'
+import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore.js'
+import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 import { supabase } from '@/lib/supabaseClient'
-import { watch, onMounted } from 'vue'
 
 const store = useMesStore()
 const payrollStore = usePayrollStore()
+const sysAuth = useSystemAuthStore()
 
 const activeTab = ref('new')
+const isSyncing = ref(false)
+let refreshTimer = null
 
-const entryType  = ref('advance')
-const selectedOp = ref(null)
+const entryType   = ref('advance')
+const selectedOp  = ref(null)
 const inputAmount = ref('')
-const note        = ref('')
+const note        = ref('Weekly Advance')
+const customNote  = ref('')
 
-const presets     = [50, 100, 200, 500, 1000]
-const noteOptions = ['Weekly Advance', 'Bonus', 'Transport', 'Materials', 'Maintenance', 'Other']
+const presets = [50, 100, 200, 500, 1000]
+const advanceNoteOptions = ['Weekly Advance', 'Emergency / Medical', 'Transport', 'Bonus', 'Other']
+const expenseNoteOptions = ['Petty Cash', 'Station Materials', 'Equipment Maintenance', 'Transport / Fuel', 'Other']
+
+async function manualSync() {
+  isSyncing.value = true
+  try {
+    await Promise.all([
+      store.fetchInitialData(),
+      payrollStore.fetchLoans()
+    ])
+    if (activeTab.value === 'history') await fetchHistory()
+  } finally {
+    setTimeout(() => { isSyncing.value = false }, 400)
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([
+    store.fetchInitialData(),
+    payrollStore.fetchLoans()
+  ])
+  if (activeTab.value === 'history') fetchHistory()
+
+  refreshTimer = setInterval(async () => {
+    await Promise.all([
+      store.fetchInitialData(),
+      payrollStore.fetchLoans()
+    ])
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
+})
 
 const canSubmit = computed(() =>
   inputAmount.value !== '' &&
@@ -215,17 +316,18 @@ const isSaving = ref(false)
 async function submitEntry() {
   if (!canSubmit.value || isSaving.value) return
   isSaving.value = true
+  const finalNote = customNote.value.trim() || note.value
   const ok = await store.addCashEntry({
     type:     entryType.value,
     amount:   Number(inputAmount.value),
     operator: entryType.value === 'advance' ? (selectedOp.value?.name ?? 'Unknown') : 'Company',
-    note:     note.value,
+    note:     finalNote,
   })
   isSaving.value = false
   if (ok !== false) {
-    showToast(`${entryType.value === 'advance' ? 'Advance' : 'Expense'} of ${inputAmount.value} ETB logged ✓`)
+    showToast(`✓ ${entryType.value === 'advance' ? 'Advance' : 'Expense'} of ${inputAmount.value} ETB logged`)
     inputAmount.value = ''
-    note.value = ''
+    customNote.value = ''
   } else {
     showToast('⚠ Failed to save. Check connection.')
   }
@@ -236,13 +338,12 @@ const pendingAdvances = computed(() => store.cashEntries.filter(e => e.type === 
 const pendingCount = computed(() => pendingLoans.value.length + pendingAdvances.value.length)
 
 function getOperatorName(id) {
-  return store.operators.find(o => o.id === id)?.name || 'Unknown'
+  return store.operators.find(o => Number(o.id) === Number(id))?.name || 'Unknown'
 }
 
 function getOperatorEfficiency(id) {
-  const stat = store.operatorEfficiency.find(o => o.id === id)
+  const stat = store.operatorEfficiency.find(o => Number(o.id) === Number(id))
   if (!stat) return 0
-  // wastePercent is the waste rate, so efficiency is 100 - wastePercent
   return (100 - stat.wastePercent).toFixed(1)
 }
 
@@ -275,7 +376,9 @@ function requireAdminPin(actionLabel, fn) {
 async function executeAdminAction(pin) {
   const adminRoles = ['admin', 'System Admin', 'manager', 'Supervisor']
   const admin = store.operators.find(o => String(o.pin_code) === String(pin) && adminRoles.includes(o.role))
-  if (!admin) {
+  const sysAuthCheck = await sysAuth.verifyPin(pin, 'admin')
+
+  if (!admin && !sysAuthCheck.success) {
     adminPin.error = 'Invalid Admin PIN. Try again.'
     return
   }
@@ -288,46 +391,39 @@ async function executeAdminAction(pin) {
 async function handleApproveLoan(id) {
   requireAdminPin('Approve loan request', async () => {
     await payrollStore.approveLoan(id)
-    showToast('Loan approved ✓')
+    showToast('✓ Loan approved')
   })
 }
 async function handleRejectLoan(id) {
   requireAdminPin('Reject loan request', async () => {
     await payrollStore.rejectLoan(id)
-    showToast('Loan rejected ✓')
+    showToast('✓ Loan rejected')
   })
 }
 async function handleApproveAdvance(id) {
   requireAdminPin('Approve payment request', async () => {
     await store.approveCashEntry(id)
-    showToast('Payment request approved ✓')
+    showToast('✓ Payment request approved')
   })
 }
 async function handleRejectAdvance(id) {
   requireAdminPin('Reject payment request', async () => {
     await store.rejectCashEntry(id)
-    showToast('Advance rejected ✓')
+    showToast('✓ Advance rejected')
   })
 }
 
 // --- History Logic ---
 const availableWeeks = computed(() => {
   const set = new Set([store.currentProductionWeek])
-  store.ledgerEntries.forEach(e => set.add(e.week))
-  payrollStore.loans.forEach(l => set.add(l.week))
+  store.ledgerEntries.forEach(e => { if (e.week) set.add(e.week) })
+  payrollStore.loans.forEach(l => { if (l.week) set.add(l.week) })
   return Array.from(set).sort().reverse()
 })
 
 const historyWeek = ref(store.currentProductionWeek)
 const historyList = ref([])
 const historyChartData = ref([])
-
-function getWeekLabel(dateStr) {
-  const date = new Date(dateStr)
-  const startOfYear = new Date(date.getFullYear(), 0, 1)
-  const week = Math.ceil(((date - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7)
-  return `W${String(week).padStart(2, '0')}-${date.getFullYear()}`
-}
 
 async function fetchHistory() {
   historyList.value = []
@@ -347,35 +443,37 @@ async function fetchHistory() {
     if (loansData) {
       loansData.forEach(row => {
         const opName = getOperatorName(row.operator_id)
-        const amt = Number(row.principal)
+        const amt = Number(row.principal || 0)
         combined.push({
-          id: 'loan-' + row.id,
+          id: `loan-${row.id}`,
           type: 'loan',
           amount: amt,
           operator: opName,
           status: row.status,
-          date: new Date(row.issued_at).getTime()
+          date: new Date(row.created_at)
         })
-        if (row.status !== 'rejected') {
+        if (row.status === 'active') {
           operatorTotals[opName] = (operatorTotals[opName] || 0) + amt
         }
       })
     }
-    
+
     if (ledgerData) {
       ledgerData.forEach(row => {
-        if (getWeekLabel(row.transaction_date) === historyWeek.value) {
-          const opName = row.target_name || getOperatorName(row.operator_id)
-          const amt = Number(row.amount)
+        const notesObj = JSON.parse(row.notes || '{}')
+        const week = row.production_week || notesObj.week
+        if (week === historyWeek.value) {
+          const opName = row.target_name || row.operator || 'Unknown'
+          const amt = Number(row.amount || 0)
           combined.push({
-            id: 'adv-' + row.id,
+            id: `adv-${row.id}`,
             type: 'advance',
             amount: amt,
             operator: opName,
             status: row.transaction_type,
-            date: new Date(row.created_at).getTime()
+            date: new Date(row.transaction_date || row.created_at)
           })
-          if (row.transaction_type !== 'rejected_advance') {
+          if (row.transaction_type === 'advance') {
             operatorTotals[opName] = (operatorTotals[opName] || 0) + amt
           }
         }
@@ -402,342 +500,122 @@ async function fetchHistory() {
 watch(activeTab, (newVal) => {
   if (newVal === 'history') fetchHistory()
 })
-onMounted(() => {
-  if (activeTab.value === 'history') fetchHistory()
-})
-
-const recentEntries = computed(() => [...store.cashEntries].reverse().slice(0, 8))
 </script>
 
 <style scoped>
-
-/* Sidebar */
-
-.sidebar-section          { display: flex; flex-direction: column; gap: .5rem; }
-.sidebar-section.flex-1   { flex: 1; overflow: hidden; }
-.section-title {
-  font-size: .65rem; font-weight: 700; color: #64748b;
-  text-transform: uppercase; letter-spacing: .1em;
-  padding-bottom: .3rem; border-bottom: 1px solid rgba(255,255,255,.06);
-}
-
-.type-list { display: flex; flex-direction: column; gap: .4rem; }
-.type-btn {
-  display: flex; align-items: center; gap: .6rem;
-  padding: .85rem .9rem;
-  background: #0f172a;
-  border: 1px solid rgba(255,255,255,.08);
-  color: #94a3b8;
-  border-radius: .65rem;
-  font-size: .9rem; font-weight: 700;
-  cursor: pointer;
-  transition: all .13s ease;
-}
-.type-btn:hover         { background: #1e293b; color: #e2e8f0; }
-.type-btn--active       { background: rgba(245,158,11,.15); border-color: #f59e0b; color: #fcd34d; }
-.type-btn--expense.type-btn--active { background: rgba(239,68,68,.12); border-color: #ef4444; color: #fca5a5; }
-
-.op-list { display: flex; flex-direction: column; gap: .35rem; }
-.op-btn {
-  display: flex; align-items: center; gap: .6rem;
-  padding: .65rem .75rem;
-  background: #0f172a;
-  border: 1px solid rgba(255,255,255,.07);
-  color: #94a3b8;
-  border-radius: .55rem;
-  font-size: .85rem; font-weight: 600;
-  cursor: pointer;
-  transition: all .12s ease;
-}
-.op-btn--active { background: rgba(99,102,241,.15); border-color: #6366f1; color: #a5b4fc; }
-.op-dot {
-  width: 1.8rem; height: 1.8rem;
-  border-radius: .35rem;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: .75rem; color: #fff;
-}
-
-.pin-error {
-  color: #ef4444;
-  margin-top: 1rem;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-/* History */
-.history-controls {
-  margin-bottom: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-.week-select {
-  padding: 0.5rem 1rem;
-  background: #334155;
-  border: 1px solid #475569;
-  border-radius: 0.5rem;
-  color: #f8fafc;
-  font-size: 1rem;
-  outline: none;
-}
-.chart-container {
-  background: #1e293b;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  margin-bottom: 2rem;
-  border: 1px solid #334155;
-}
-.chart-row {
-  margin-bottom: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-.chart-label {
-  font-size: 0.9rem;
-  color: #e2e8f0;
-}
-.chart-bar-wrap {
-  width: 100%;
-  height: 8px;
-  background: #334155;
-  border-radius: 4px;
-  overflow: hidden;
-}
-.chart-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #6366f1, #a855f7);
-  border-radius: 4px;
-  transition: width 0.5s ease-out;
-}
-
-.summary-card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: .75rem; padding: .8rem 1rem; }
-.summary-item { display: flex; justify-content: space-between; align-items: center; padding: .25rem 0; font-size: .8rem; color: #64748b; }
-.summary-val  { color: #fbbf24; font-weight: 800; font-size: .95rem; }
-.summary-val--exp { color: #f87171; }
-
-.entry-list { display: flex; flex-direction: column; gap: .35rem; overflow-y: auto; flex: 1; }
-.entry-item {
-  display: flex; align-items: center; gap: .6rem;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.07);
-  border-radius: .5rem;
-  padding: .45rem .65rem;
-}
-.entry-type   { font-size: .6rem; font-weight: 800; padding: .15rem .4rem; border-radius: .25rem; flex-shrink: 0; }
-.type--adv    { background: rgba(245,158,11,.2); color: #fbbf24; }
-.type--exp    { background: rgba(239,68,68,.15); color: #fca5a5; }
-.entry-body   { flex: 1; }
-.entry-who    { font-size: .8rem; font-weight: 700; color: #e2e8f0; }
-.entry-note   { font-size: .65rem; color: #64748b; }
-.entry-amount { font-size: .85rem; font-weight: 800; color: #34d399; flex-shrink: 0; }
-.empty-hint   { font-size: .75rem; color: #334155; text-align: center; padding: .75rem 0; }
-
-/* Main */
 .cash-main {
-  width: 100%;
-  height: 100%;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  position: relative;
+  width: 100%; height: 100%; overflow-y: auto;
+  padding: 1.25rem 1.5rem; background: #0f172a;
+  display: flex; flex-direction: column; gap: 1rem;
 }
 
-.presets-row { display: flex; align-items: center; gap: 1rem; }
-.presets-label { font-size: .65rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .08em; flex-shrink: 0; }
-.presets { display: flex; gap: .5rem; }
-.preset-btn {
-  height: 3rem;
-  min-width: 5.5rem;
-  background: rgba(245,158,11,.12);
-  border: 1px solid rgba(245,158,11,.3);
-  color: #fbbf24;
-  border-radius: .6rem;
-  font-size: 1rem;
-  font-weight: 800;
-  cursor: pointer;
-  transition: all .13s ease;
-}
-.preset-btn:hover  { background: rgba(245,158,11,.22); }
-.preset-btn:active { transform: scale(.96); }
-
-.cash-numpad { flex: 1; }
-
-.note-row   { display: flex; flex-direction: column; gap: .4rem; }
-.note-label { font-size: .65rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .08em; }
-.note-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
-.note-chip {
-  padding: .35rem .9rem;
-  background: #1e293b;
-  border: 1px solid rgba(255,255,255,.08);
-  color: #94a3b8;
-  border-radius: 999px;
-  font-size: .78rem; font-weight: 600;
-  cursor: pointer;
-  transition: all .12s ease;
-}
-.note-chip--active { background: rgba(99,102,241,.2); border-color: #6366f1; color: #a5b4fc; }
-
-.submit-btn {
-  height: 4.5rem;
-  background: linear-gradient(135deg,#d97706,#f59e0b);
-  border: none;
-  border-radius: .85rem;
-  color: #fff;
-  font-size: 1.15rem;
-  font-weight: 800;
-  letter-spacing: .08em;
-  display: flex; align-items: center; justify-content: center; gap: .6rem;
-  cursor: pointer;
-  transition: all .15s ease;
-}
-.submit-btn:disabled       { opacity: .35; cursor: not-allowed; }
-.submit-btn:not(:disabled):hover  { filter: brightness(1.1); }
-.submit-btn:not(:disabled):active { transform: scale(.98); }
-
-.toast {
-  position: absolute;
-  bottom: 1.25rem; left: 50%; transform: translateX(-50%);
-  background: rgba(16,185,129,.9);
-  color: #fff;
-  border-radius: .65rem;
-  padding: .75rem 1.5rem;
-  font-size: .9rem; font-weight: 700;
-  display: flex; align-items: center; gap: .4rem;
-  backdrop-filter: blur(8px);
-}
-.toast-enter-active, .toast-leave-active { transition: all .25s ease; }
-.toast-enter-from, .toast-leave-to       { opacity: 0; transform: translate(-50%, 1rem); }
-
-/* Navigation & Tabs */
 .settings-top-nav {
-  display: flex; gap: 0.5rem;
-  padding: 1rem 1.5rem;
-  background: #1e293b;
-  border-bottom: 1px solid rgba(255,255,255,.07);
+  border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.75rem;
 }
 .snav-item {
-  display: flex; align-items: center; gap: .5rem;
-  padding: .6rem 1rem;
-  background: transparent;
-  border: 1px solid rgba(255,255,255,.07);
-  border-radius: .5rem;
-  color: #64748b;
-  cursor: pointer;
-  transition: all .15s ease;
-  position: relative;
+  display: flex; align-items: center; gap: 0.4rem;
+  background: #1e293b; border: 1px solid rgba(255,255,255,0.08);
+  color: #94a3b8; font-size: 0.75rem; font-weight: 700;
+  padding: 0.45rem 0.9rem; border-radius: 0.5rem; cursor: pointer; transition: all 0.15s;
 }
-.snav-item:hover        { background: rgba(255,255,255,.05); color: #cbd5e1; }
-.snav-item--active      { background: rgba(16,185,129,.12); border-color: #10b981; color: #34d399; }
-.snav-icon              { font-size: 1.1rem !important; }
-.snav-label             { font-size: .85rem; font-weight: 700; }
+.snav-item:hover { color: #f1f5f9; }
+.snav-item--active { background: #6366f1; border-color: #6366f1; color: #fff; }
+.snav-icon { font-size: 1rem; }
 .badge {
-  background: #ef4444; color: #fff;
-  font-size: 0.7rem; font-weight: 800;
-  padding: 0.15rem 0.4rem; border-radius: 99px;
-  margin-left: 0.25rem;
+  background: #ef4444; color: #fff; font-size: 0.65rem; font-weight: 800;
+  padding: 0.1rem 0.4rem; border-radius: 999px; margin-left: 0.2rem;
 }
+
+.sync-btn {
+  display: flex; align-items: center; gap: 0.35rem;
+  background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3);
+  color: #a5b4fc; border-radius: 0.5rem; padding: 0.45rem 0.85rem;
+  font-size: 0.75rem; font-weight: 700; transition: all 0.15s ease;
+}
+.sync-btn:hover { background: rgba(99,102,241,0.22); color: #fff; }
+.spin-icon { animation: spin 0.8s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 .tab-panel {
-  display: flex; flex-direction: column; gap: 1.25rem; padding: 1.5rem; flex: 1; overflow-y: auto;
+  background: #1e293b; border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 1rem; padding: 1.25rem; max-width: 680px; margin: 0 auto; width: 100%;
 }
 
-/* Approvals Panel */
-.panel-heading { font-size: 1.2rem; font-weight: 800; color: #f8fafc; margin: 0 0 1rem 0; }
-.pending-list { display: flex; flex-direction: column; gap: 1rem; }
+.presets-row { margin-bottom: 1rem; }
+.presets-label, .note-label {
+  font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase;
+  letter-spacing: 0.05em; margin: 0 0 0.4rem;
+}
+.presets { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.preset-btn {
+  background: #0f172a; border: 1px solid rgba(255,255,255,0.08);
+  color: #f1f5f9; font-size: 0.75rem; font-weight: 800; font-family: monospace;
+  padding: 0.4rem 0.75rem; border-radius: 0.45rem; transition: all 0.15s;
+}
+.preset-btn:hover { border-color: #f59e0b; color: #fbbf24; }
+
+.cash-numpad { margin-bottom: 1rem; display: flex; justify-content: center; }
+
+.note-chips { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.note-chip {
+  background: #0f172a; border: 1px solid rgba(255,255,255,0.06);
+  color: #94a3b8; font-size: 0.7rem; font-weight: 700;
+  padding: 0.35rem 0.65rem; border-radius: 0.4rem; transition: all 0.15s;
+}
+.note-chip:hover { color: #f1f5f9; }
+.note-chip--active { background: rgba(99,102,241,0.2); border-color: #6366f1; color: #a5b4fc; }
+
+.submit-btn {
+  width: 100%; height: 3.25rem; background: linear-gradient(135deg, #10b981, #059669);
+  border: none; border-radius: 0.75rem; color: #fff;
+  font-size: 0.95rem; font-weight: 900; letter-spacing: 0.05em;
+  display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+  transition: all 0.15s; box-shadow: 0 4px 15px rgba(16,185,129,0.25);
+}
+.submit-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.submit-btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; box-shadow: none; transform: none; }
+
+.panel-heading { font-size: 1rem; font-weight: 800; color: #f1f5f9; margin: 0 0 1rem; }
+
+.pending-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .pending-item {
-  display: flex; justify-content: space-between; align-items: center;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 1rem;
-  padding: 1.25rem;
+  display: flex; align-items: center; justify-content: space-between;
+  background: #0f172a; border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 0.75rem; padding: 0.85rem 1rem;
 }
-.pending-info { display: flex; align-items: center; gap: 1rem; }
-.icon-loan { font-size: 2rem; color: #a855f7; background: rgba(168,85,247,0.15); padding: 0.5rem; border-radius: 0.75rem; }
-.icon-adv { font-size: 2rem; color: #3b82f6; background: rgba(59,130,246,0.15); padding: 0.5rem; border-radius: 0.75rem; }
-.p-title { font-size: 1.1rem; color: #e2e8f0; margin: 0 0 0.25rem 0; }
-.p-sub { font-size: 0.85rem; color: #94a3b8; margin: 0; }
-.text-green-400 { color: #4ade80 !important; }
-.text-yellow-400 { color: #facc15 !important; }
-.text-red-400 { color: #f87171 !important; }
+.pending-info { display: flex; align-items: center; gap: 0.75rem; }
+.icon-loan { color: #fbbf24; font-size: 1.4rem; }
+.icon-adv  { color: #34d399; font-size: 1.4rem; }
+.p-title { font-size: 0.82rem; color: #f1f5f9; margin: 0; }
+.p-sub   { font-size: 0.68rem; color: #64748b; margin: 0.15rem 0 0; }
 
-.pending-actions { display: flex; gap: 0.75rem; }
+.pending-actions { display: flex; gap: 0.4rem; }
 .btn-approve, .btn-reject {
-  width: 3rem; height: 3rem;
-  border-radius: 50%;
-  border: none;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.5rem; cursor: pointer; transition: all 0.2s;
+  width: 2.25rem; height: 2.25rem; border-radius: 0.5rem; border: none;
+  display: flex; align-items: center; justify-content: center; transition: all 0.15s;
 }
-.btn-approve { background: rgba(16,185,129,0.15); color: #10b981; }
-.btn-approve:hover { background: #10b981; color: #fff; }
-.btn-reject { background: rgba(239,68,68,0.15); color: #ef4444; }
-.btn-reject:hover { background: #ef4444; color: #fff; }
+.btn-approve { background: #10b981; color: #fff; }
+.btn-reject  { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); color: #f87171; }
+.btn-approve:hover { filter: brightness(1.1); }
+.btn-reject:hover  { background: rgba(239,68,68,0.35); }
 
 .empty-state {
-  text-align: center; padding: 4rem 1rem; color: #64748b; font-size: 1.1rem; font-weight: 600;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 3rem 1rem; color: #64748b; font-size: 0.82rem;
 }
 
-/* Mobile Responsive */
-@media (max-width: 768px) {
-  .cash-layout {
-    flex-direction: column;
-    height: auto;
-    min-height: 100%;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-    padding-bottom: 4rem;
-  }
-  .cash-sidebar {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid rgba(255,255,255,.08);
-    padding: 1rem;
-  }
-  .cash-main {
-    padding: 1rem;
-    height: auto;
-    overflow: visible;
-  }
-  .settings-top-nav {
-    overflow-x: auto;
-    padding: 0.75rem 1rem;
-    scrollbar-width: none;
-  }
-  .settings-top-nav::-webkit-scrollbar { display: none; }
-  .snav-item { white-space: nowrap; flex-shrink: 0; touch-action: pan-y; }
-  .tab-panel {
-    padding: 1rem 1rem 4rem 1rem;
-    height: auto;
-    min-height: 100%;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-  }
-  .presets {
-    flex-wrap: wrap;
-  }
-  .preset-btn {
-    flex: 1;
-    min-width: 4rem;
-    touch-action: pan-y;
-  }
-  .record-btn {
-    min-height: 3.75rem;
-    touch-action: pan-y;
-  }
-  .pending-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-  .pending-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
+.chart-container { background: #0f172a; padding: 1rem; border-radius: 0.75rem; }
+.chart-row { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.5rem; }
+.chart-label { font-size: 0.75rem; color: #94a3b8; font-weight: 700; }
+.chart-bar-wrap { height: 8px; background: rgba(255,255,255,0.05); border-radius: 999px; overflow: hidden; }
+.chart-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #fbbf24); border-radius: 999px; transition: width 0.4s ease; }
+
+.toast {
+  position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  background: rgba(16,185,129,0.95); color: #fff;
+  padding: 0.75rem 1.5rem; border-radius: 0.75rem; font-weight: 700; font-size: 0.85rem;
+  display: flex; align-items: center; gap: 0.4rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 100;
 }
+.toast-enter-active, .toast-leave-active { transition: all 0.2s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 1rem); }
 </style>
