@@ -21,7 +21,7 @@
         <div v-if="isAdmin" class="toggle-cluster" style="margin-left: auto; border: 1px solid #6366f1; background: rgba(99,102,241,0.1); padding: 0.5rem; border-radius: 0.5rem;">
           <p class="cluster-label" style="color: #818cf8; font-size: 0.7rem;">ADMIN TARGET OPERATOR</p>
           <select v-model="targetOperatorId" class="mega-toggle" style="background: transparent; color: #fff; font-size: 0.9rem; padding: 0.2rem; cursor: pointer; outline: none; border: none;">
-             <option value="all" style="color: #000">All Operators (Total)</option>
+             <option value="all" style="color: #000">All Operators (View-Only Total)</option>
              <option v-for="op in store.operators" :value="op.id" :key="op.id" style="color: #000">{{ op.name }} ({{ op.role }})</option>
           </select>
         </div>
@@ -98,7 +98,8 @@
                   class="data-cell"
                   :class="{
                     'cell--active': activeCell?.day === day && activeCell?.col === col,
-                    'cell--filled': getCellValue(day, col, activePlacement, activeSize) > 0
+                    'cell--filled': getCellValue(day, col, activePlacement, activeSize) > 0,
+                    'cursor-not-allowed opacity-90': isAdmin && targetOperatorId === 'all'
                   }"
                   @click="openNumpad(day, col)"
                 >
@@ -141,6 +142,7 @@
             <VirtualNumpad
               :label="`Day ${activeCell.day} · ${activeCategory === 'TIME' || activeCategory === 'C' ? activeCell.col : `Type ${activeCell.col}`}`"
               v-model="numpadValue"
+              :allowDecimal="activeCategory === 'TIME'"
               :maxLen="5"
             />
 
@@ -159,8 +161,13 @@
           <!-- Idle state when no cell selected -->
           <div v-else class="numpad-idle">
             <span class="material-symbols-rounded idle-icon">touch_app</span>
-            <p>Tap any cell in the grid to log quantity</p>
-            <p class="idle-sub">{{ activePlacement }} · {{ activeSize }}</p>
+            <p v-if="isAdmin && targetOperatorId === 'all'" class="text-amber-300 font-bold text-xs">
+              Viewing All Operators (Total). Select a specific operator above to log or edit.
+            </p>
+            <template v-else>
+              <p>Tap any cell in the grid to log quantity</p>
+              <p class="idle-sub">{{ activePlacement }} · {{ activeSize }}</p>
+            </template>
           </div>
         </div>
       </div>
@@ -205,12 +212,13 @@ const isAdmin = computed(() => {
   const role = sysAuth.currentRole || store.activeOperator?.role
   return role === 'admin' || role === 'System Admin' || role === 'manager' || role === 'Supervisor'
 })
-const targetOperatorId = ref('all') // Default to 'all' for admins to see everyone's entries. Non-admins will be filtered below.
+const targetOperatorId = ref('all') // Default to 'all' for admins to see everyone's entries.
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 const allDividerTypes = ['50', '40', '30', '16', '12', '45', 'Other']
-const days      = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const sizes      = ['9cm', '7cm']
+const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const dayIndexMap = { 'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6 }
+const sizes = ['9cm', '7cm']
 
 const placements = computed(() => {
   return store.systemConfig.otherPlacement?.enabled ? ['ብተና', 'ውስጥ', 'የተለየ', 'Other'] : ['ብተና', 'ውስጥ', 'የተለየ']
@@ -227,16 +235,46 @@ const columns = computed(() => {
   return allDividerTypes
 })
 
+function parseEntryDate(e) {
+  if (e.productionDate) {
+    if (typeof e.productionDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.productionDate)) {
+      const [y, m, d] = e.productionDate.split('-').map(Number)
+      return new Date(y, m - 1, d)
+    }
+    const d = new Date(e.productionDate)
+    if (!isNaN(d.getTime())) return d
+  }
+  if (e.timestamp) {
+    const d = new Date(e.timestamp)
+    if (!isNaN(d.getTime())) return d
+  }
+  return new Date()
+}
+
+function getWeekStartDate(weekStr) {
+  if (!weekStr) return new Date()
+  const parts = weekStr.split('-W')
+  if (parts.length !== 2) return new Date()
+  const year = parseInt(parts[0], 10)
+  const week = parseInt(parts[1], 10)
+  const jan4 = new Date(year, 0, 4)
+  const jan4Day = (jan4.getDay() + 6) % 7 // Mon = 0
+  const monWeek1 = new Date(year, 0, 4 - jan4Day)
+  const targetMon = new Date(monWeek1)
+  targetMon.setDate(monWeek1.getDate() + (week - 1) * 7)
+  return targetMon
+}
+
 // ─── Grid Data Store ───────────────────────────────────────────────────────
 function getCellValue(dayName, col, placement, size) {
-  const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 }
-  const targetDay = dayMap[dayName]
-  
+  const targetIndex = dayIndexMap[dayName]
   const filterId = isAdmin.value ? targetOperatorId.value : (sysAuth.currentEmployeeId || store.activeOperator?.id)
 
   return store.ledgerEntries
     .filter(e => {
-       const dayMatch = new Date(e.productionDate || e.timestamp).getDay() === targetDay
+       const entryDate = parseEntryDate(e)
+       const entryDayIndex = (entryDate.getDay() + 6) % 7 // Mon = 0 ... Sun = 6
+       const dayMatch = entryDayIndex === targetIndex
        const opMatch = filterId === 'all' || String(e.operator_id) === String(filterId)
        const catMatch = (e.workCategory || 'MFG') === activeCategory.value
        
@@ -276,6 +314,10 @@ const activeCell   = ref(null) // { day, col }
 const numpadValue  = ref('')
 
 function openNumpad(day, col) {
+  if (isAdmin.value && targetOperatorId.value === 'all') {
+    showToast('Select a specific operator to log entries. "All Operators" is view-only.')
+    return
+  }
   activeCell.value = { day, col }
   const currentTotal = getCellValue(day, col, activePlacement.value, activeSize.value)
   numpadValue.value = currentTotal > 0 ? String(currentTotal) : ''
@@ -305,27 +347,19 @@ async function performSave() {
   const currentTotal = getCellValue(activeCell.value.day, activeCell.value.col, activePlacement.value, activeSize.value)
   const qtyDiff = newTotal - currentTotal
 
-  // Calculate target date for the cell based on current week
-  const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 }
-  const targetDayIdx = dayMap[activeCell.value.day]
-  
-  // Find the exact date in the currently selected production week
-  const now = new Date()
-  const currentDayOfWeek = now.getDay()
-  // calculate start of the current week (Sunday)
-  const startOfWeek = new Date(now)
-  startOfWeek.setDate(now.getDate() - currentDayOfWeek)
-  
-  const targetDateObj = new Date(startOfWeek)
-  targetDateObj.setDate(startOfWeek.getDate() + targetDayIdx)
-  // Ensure the time is set to noon to avoid timezone shift when saving ISO date
+  // Calculate target date for the cell strictly based on the current production week
+  const targetDayOffset = dayIndexMap[activeCell.value.day]
+  const weekMon = getWeekStartDate(store.currentProductionWeek)
+  const targetDateObj = new Date(weekMon)
+  targetDateObj.setDate(weekMon.getDate() + targetDayOffset)
   targetDateObj.setHours(12, 0, 0, 0)
+  
   const targetDateStr = targetDateObj.toISOString().split('T')[0]
-  // We'll pass the exact timestamp for the ledger entries
   const targetTimestamp = targetDateObj.toISOString()
 
   const currentOpId = sysAuth.currentEmployeeId || store.activeOperator?.id
   const submitOpId = isAdmin.value && targetOperatorId.value !== 'all' ? targetOperatorId.value : currentOpId
+
   const result = await store.submitProductionLog({
     workCategory:   activeCategory.value,
     dividerType:    (activeCategory.value === 'TIME' || activeCategory.value === 'C') ? null : activeCell.value.col,
@@ -386,7 +420,6 @@ function showToast(msg) {
   border-bottom: 1px solid rgba(99,102,241,.25);
   flex-shrink: 0;
   
-  /* Make header horizontally scrollable */
   overflow-x: auto;
   scrollbar-width: thin;
 }
@@ -442,275 +475,190 @@ function showToast(msg) {
   display: flex;
   flex-direction: column;
   gap: .3rem;
-  flex-shrink: 0; /* Prevents squeezing, forces horizontal scrolling instead */
+  flex-shrink: 0;
 }
 .cluster-label {
   font-size: .6rem;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
-  letter-spacing: .1em;
+  letter-spacing: .08em;
 }
-.toggle-row { display: flex; gap: .4rem; }
+.toggle-row {
+  display: flex;
+  gap: .35rem;
+}
 .mega-toggle {
-  min-width: 4.5rem;
-  height: 2.75rem;
-  padding: 0 .85rem;
+  padding: .35rem .75rem;
+  border-radius: .45rem;
+  border: 1px solid rgba(255,255,255,.1);
   background: #0f172a;
-  border: 1.5px solid rgba(255,255,255,.1);
-  border-radius: .55rem;
   color: #94a3b8;
-  font-size: 1rem;
+  font-size: .78rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all .13s ease;
-  -webkit-tap-highlight-color: transparent;
-  letter-spacing: .01em;
+  transition: all .15s ease;
 }
-.mega-toggle:hover { background: #1e293b; color: #e2e8f0; border-color: rgba(255,255,255,.2); }
-.mega-toggle:active { transform: scale(.95); }
+.mega-toggle:hover {
+  border-color: rgba(99,102,241,.4);
+  color: #f1f5f9;
+}
 .mega-toggle--active {
-  background: rgba(99,102,241,.2);
-  border-color: #6366f1;
-  color: #a5b4fc;
-  box-shadow: 0 0 0 2px rgba(99,102,241,.15);
+  background: #6366f1 !important;
+  border-color: #6366f1 !important;
+  color: #fff !important;
 }
-.mega-toggle--size { min-width: 3.5rem; }
 
-/* ── Body ────────────────────────────────────────────────────────────────── */
+/* ── Main Body ───────────────────────────────────────────────────────────── */
 .dpl-body {
   flex: 1;
   display: flex;
-  gap: 0;
   overflow: hidden;
+  min-height: 0;
 }
 
-/* ── Grid Container ──────────────────────────────────────────────────────── */
 .grid-container {
   flex: 1;
+  padding: 1.25rem;
   overflow: auto;
-  padding: 1rem 1.25rem;
 }
 
 .ledger-table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 3px;
+  border-collapse: collapse;
+  background: #1e293b;
+  border-radius: .75rem;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.07);
 }
 
-/* Header Row */
-.ledger-table thead tr {
-  position: sticky;
-  top: -1rem;
-  z-index: 2;
+.ledger-table th, .ledger-table td {
+  padding: .75rem .6rem;
+  text-align: center;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  border-right: 1px solid rgba(255,255,255,.05);
 }
 .ledger-table th {
-  padding: .6rem .4rem;
-  background: #1e293b;
+  background: #0f172a;
+  font-size: .7rem;
+  font-weight: 800;
   color: #64748b;
-  font-size: .65rem;
-  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .08em;
-  border-radius: .35rem;
+  letter-spacing: .05em;
 }
-.day-col   { width: 4rem; min-width: 4rem; }
-.type-col  { min-width: 6rem; }
-.total-col { min-width: 5rem; background: rgba(99,102,241,.1); color: #a5b4fc !important; }
+
+.day-col, .day-cell {
+  width: 65px;
+  font-weight: 800;
+  color: #a5b4fc !important;
+  background: #0f172a;
+  font-size: .8rem;
+}
 .col-badge {
-  display: inline-block;
-  background: rgba(99,102,241,.15);
-  color: #a5b4fc;
+  background: rgba(99,102,241,.1);
+  padding: .2rem .4rem;
   border-radius: .3rem;
-  padding: .15rem .45rem;
-  font-size: .75rem;
-  font-weight: 800;
-}
-
-/* Data Rows */
-.ledger-row { transition: background .1s ease; }
-.ledger-row:hover .day-cell { color: #e2e8f0; }
-.row--active .day-cell { color: #a5b4fc; }
-
-.day-cell {
-  background: #1e293b;
-  color: #94a3b8;
-  font-size: .85rem;
-  font-weight: 800;
-  text-align: center;
-  padding: .5rem;
-  border-radius: .35rem;
-  letter-spacing: .04em;
-  transition: color .13s;
+  color: #a5b4fc;
 }
 
 .data-cell {
-  background: rgba(255,255,255,.03);
-  border: 1.5px solid rgba(255,255,255,.07);
-  border-radius: .45rem;
-  text-align: center;
-  padding: .55rem .25rem;
   cursor: pointer;
-  transition: all .13s ease;
-  position: relative;
-  min-height: 3.5rem;
-  vertical-align: middle;
+  transition: background .12s;
+  min-width: 60px;
 }
-.data-cell:hover {
-  background: rgba(99,102,241,.12);
-  border-color: rgba(99,102,241,.35);
-}
-.data-cell:active { transform: scale(.97); }
-.cell--active {
-  background: rgba(99,102,241,.22) !important;
-  border-color: #6366f1 !important;
-  box-shadow: 0 0 0 2px rgba(99,102,241,.2);
-}
-.cell--filled {
-  background: rgba(16,185,129,.07);
-  border-color: rgba(16,185,129,.25);
-}
-.cell--filled:hover { background: rgba(16,185,129,.14); border-color: rgba(16,185,129,.4); }
-.cell-value {
-  display: block;
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: #e2e8f0;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-.cell-unit {
-  font-size: .55rem;
-  color: #64748b;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-}
+.data-cell:hover { background: rgba(99,102,241,.1); }
+.cell--active { background: rgba(99,102,241,.25) !important; outline: 2px solid #6366f1; }
+.cell--filled { font-weight: 800; color: #34d399; }
 
-.total-cell {
-  background: rgba(99,102,241,.08);
-  border: 1px solid rgba(99,102,241,.15);
-  border-radius: .45rem;
-  text-align: center;
-  padding: .5rem;
-  font-variant-numeric: tabular-nums;
-}
-.total-cell strong { font-size: 1.1rem; font-weight: 800; color: #a5b4fc; }
+.cell-value { font-size: .95rem; font-family: monospace; }
+.cell-unit  { font-size: .6rem; color: #64748b; margin-left: 2px; }
 
-/* Totals Row */
-.totals-row .day-cell.totals-label {
-  background: rgba(99,102,241,.12);
-  color: #a5b4fc;
-  font-size: .7rem;
-  letter-spacing: .08em;
+.total-col, .total-cell {
+  background: #0f172a;
+  color: #f1f5f9;
+  font-family: monospace;
+  font-size: .9rem;
 }
-.totals-cell {
-  background: rgba(99,102,241,.1);
-  border: 1px solid rgba(99,102,241,.2);
-  border-radius: .45rem;
-  text-align: center;
-  padding: .55rem;
-  font-size: 1rem;
+.totals-row td {
+  background: #0f172a;
   font-weight: 800;
-  color: #a5b4fc;
-  font-variant-numeric: tabular-nums;
+  color: #f1f5f9;
+  border-top: 2px solid rgba(99,102,241,.3);
 }
 .grand-total {
-  background: rgba(139,92,246,.2);
-  border-color: rgba(139,92,246,.4);
-  color: #c4b5fd;
+  color: #34d399 !important;
   font-size: 1.1rem;
 }
 
 /* ── Numpad Panel ────────────────────────────────────────────────────────── */
 .numpad-panel {
-  width: 0;
-  flex-shrink: 0;
   background: #1e293b;
   border-left: 1px solid rgba(99,102,241,.2);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  transition: width .25s cubic-bezier(.4,0,.2,1);
+  justify-content: center;
 }
-.numpad-panel.panel--open { width: 26rem; }
-
 .numpad-inner {
-  padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  height: 100%;
-  overflow: hidden;
+  padding: 1.5rem;
+  max-width: 320px;
+  margin: 0 auto;
+  width: 100%;
 }
-
 .numpad-context {
   display: flex;
-  flex-wrap: wrap;
   gap: .4rem;
+  flex-wrap: wrap;
 }
 .ctx-badge {
-  padding: .2rem .6rem;
-  border-radius: 999px;
   font-size: .65rem;
-  font-weight: 700;
-  letter-spacing: .06em;
+  font-weight: 800;
+  padding: .2rem .5rem;
+  border-radius: .4rem;
   text-transform: uppercase;
 }
-.ctx-placement { background: rgba(99,102,241,.2); color: #a5b4fc; }
+.ctx-placement { background: rgba(245,158,11,.15); color: #fbbf24; }
 .ctx-size      { background: rgba(16,185,129,.15); color: #34d399; }
-.ctx-day       { background: rgba(245,158,11,.15); color: #fbbf24; }
-.ctx-col       { background: rgba(239,68,68,.15); color: #f87171; }
+.ctx-day       { background: rgba(99,102,241,.15); color: #a5b4fc; }
+.ctx-col       { background: rgba(236,72,153,.15); color: #f472b6; }
 
 .numpad-actions {
   display: flex;
-  gap: .65rem;
-  flex-shrink: 0;
+  gap: .75rem;
 }
 .btn-cancel, .btn-confirm {
   flex: 1;
-  height: 3.5rem;
+  height: 3.25rem;
   border-radius: .65rem;
-  font-size: .9rem;
+  border: none;
   font-weight: 800;
+  font-size: .85rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: .5rem;
+  gap: .3rem;
   cursor: pointer;
-  transition: all .13s ease;
-  -webkit-tap-highlight-color: transparent;
+  transition: all .15s ease;
 }
-.btn-cancel {
-  background: rgba(255,255,255,.05);
-  border: 1px solid rgba(255,255,255,.12);
-  color: #94a3b8;
-}
-.btn-cancel:hover { background: rgba(255,255,255,.1); color: #e2e8f0; }
-.btn-confirm {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  border: none;
-  color: #fff;
-  letter-spacing: .06em;
-}
-.btn-confirm:hover  { filter: brightness(1.12); }
-.btn-confirm:active { transform: scale(.97); }
+.btn-cancel  { background: rgba(255,255,255,.06); color: #94a3b8; }
+.btn-confirm { background: #10b981; color: #fff; }
+.btn-cancel:hover  { background: rgba(255,255,255,.1); }
+.btn-confirm:hover { filter: brightness(1.1); }
 
-/* Idle State */
 .numpad-idle {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  gap: .6rem;
-  color: #334155;
-  font-size: .85rem;
-  font-weight: 600;
+  gap: .5rem;
+  padding: 2rem;
+  color: #475569;
   text-align: center;
-  padding: 1.5rem;
 }
-.idle-icon { font-size: 3.5rem; color: #334155; display: block; margin-bottom: .25rem; }
-.idle-sub  { font-size: .75rem; color: #475569; }
+.idle-icon { font-size: 3rem; color: #334155; }
+.idle-sub  { font-size: .75rem; color: #64748b; }
 
 /* ── Toast ───────────────────────────────────────────────────────────────── */
 .dpl-toast {
@@ -718,67 +666,19 @@ function showToast(msg) {
   bottom: 1.5rem;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(16,185,129,.9);
+  background: rgba(16,185,129,.95);
   color: #fff;
+  padding: .7rem 1.5rem;
   border-radius: .65rem;
-  padding: .75rem 1.5rem;
-  font-size: .9rem;
   font-weight: 700;
+  font-size: .85rem;
   display: flex;
   align-items: center;
   gap: .4rem;
   backdrop-filter: blur(8px);
-  z-index: 10;
-  white-space: nowrap;
+  z-index: 100;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4);
 }
-.toast-enter-active, .toast-leave-active { transition: all .25s ease; }
+.toast-enter-active, .toast-leave-active { transition: all .2s ease; }
 .toast-enter-from, .toast-leave-to       { opacity: 0; transform: translate(-50%, 1rem); }
-
-/* ── Mobile Responsive ────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .dpl-wrapper {
-    height: auto;
-    min-height: 100%;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-    padding-bottom: 3.5rem;
-  }
-  .dpl-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-    padding: 1rem;
-  }
-  .toggle-cluster {
-    width: 100%;
-    overflow-x: auto;
-  }
-  .toggle-row {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .toggle-row::-webkit-scrollbar { display: none; }
-  .grid-container {
-    padding: 0.75rem 0.5rem;
-    overflow-x: auto;
-  }
-  .numpad-panel.panel--open {
-    position: fixed;
-    inset: 0;
-    width: 100% !important;
-    height: 100%;
-    z-index: 100;
-    border-left: none;
-    background: rgba(15, 23, 42, 0.98);
-    backdrop-filter: blur(12px);
-  }
-  .numpad-inner {
-    padding: 1.5rem 1rem;
-    justify-content: center;
-    max-width: 380px;
-    margin: 0 auto;
-  }
-}
 </style>
