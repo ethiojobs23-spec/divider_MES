@@ -2,26 +2,33 @@
   <AppLayout>
     <main class="admin-main">
       <!-- ─── TOP: Settings Nav Bar ─────────────────────────────── -->
-      <nav class="settings-top-nav">
-        <button class="snav-item" :class="{'snav-item--active': activeTab === 'employees'}" @click="activeTab = 'employees'">
-          <span class="material-symbols-rounded snav-icon">group</span>
-          <span class="snav-label">Employees</span>
-        </button>
-        <button class="snav-item" :class="{'snav-item--active': activeTab === 'rates'}" @click="activeTab = 'rates'">
-          <span class="material-symbols-rounded snav-icon">price_change</span>
-          <span class="snav-label">Piece Rates</span>
-        </button>
-        <button class="snav-item" :class="{'snav-item--active': activeTab === 'thresholds'}" @click="activeTab = 'thresholds'">
-          <span class="material-symbols-rounded snav-icon">warning</span>
-          <span class="snav-label">Thresholds</span>
-        </button>
-        <button class="snav-item" :class="{'snav-item--active': activeTab === 'system'}" @click="activeTab = 'system'">
-          <span class="material-symbols-rounded snav-icon">tune</span>
-          <span class="snav-label">System</span>
-        </button>
-        <button class="snav-item" :class="{'snav-item--active': activeTab === 'profile'}" @click="activeTab = 'profile'">
-          <span class="material-symbols-rounded snav-icon">person</span>
-          <span class="snav-label">My Profile</span>
+      <nav class="settings-top-nav flex justify-between items-center flex-wrap gap-2">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <button class="snav-item" :class="{'snav-item--active': activeTab === 'employees'}" @click="activeTab = 'employees'">
+            <span class="material-symbols-rounded snav-icon">group</span>
+            <span class="snav-label">Employees</span>
+          </button>
+          <button class="snav-item" :class="{'snav-item--active': activeTab === 'rates'}" @click="activeTab = 'rates'">
+            <span class="material-symbols-rounded snav-icon">price_change</span>
+            <span class="snav-label">Piece Rates</span>
+          </button>
+          <button class="snav-item" :class="{'snav-item--active': activeTab === 'thresholds'}" @click="activeTab = 'thresholds'">
+            <span class="material-symbols-rounded snav-icon">warning</span>
+            <span class="snav-label">Thresholds</span>
+          </button>
+          <button class="snav-item" :class="{'snav-item--active': activeTab === 'system'}" @click="activeTab = 'system'">
+            <span class="material-symbols-rounded snav-icon">tune</span>
+            <span class="snav-label">System</span>
+          </button>
+          <button class="snav-item" :class="{'snav-item--active': activeTab === 'profile'}" @click="activeTab = 'profile'">
+            <span class="material-symbols-rounded snav-icon">person</span>
+            <span class="snav-label">My Profile</span>
+          </button>
+        </div>
+
+        <button class="sync-btn cursor-pointer" :disabled="isSyncing" @click="manualSync" title="Sync settings now">
+          <span class="material-symbols-rounded" :class="{ 'spin-icon': isSyncing }">sync</span>
+          <span>{{ isSyncing ? 'Syncing...' : 'Sync Now' }}</span>
         </button>
       </nav>
 
@@ -493,14 +500,20 @@
         </div>
       </div>
 
+      <!-- Toast -->
+      <Transition name="toast">
+        <div v-if="toast.visible" class="set-toast">
+          <span class="material-symbols-rounded">check_circle</span>
+          {{ toast.message }}
+        </div>
+      </Transition>
     </main>
   </AppLayout>
 </template>
 
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
-import AppLayout from '@/components/layout/AppLayout.vue'
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useMesStore } from '@/store/mesStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
@@ -511,6 +524,48 @@ import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 const store = useMesStore()
 const attStore = useAttendanceStore()
 const sysAuth = useSystemAuthStore()
+
+const isSyncing = ref(false)
+let refreshTimer = null
+
+const toast = reactive({ visible: false, message: '' })
+let toastTimer = null
+function showToast(msg) {
+  toast.message = msg
+  toast.visible = true
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { toast.visible = false }, 2500)
+}
+
+async function manualSync() {
+  isSyncing.value = true
+  try {
+    await Promise.all([
+      store.fetchInitialData(),
+      attStore.loadAttendanceLogs()
+    ])
+    loadProfileData()
+    showToast('✓ Settings & profiles synced')
+  } finally {
+    setTimeout(() => { isSyncing.value = false }, 400)
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([
+    store.fetchInitialData(),
+    attStore.loadAttendanceLogs()
+  ])
+  loadProfileData()
+
+  refreshTimer = setInterval(async () => {
+    await store.fetchInitialData()
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
+})
 
 // ─── Nav state ──────────────────────────────────────────────────────────────
 const activeTab    = ref('employees')
@@ -579,10 +634,11 @@ async function applyChanges() {
   })
   if (ok) {
     saved.value = true
+    showToast('✓ System configuration saved successfully')
     clearTimeout(savedTimer)
     savedTimer = setTimeout(() => { saved.value = false }, 2500)
   } else {
-    alert("Failed to save settings.")
+    showToast('⚠ Failed to save settings')
   }
 }
 
@@ -609,7 +665,6 @@ function loadProfileData() {
   }
 }
 
-onMounted(() => loadProfileData())
 watch(adminOperator, () => loadProfileData())
 
 async function handleAvatarSelected(event) {
@@ -1083,4 +1138,23 @@ async function saveProfile() {
     flex-direction: column;
   }
 }
+
+.sync-btn {
+  display: flex; align-items: center; gap: 0.35rem;
+  background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3);
+  color: #a5b4fc; border-radius: 0.5rem; padding: 0.45rem 0.85rem;
+  font-size: 0.75rem; font-weight: 700; transition: all 0.15s ease;
+}
+.sync-btn:hover { background: rgba(99,102,241,0.22); color: #fff; }
+.spin-icon { animation: spin 0.8s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.set-toast {
+  position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  background: rgba(16,185,129,0.95); color: #fff;
+  padding: 0.75rem 1.5rem; border-radius: 0.75rem; font-weight: 700; font-size: 0.85rem;
+  display: flex; align-items: center; gap: 0.4rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 100;
+}
+.toast-enter-active, .toast-leave-active { transition: all 0.2s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 1rem); }
 </style>
