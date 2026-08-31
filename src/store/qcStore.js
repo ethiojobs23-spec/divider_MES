@@ -18,17 +18,22 @@ export const useQcStore = defineStore('qcStore', () => {
   const categories = [
     'Bent Edge',
     'Wrong Size',
-    'Material Flaw'
+    'Material Flaw',
+    'Excess Glue',
+    'Paper Tear'
   ]
-  const dividerTypes = ['9cm', '7cm']
+  const dividerTypes = ['50', '40', '30', '16', '12', '45', 'Other']
+  const sizes = ['9cm', '7cm']
 
   // ── Fetch from Supabase ────────────────────────────────────────────────
   async function fetchDefects(week) {
+    const mesStore = useMesStore()
+    const targetWeek = week || mesStore.currentProductionWeek
     try {
       const { data, error } = await supabase
         .from('mes_qc_defects')
         .select('*')
-        .eq('production_week', week)
+        .eq('production_week', targetWeek)
         .order('logged_at', { ascending: false })
 
       if (error) throw error
