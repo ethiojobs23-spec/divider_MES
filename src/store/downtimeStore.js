@@ -106,7 +106,7 @@ export const useDowntimeStore = defineStore('downtimeStore', () => {
   }
 
   // ── Resolve Downtime ───────────────────────────────────────────────────
-  async function resolveDowntime(logId) {
+  async function resolveDowntime(logId, notes = '') {
     const log = downtime_logs.value.find(l => l.id === logId)
     if (!log || log.status !== 'active') return
 
@@ -118,8 +118,13 @@ export const useDowntimeStore = defineStore('downtimeStore', () => {
     // Optimistic update
     log.status   = 'resolved'
     log.end_time = endTime
+    log.resolution_notes = notes
 
-    const updatePayload = { end_time: endTime, duration_minutes: durationMinutes }
+    const updatePayload = { 
+      end_time: endTime, 
+      duration_minutes: durationMinutes,
+      resolution_notes: notes
+    }
 
     // Skip Supabase update for temp IDs (they'll sync via insert queue)
     if (String(logId).startsWith('temp-')) return

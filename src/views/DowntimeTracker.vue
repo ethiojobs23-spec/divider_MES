@@ -3,10 +3,20 @@
     <div class="view-area">
       <!-- ── Header ── -->
       <div class="view-panel" style="flex: none; padding-bottom: 0; min-height: auto;">
-        <div class="panel-header flex justify-between items-start">
+        <div class="panel-header flex justify-between items-center flex-wrap gap-3">
           <div>
-            <h2 class="panel-title">Machine Downtime & Maintenance</h2>
-            <p class="panel-sub">Log equipment failures and calculate financial impact in real-time</p>
+            <h2 class="panel-title flex items-center gap-2">
+              <span class="material-symbols-rounded" style="color:#fb7185">timer_off</span>
+              Machine Downtime & Maintenance
+            </h2>
+            <p class="panel-sub">Log equipment failures, track stoppage stopwatch, and calculate downtime financial impact</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button class="sync-btn cursor-pointer" :disabled="isSyncing" @click="manualSync" title="Sync downtime logs now">
+              <span class="material-symbols-rounded" :class="{ 'spin-icon': isSyncing }">sync</span>
+              <span>{{ isSyncing ? 'Syncing...' : 'Sync Now' }}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -47,7 +57,7 @@
               <button 
                 @click="submitReport"
                 :disabled="!selectedMachine || !selectedCategory"
-                class="btn-action mt-2"
+                class="btn-action mt-2 cursor-pointer"
                 :class="(selectedMachine && selectedCategory) ? 'btn-action--danger' : 'btn-action--disabled'"
               >
                 <span class="material-symbols-rounded">warning</span>
@@ -88,15 +98,15 @@
                   
                   <div class="flex items-center justify-between gap-2 mb-3 bg-slate-900/50 px-3 py-2 rounded-lg border border-white/5">
                     <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Elapsed Time</span>
-                    <div class="flex items-center gap-1 text-slate-300">
-                      <span class="material-symbols-rounded text-lg text-slate-400">timer</span>
-                      <span class="font-mono font-bold">{{ getElapsedTime(issue.start_time) }}</span>
+                    <div class="flex items-center gap-1.5 text-slate-300">
+                      <span class="material-symbols-rounded text-lg text-amber-400 animate-spin" style="animation-duration: 3s;">timer</span>
+                      <span class="font-mono font-bold text-amber-300 text-sm">{{ getElapsedTime(issue.start_time) }}</span>
                     </div>
                   </div>
 
                   <button 
-                    @click="resolveIssue(issue.id)"
-                    class="btn-action btn-action--success w-full"
+                    @click="openResolveModal(issue)"
+                    class="btn-action btn-action--success w-full cursor-pointer"
                     style="padding: 0.75rem;"
                   >
                     <span class="material-symbols-rounded">build_circle</span>
@@ -116,13 +126,13 @@
             <div class="absolute -right-10 -bottom-10 opacity-5 pointer-events-none">
               <span class="material-symbols-rounded" style="font-size: 15rem;">monitoring</span>
             </div>
-            <h3 style="color: #fbbf24; border-bottom-color: rgba(251,191,36,0.2);">Estimated Lost Revenue (Week)</h3>
+            <h3 style="color: #fbbf24; border-bottom-color: rgba(251,191,36,0.2);">Estimated Lost Revenue</h3>
             <div class="flex items-end gap-3 my-2">
               <span class="text-5xl font-black font-mono text-amber-400">{{ formatCurrency(downtimeStore.weeklyLostRevenue) }}</span>
               <span class="text-xl font-bold text-slate-500 mb-1">ETB</span>
             </div>
             <p class="text-xs text-slate-500 font-medium mt-2 max-w-sm m-0 line-height-tight">
-              Calculated dynamically based on machine capacities, total downtime minutes, and the standard average piece-rate.
+              Calculated dynamically based on machine capacities, total downtime minutes, and standard piece rates.
             </p>
           </div>
 
@@ -134,7 +144,7 @@
             
             <div class="alerts-container">
               <div v-if="downtimeStore.resolvedIssues.length === 0" class="empty-state">
-                No resolved maintenance logs for this week.
+                No resolved maintenance logs for this period.
               </div>
               
               <div v-else class="flex flex-col gap-3">
@@ -144,7 +154,12 @@
                   class="alert-row-standard"
                 >
                   <div class="flex justify-between items-start mb-2">
-                    <h4 class="font-bold text-emerald-400 m-0">{{ getMachineName(log.machine_id) }}</h4>
+                    <div>
+                      <h4 class="font-bold text-emerald-400 m-0">{{ getMachineName(log.machine_id) }}</h4>
+                      <p v-if="log.resolution_notes" class="text-xs text-slate-300 mt-0.5 italic">
+                        "{{ log.resolution_notes }}"
+                      </p>
+                    </div>
                     <span class="text-xs font-bold text-slate-400 bg-slate-900 px-2 py-1 rounded">{{ log.category }}</span>
                   </div>
                   
@@ -166,6 +181,45 @@
         </div>
         
       </div>
+
+      <!-- ── Modal: Resolve Downtime with Notes ── -->
+      <div v-if="showResolveModal" class="modal-overlay" @click.self="showResolveModal = false">
+        <div class="modal-card">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-base font-bold text-emerald-400 m-0 flex items-center gap-1.5">
+              <span class="material-symbols-rounded">build_circle</span>
+              Resolve Machine Stoppage
+            </h3>
+            <button class="text-slate-400 hover:text-white" @click="showResolveModal = false">
+              <span class="material-symbols-rounded text-lg">close</span>
+            </button>
+          </div>
+
+          <p class="text-xs text-slate-400 mb-3">
+            Marking <strong>{{ getMachineName(activeResolveIssue?.machine_id) }}</strong> as operational.
+          </p>
+
+          <div class="mb-4">
+            <label class="block text-xs font-bold text-slate-400 mb-1">Maintenance / Resolution Notes</label>
+            <input
+              v-model="resolutionNote"
+              type="text"
+              placeholder="e.g. Replaced cutting blade, cleared jammed paper"
+              class="w-full bg-slate-900 border border-white/10 rounded-lg p-2.5 text-xs text-white outline-none focus:border-emerald-500"
+              autofocus
+            />
+          </div>
+
+          <div class="flex gap-2 justify-end">
+            <button class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 bg-transparent border border-white/10 cursor-pointer hover:bg-slate-800" @click="showResolveModal = false">
+              Cancel
+            </button>
+            <button class="px-4 py-1.5 rounded-lg text-xs font-bold text-slate-900 bg-emerald-400 hover:bg-emerald-300 cursor-pointer transition-all" @click="confirmResolve">
+              Confirm & Resume
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>
@@ -180,19 +234,38 @@ const downtimeStore = useDowntimeStore()
 
 const selectedMachine = ref('')
 const selectedCategory = ref('')
+const isSyncing = ref(false)
+
+// Resolution Modal State
+const showResolveModal = ref(false)
+const activeResolveIssue = ref(null)
+const resolutionNote = ref('')
 
 // Reactive trigger for live elapsed time updates
 const now = ref(Date.now())
 let timerInterval = null
 
-onMounted(() => {
+async function manualSync() {
+  isSyncing.value = true
+  try {
+    await downtimeStore.fetchDowntime()
+  } finally {
+    setTimeout(() => { isSyncing.value = false }, 400)
+  }
+}
+
+onMounted(async () => {
+  await downtimeStore.fetchDowntime()
+  downtimeStore.initRealtime()
+
+  // Update live elapsed stopwatch ticker every second
   timerInterval = setInterval(() => {
     now.value = Date.now()
-  }, 60000) // Update every minute
+  }, 1000)
 })
 
 onUnmounted(() => {
-  clearInterval(timerInterval)
+  if (timerInterval) clearInterval(timerInterval)
 })
 
 function submitReport() {
@@ -203,8 +276,19 @@ function submitReport() {
   }
 }
 
-function resolveIssue(logId) {
-  downtimeStore.resolveDowntime(logId)
+function openResolveModal(issue) {
+  activeResolveIssue.value = issue
+  resolutionNote.value = ''
+  showResolveModal.value = true
+}
+
+function confirmResolve() {
+  if (activeResolveIssue.value) {
+    downtimeStore.resolveDowntime(activeResolveIssue.value.id, resolutionNote.value)
+    showResolveModal.value = false
+    activeResolveIssue.value = null
+    resolutionNote.value = ''
+  }
 }
 
 function getMachineName(id) {
@@ -213,18 +297,23 @@ function getMachineName(id) {
 }
 
 function getElapsedTime(isoStart) {
-  const _trigger = now.value // Force reactivity
+  const _trigger = now.value // Force reactivity every second
   const start = new Date(isoStart).getTime()
-  const diffMinutes = Math.floor((Date.now() - start) / 60000)
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - start) / 1000))
   
-  if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`
+  if (diffSeconds < 60) return `${diffSeconds}s`
   
-  const h = Math.floor(diffMinutes / 60)
-  const m = diffMinutes % 60
-  return `${h}h ${m}m`
+  const m = Math.floor(diffSeconds / 60)
+  const s = diffSeconds % 60
+  if (m < 60) return `${m}m ${s}s`
+  
+  const h = Math.floor(m / 60)
+  const remM = m % 60
+  return `${h}h ${remM}m`
 }
 
 function calculateTotalDuration(isoStart, isoEnd) {
+  if (!isoStart || !isoEnd) return '—'
   const start = new Date(isoStart).getTime()
   const end = new Date(isoEnd).getTime()
   const diffMinutes = Math.floor((end - start) / 60000)
@@ -236,7 +325,7 @@ function calculateTotalDuration(isoStart, isoEnd) {
 }
 
 function formatEastAfricaTime(isoString) {
-  if (!isoString) return ''
+  if (!isoString) return '—'
   const date = new Date(isoString)
   return new Intl.DateTimeFormat('en-ET', {
     timeZone: 'Africa/Addis_Ababa',
@@ -250,7 +339,7 @@ function formatEastAfricaTime(isoString) {
 }
 
 function formatCurrency(val) {
-  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val)
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val || 0)
 }
 </script>
 
@@ -283,6 +372,16 @@ function formatCurrency(val) {
 }
 .panel-sub { font-size: .7rem; color: #64748b; margin: .2rem 0 0; }
 
+.sync-btn {
+  display: flex; align-items: center; gap: 0.35rem;
+  background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3);
+  color: #a5b4fc; border-radius: 0.5rem; padding: 0.45rem 0.85rem;
+  font-size: 0.75rem; font-weight: 700; transition: all 0.15s ease;
+}
+.sync-btn:hover { background: rgba(99,102,241,0.22); color: #fff; }
+.spin-icon { animation: spin 0.8s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
 /* ══ Cards ── */
 .chart-card {
   background: #1e293b;
@@ -298,158 +397,131 @@ function formatCurrency(val) {
   color: #94a3b8;
   font-size: 1rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin: 0 0 .5rem 0;
+  letter-spacing: 0.05em;
+  margin: 0;
+  font-weight: 800;
   border-bottom: 1px solid rgba(255,255,255,0.05);
   padding-bottom: 0.75rem;
 }
 
-/* ══ Form elements ═══════════════════════════════════════════════════════════ */
+/* ══ Forms ── */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
 .form-group label {
-  display: block;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: #94a3b8;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 0.4rem;
+  color: #94a3b8;
+  font-weight: 700;
 }
-
 .custom-select {
-  width: 100%;
   background: #0f172a;
   border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 0.5rem;
+  color: #f8fafc;
   padding: 0.75rem 1rem;
-  color: #f1f5f9;
-  font-weight: 700;
+  border-radius: 0.75rem;
+  font-size: 0.95rem;
   outline: none;
-  appearance: none;
   transition: all 0.2s;
 }
 .custom-select:focus {
   border-color: #f43f5e;
 }
 
-/* ══ Buttons ═════════════════════════════════════════════════════════════════ */
+/* ══ Buttons ── */
 .btn-action {
-  width: 100%;
-  padding: 1rem;
+  border: none;
   border-radius: 0.75rem;
-  font-weight: 900;
+  padding: 1rem;
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   transition: all 0.2s;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border: none;
-  cursor: pointer;
+}
+.btn-action--danger {
+  background: linear-gradient(135deg, #e11d48, #be123c);
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(225,29,72,0.3);
+}
+.btn-action--danger:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.btn-action--success {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(16,185,129,0.2);
+}
+.btn-action--success:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
 }
 .btn-action--disabled {
   background: #334155;
   color: #64748b;
   cursor: not-allowed;
-}
-.btn-action--danger {
-  background: #e11d48;
-  color: white;
-}
-.btn-action--danger:active {
-  transform: scale(0.98);
-}
-.btn-action--success {
-  background: #10b981;
-  color: #064e3b;
-}
-.btn-action--success:active {
-  transform: scale(0.98);
+  opacity: 0.5;
 }
 
-/* ══ Alerts ══════════════════════════════════════════════════════════════════ */
+/* ══ Alerts ── */
 .alerts-container {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  overflow-y: auto;
   max-height: 400px;
+  overflow-y: auto;
 }
-.alerts-container::-webkit-scrollbar { width: 4px; }
-.alerts-container::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
-.alerts-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
-
-.empty-state {
-  text-align: center;
-  color: #64748b;
-  padding: 2rem 0;
-  font-size: 0.85rem;
-  font-weight: 500;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
 .alert-row-large {
-  display: flex;
-  flex-direction: column;
-  padding: 1rem;
-  background: rgba(225,29,72,0.1);
-  border: 1px solid rgba(225,29,72,0.3);
-  border-radius: 0.75rem;
+  background: #0f172a;
+  border: 1px solid rgba(244,63,94,0.3);
+  border-radius: 1rem;
+  padding: 1.25rem;
   position: relative;
   overflow: hidden;
 }
-
 .alert-row-standard {
-  display: flex;
-  flex-direction: column;
-  padding: 0.75rem;
-  background: rgba(15,23,42,0.5);
+  background: #0f172a;
   border: 1px solid rgba(255,255,255,0.05);
   border-radius: 0.75rem;
-  transition: border-color 0.2s;
+  padding: 1rem;
 }
-.alert-row-standard:hover {
-  border-color: rgba(255,255,255,0.15);
-}
-
 .badge-danger {
-  background: rgba(225,29,72,0.2);
+  background: rgba(225,29,72,0.15);
+  border: 1px solid rgba(225,29,72,0.3);
   color: #fb7185;
-  padding: 0.25rem 0.5rem;
-  border-radius: 1rem;
   font-size: 0.7rem;
-  font-weight: 900;
-  text-transform: uppercase;
+  font-weight: 800;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.4rem;
+  letter-spacing: 0.05em;
+}
+.empty-state {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
-  border: 1px solid rgba(225,29,72,0.3);
+  padding: 3rem 1rem;
+  color: #64748b;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
-/* Helpers */
-.line-height-tight {
-  line-height: 1.4;
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 1000;
+  padding: 1rem;
 }
-
-/* ── Mobile Responsive ────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .view-area {
-    height: auto;
-    min-height: 100%;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-    padding-bottom: 4rem;
-  }
-  .btn-action, .custom-select {
-    touch-action: pan-y;
-  }
-  .alerts-container {
-    max-height: none;
-    overflow: visible;
-  }
+.modal-card {
+  background: #1e293b; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 1.25rem; padding: 1.5rem; max-width: 400px; width: 100%;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6);
 }
 </style>
