@@ -572,4 +572,42 @@ function showToast(msg) {
 }
 .toast-enter-active, .toast-leave-active { transition: all .25s ease; }
 .toast-enter-from, .toast-leave-to       { opacity: 0; transform: translate(-50%, 1rem); }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .hwt-wrapper {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-bottom: 4rem;
+  }
+  .hwt-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  .hwt-body {
+    flex-direction: column;
+    overflow: visible;
+    height: auto;
+  }
+  .hwt-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    padding: 1rem;
+    overflow: visible;
+  }
+  .hwt-main {
+    padding: 1rem;
+    overflow: visible;
+    height: auto;
+  }
+  .log-btn, .step-btn, .preset-btn {
+    touch-action: pan-y;
+  }
+}
 </style>

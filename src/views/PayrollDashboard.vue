@@ -1629,5 +1629,32 @@ function executeHold(reason) {
 }
 .kp-btn--apply:hover  { background: linear-gradient(135deg, rgba(251,191,36,0.3), rgba(251,191,36,0.18)); border-color: #fbbf24; }
 .kp-btn--apply:active { transform: scale(0.95); }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .view-area {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-bottom: 4rem;
+  }
+  .view-panel {
+    overflow: visible;
+    height: auto;
+    padding: 1rem;
+  }
+  .btn-massive, .kp-btn, .btn-bank-slip {
+    touch-action: pan-y;
+  }
+  .cash-denom-card {
+    padding: 0.8rem 1rem;
+  }
+  .action-buttons {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
 </style>
 
