@@ -314,131 +314,319 @@
           </section>
         </Transition>
 
-        <!-- ─── VIEW C: Financial History & Advances ───────────────────── -->
+        <!-- ─── VIEW C: Financial Overview & Compensation ───────────────────── -->
         <Transition name="view-fade" mode="out-in">
           <section v-if="activeView === 'financials'" class="view-panel" key="financials">
 
-            <div class="panel-header">
-              <h2 class="panel-title">Financial History & Advances</h2>
-              <p class="panel-sub">Ledger transactions · Advance requests · Policy limits · {{ selectedOp?.name ?? 'No operator selected' }}</p>
+            <div class="panel-header flex flex-col md:flex-row md:items-center justify-between gap-2">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h2 class="panel-title">Financial Overview & Compensation</h2>
+                  <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    Week {{ store.currentProductionWeek }}
+                  </span>
+                </div>
+                <p class="panel-sub">
+                  Live payroll status · Piece-rate / hourly wages · Active loans & debt schedule · {{ selectedOp?.name ?? 'No operator selected' }}
+                </p>
+              </div>
+
+              <!-- Operator Quick Selector Chip -->
+              <div v-if="selectedOp" class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-white/10 shrink-0">
+                <OperatorAvatar :avatar="selectedOp.avatar" :name="selectedOp.name" :color="selectedOp.color" size="sm" />
+                <div class="text-left">
+                  <p class="text-xs font-bold text-slate-200 leading-tight">{{ selectedOp.name }}</p>
+                  <p class="text-[0.65rem] text-slate-400 leading-tight">
+                    {{ workerProfile?.isHourly ? (workerProfile?.isPieceRate ? 'Piece + Hourly' : 'Hourly') : 'Piece-Rate' }}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <!-- Balance KPIs -->
-            <div class="kpi-grid kpi-grid--2col grid grid-cols-1 md:grid-cols-2 gap-3 shrink-0">
+            <!-- Financial KPIs (4-Col Grid) -->
+            <div class="kpi-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
               <AnalyticsDataCard
-                title="Current Balance"
-                :value="'ETB ' + kpiStats.balance"
-                icon="account_balance"
+                title="Est. Gross (This Week)"
+                :value="'ETB ' + payoutDetails.grossEarnings.toFixed(2)"
+                icon="payments"
+                icon-bg="rgba(99,102,241,.15)"
+                icon-color="#a5b4fc"
+              />
+              <AnalyticsDataCard
+                title="Weekly Deductions"
+                :value="'ETB ' + payoutDetails.totalDeduction.toFixed(2)"
+                icon="money_off"
+                icon-bg="rgba(245,158,11,.15)"
+                icon-color="#fbbf24"
+                :trend-up-is-bad="true"
+              />
+              <AnalyticsDataCard
+                title="Est. Net Payout"
+                :value="'ETB ' + payoutDetails.netPayout.toFixed(2)"
+                icon="account_balance_wallet"
                 icon-bg="rgba(16,185,129,.15)"
                 icon-color="#34d399"
               />
               <AnalyticsDataCard
-                title="Last Advance"
-                :value="'ETB ' + kpiStats.lastAdvance"
-                icon="money_off"
+                title="Active Loan Debt"
+                :value="'ETB ' + totalOutstandingDebt.toFixed(2)"
+                icon="credit_score"
                 icon-bg="rgba(239,68,68,.12)"
                 icon-color="#f87171"
-                trend-label="deducted"
+                :trend-up-is-bad="true"
               />
             </div>
 
-            <!-- Two-column layout: ledger + actions -->
-            <div class="fin-layout flex flex-col md:flex-row gap-4 h-full min-h-0">
+            <!-- Main Financial Layout: 2 Columns -->
+            <div class="fin-layout flex flex-col lg:flex-row gap-4 h-full min-h-0">
 
-              <!-- Left: Transaction Ledger -->
-              <div class="chart-card" style="flex:2;min-height:0">
-                <div class="card-hdr">
-                  <span class="material-symbols-rounded" style="color:#a5b4fc">receipt_long</span>
-                  <div>
-                    <p class="card-hdr-title">Transaction Ledger</p>
-                    <p class="card-hdr-sub">Full financial history — advances, payroll deposits, expenses</p>
+              <!-- Left Side (Flex 2): Pay Configuration, Active Loans & Transaction History -->
+              <div class="flex flex-col gap-4 flex-[2] min-h-0 overflow-y-auto pr-1">
+
+                <!-- 1. Compensation & Current Week Settlement Card -->
+                <div class="chart-card shrink-0">
+                  <div class="card-hdr">
+                    <span class="material-symbols-rounded" style="color:#a5b4fc">badge</span>
+                    <div>
+                      <p class="card-hdr-title">Compensation & Wage Model</p>
+                      <p class="card-hdr-sub">Active wage parameters and production week metrics</p>
+                    </div>
+                    <div class="badge ml-auto" :class="payoutStatus.status === 'approved' ? 'badge--ok' : 'badge--warn'">
+                      PAYROLL: {{ payoutStatus.status.toUpperCase() }}
+                    </div>
                   </div>
-                  <button class="badge-btn" style="margin-left:auto">
-                    <span class="material-symbols-rounded" style="font-size:1rem">print</span>
-                    Print
-                  </button>
+
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                    <div class="metric-item bg-slate-900/60 p-2.5 rounded-lg border border-white/5">
+                      <span class="m-label">Pay Model</span>
+                      <span class="m-value text-sm font-bold text-indigo-300">
+                        {{ workerProfile?.isHourly ? (workerProfile?.isPieceRate ? 'Hybrid (Piece+Hr)' : 'Hourly Rate') : 'Piece-Rate' }}
+                      </span>
+                    </div>
+
+                    <div class="metric-item bg-slate-900/60 p-2.5 rounded-lg border border-white/5">
+                      <span class="m-label">{{ workerProfile?.isHourly ? 'Hourly Rate' : 'Week Units' }}</span>
+                      <span class="m-value text-sm font-bold text-emerald-400">
+                        {{ workerProfile?.isHourly ? workerProfile.hourlyRate + ' ETB/hr' : thisWeekUnits + ' pcs' }}
+                      </span>
+                    </div>
+
+                    <div class="metric-item bg-slate-900/60 p-2.5 rounded-lg border border-white/5">
+                      <span class="m-label">Week Attendance</span>
+                      <span class="m-value text-sm font-bold text-slate-200">
+                        {{ payoutDetails.daysAttended }} / 6 days
+                      </span>
+                    </div>
+
+                    <div class="metric-item bg-slate-900/60 p-2.5 rounded-lg border border-white/5">
+                      <span class="m-label">Weekly Bonus</span>
+                      <span class="m-value text-sm font-bold" :class="payoutDetails.bonus > 0 ? 'text-emerald-400' : 'text-slate-400'">
+                        {{ payoutDetails.bonus > 0 ? '+ ' + payoutDetails.bonus.toFixed(2) + ' ETB' : '0.00 ETB' }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Assigned Work Categories -->
+                  <div class="flex items-center gap-2 flex-wrap pt-2 border-t border-white/5">
+                    <span class="text-[0.68rem] uppercase font-bold text-slate-400 tracking-wider">Assigned Categories:</span>
+                    <template v-if="(selectedOp?.work_types?.categories || selectedOp?.work_types)?.length">
+                      <span
+                        v-for="wt in (selectedOp?.work_types?.categories || selectedOp?.work_types)"
+                        :key="wt"
+                        class="px-2 py-0.5 rounded-md text-[0.68rem] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
+                      >
+                        {{ wt === 'TIME' ? 'Hourly (TIME)' : wt }}
+                      </span>
+                    </template>
+                    <span v-else class="text-xs text-slate-500 italic">Standard Piece-Rate Production</span>
+                  </div>
                 </div>
 
-                <div class="table-scroll overflow-x-auto w-full">
-                  <table class="data-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th class="num">Amount (ETB)</th>
-                        <th class="num">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="(tx, idx) in transactions" :key="idx"
-                          :style="tx.old ? 'opacity:0.45' : ''">
-                        <td class="font-mono val-muted">{{ tx.date }}</td>
-                        <td>
-                          <span class="material-symbols-rounded icon-inline">{{ tx.icon }}</span>
-                          <span :class="tx.colorClass">{{ tx.type }}</span>
-                        </td>
-                        <td class="num bold" :class="tx.colorClass">{{ tx.amount }}</td>
-                        <td class="num">
-                          <span class="row-badge" :class="tx.badgeClass">{{ tx.status }}</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <!-- 2. Active Installment Loans & Repayment Schedule -->
+                <div class="chart-card shrink-0">
+                  <div class="card-hdr">
+                    <span class="material-symbols-rounded" style="color:#fbbf24">account_balance</span>
+                    <div>
+                      <p class="card-hdr-title">Active Installment Loans</p>
+                      <p class="card-hdr-sub">Multi-week debt schedules and weekly payroll deductions</p>
+                    </div>
+                    <span class="text-xs font-mono font-bold text-amber-400 ml-auto">
+                      {{ activeLoans.length }} Active
+                    </span>
+                  </div>
+
+                  <div v-if="activeLoans.length > 0" class="flex flex-col gap-3">
+                    <div
+                      v-for="loan in activeLoans"
+                      :key="loan.id"
+                      class="p-3 rounded-xl bg-slate-900/80 border border-white/10 flex flex-col gap-2.5"
+                    >
+                      <div class="flex items-start justify-between flex-wrap gap-2">
+                        <div>
+                          <div class="flex items-center gap-2">
+                            <span class="text-sm font-bold text-slate-100">
+                              Loan #{{ String(loan.id).slice(-4) }}
+                            </span>
+                            <span class="px-2 py-0.5 rounded text-[0.62rem] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                              {{ loan.status }}
+                            </span>
+                            <span class="text-[0.68rem] text-slate-400">
+                              Issued: {{ loan.week || new Date(loan.issuedAt).toLocaleDateString() }}
+                            </span>
+                          </div>
+                          <p class="text-xs text-slate-400 mt-0.5">
+                            Principal: <strong class="text-slate-200">{{ loan.amount }} ETB</strong> • 
+                            Interest: <strong class="text-slate-200">{{ loan.interestRate }}%</strong> • 
+                            Total: <strong class="text-amber-400">{{ loan.totalDebt }} ETB</strong>
+                          </p>
+                        </div>
+                        <div class="text-right">
+                          <span class="text-[0.65rem] text-slate-400 block uppercase font-bold">Weekly Installment</span>
+                          <span class="text-sm font-extrabold text-amber-300 font-mono">
+                            {{ loan.weeklyInstallment.toFixed(2) }} ETB/wk
+                          </span>
+                        </div>
+                      </div>
+
+                      <!-- Progress bar -->
+                      <div>
+                        <div class="flex justify-between text-[0.7rem] text-slate-400 mb-1">
+                          <span>Repaid: {{ (loan.totalDebt - loan.remainingBalance).toFixed(2) }} ETB</span>
+                          <span class="font-bold text-slate-300">Remaining: {{ loan.remainingBalance.toFixed(2) }} ETB ({{ loan.weeksRemaining }} wks left)</span>
+                        </div>
+                        <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden border border-white/5">
+                          <div
+                            class="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-300"
+                            :style="{ width: Math.min(100, Math.max(0, ((loan.totalDebt - loan.remainingBalance) / loan.totalDebt) * 100)) + '%' }"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div v-else class="py-6 text-center text-slate-500 flex flex-col items-center justify-center gap-1 bg-slate-900/30 rounded-xl border border-white/5">
+                    <span class="material-symbols-rounded text-2xl text-slate-600">check_circle</span>
+                    <p class="text-xs">No active installment loans for {{ selectedOp?.name }}.</p>
+                  </div>
                 </div>
 
-                <!-- Verification block -->
-                <div class="verify-block">
-                  <div class="verify-hdr">
-                    <span class="val-muted" style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em">Latest Verification</span>
-                    <span class="val-purple" style="font-size:.7rem;font-weight:700">REF: ADV-8921-X</span>
+                <!-- 3. Unified Financial History & Settlement Ledger -->
+                <div class="chart-card flex-1 min-h-[300px]">
+                  <div class="card-hdr">
+                    <span class="material-symbols-rounded" style="color:#a5b4fc">receipt_long</span>
+                    <div>
+                      <p class="card-hdr-title">Financial Ledger & Settlement History</p>
+                      <p class="card-hdr-sub">Chronological payouts, advances, and loan events</p>
+                    </div>
+                    <button class="badge-btn ml-auto cursor-pointer" @click="printFinancialStatement">
+                      <span class="material-symbols-rounded" style="font-size:1rem">print</span>
+                      Print Statement
+                    </button>
                   </div>
-                  <div class="sig-placeholder">
-                    <span class="material-symbols-rounded" style="font-size:2rem;color:#334155">draw</span>
-                    <span class="val-muted" style="font-size:.75rem">Digital Signature Capture</span>
+
+                  <div class="table-scroll overflow-x-auto w-full">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Type</th>
+                          <th>Details / Note</th>
+                          <th class="num">Amount (ETB)</th>
+                          <th class="num">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="tx in unifiedTransactions" :key="tx.id">
+                          <td class="font-mono val-muted text-xs">{{ tx.date }}</td>
+                          <td>
+                            <div class="flex items-center gap-1.5">
+                              <span class="material-symbols-rounded text-sm" :class="tx.colorClass">{{ tx.icon }}</span>
+                              <span class="font-bold text-xs" :class="tx.colorClass">{{ tx.type }}</span>
+                            </div>
+                          </td>
+                          <td class="text-xs text-slate-300 max-w-[220px] truncate" :title="tx.note">
+                            {{ tx.note }}
+                          </td>
+                          <td class="num font-bold text-xs" :class="tx.colorClass">{{ tx.amount }}</td>
+                          <td class="num">
+                            <span class="row-badge" :class="tx.badgeClass">{{ tx.status }}</span>
+                          </td>
+                        </tr>
+                        <tr v-if="unifiedTransactions.length === 0">
+                          <td colspan="5" class="text-center py-6 text-slate-500 text-xs">
+                            No financial records logged for this operator yet.
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
+
               </div>
 
-              <!-- Right: Actions + Policy -->
-              <div class="fin-actions-col">
-                <button class="fin-action-btn fin-action-btn--primary">
-                  <span class="material-symbols-rounded">account_balance_wallet</span>
-                  REQUEST ADVANCE
-                </button>
-                <button class="fin-action-btn fin-action-btn--secondary">
-                  <span class="material-symbols-rounded">receipt_long</span>
-                  LOG EXPENSE
+              <!-- Right Side (Flex 1): Actions & Quick Tools -->
+              <div class="fin-actions-col flex flex-col gap-3 w-full lg:w-[280px] shrink-0">
+                
+                <!-- Action 1: Issue Cash Advance -->
+                <button
+                  class="fin-action-btn fin-action-btn--primary cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all"
+                  @click="openAdvanceModal"
+                >
+                  <span class="material-symbols-rounded">payments</span>
+                  ISSUE CASH ADVANCE
+                  <span class="text-[0.65rem] opacity-75 font-normal">Single-week payroll deduction</span>
                 </button>
 
-                <!-- Policy Limits card (same .chart-card style) -->
-                <div class="chart-card" style="margin-top:auto">
+                <!-- Action 2: Issue Multi-Week Loan -->
+                <button
+                  class="fin-action-btn fin-action-btn--secondary cursor-pointer hover:bg-slate-700 active:scale-[0.98] transition-all"
+                  @click="openLoanModal"
+                >
+                  <span class="material-symbols-rounded" style="color:#fbbf24">account_balance</span>
+                  ISSUE INSTALLMENT LOAN
+                  <span class="text-[0.65rem] opacity-75 font-normal">Multi-week structured repayment</span>
+                </button>
+
+                <!-- Financial Summary Card -->
+                <div class="chart-card bg-slate-800/60 border border-white/10 mt-auto">
                   <div class="card-hdr">
-                    <span class="material-symbols-rounded" style="color:#fbbf24">policy</span>
+                    <span class="material-symbols-rounded text-emerald-400">calculate</span>
                     <div>
-                      <p class="card-hdr-title">Advance Policy Limits</p>
+                      <p class="card-hdr-title">Week Calculation</p>
+                      <p class="card-hdr-sub">{{ store.currentProductionWeek }} Net formula</p>
                     </div>
                   </div>
 
-                  <div class="policy-rows">
-                    <div class="policy-row">
-                      <span class="m-label">Max Monthly Advance</span>
-                      <span class="m-value">500 ETB</span>
+                  <div class="flex flex-col gap-2 text-xs py-1">
+                    <div class="flex justify-between text-slate-300">
+                      <span>Gross Earnings:</span>
+                      <span class="font-mono font-bold text-slate-100">+ {{ payoutDetails.grossEarnings.toFixed(2) }}</span>
                     </div>
-                    <div class="policy-row">
-                      <span class="m-label">Remaining This Month</span>
-                      <span class="m-value m-value--good">300 ETB</span>
+                    <div class="flex justify-between text-amber-400">
+                      <span>Total Deductions:</span>
+                      <span class="font-mono font-bold">− {{ payoutDetails.totalDeduction.toFixed(2) }}</span>
                     </div>
-                    <div class="policy-row">
-                      <span class="m-label">Approval Required Above</span>
-                      <span class="m-value m-value--bad">150 ETB</span>
+                    <div class="flex justify-between text-emerald-400" v-if="payoutDetails.bonus > 0">
+                      <span>Bonus:</span>
+                      <span class="font-mono font-bold">+ {{ payoutDetails.bonus.toFixed(2) }}</span>
+                    </div>
+                    <div class="pt-2 border-t border-white/10 flex justify-between items-center">
+                      <span class="font-extrabold text-slate-200">Net Payout:</span>
+                      <span class="text-base font-extrabold text-emerald-400 font-mono">
+                        {{ payoutDetails.netPayout.toFixed(2) }} ETB
+                      </span>
                     </div>
                   </div>
 
-                  <div class="policy-warning">
-                    <span class="material-symbols-rounded" style="font-size:1rem;color:#fbbf24">warning</span>
-                    <p>Requests exceeding threshold require supervisor override.</p>
-                  </div>
+                  <router-link
+                    to="/payroll"
+                    class="w-full text-center py-2 px-3 rounded-lg text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <span class="material-symbols-rounded text-sm">open_in_new</span>
+                    Open Weekly Payroll
+                  </router-link>
                 </div>
+
               </div>
 
             </div>
@@ -446,6 +634,147 @@
         </Transition>
 
       </main>
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           MODAL: Issue Cash Advance
+           ══════════════════════════════════════════════════════════════════ -->
+      <div v-if="showAdvanceModal" class="modal-overlay" @click.self="showAdvanceModal = false">
+        <div class="modal-card">
+          <div class="modal-hdr">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-rounded text-emerald-400">payments</span>
+              <h3 class="modal-title">Issue Cash Advance</h3>
+            </div>
+            <button class="modal-close" @click="showAdvanceModal = false">
+              <span class="material-symbols-rounded">close</span>
+            </button>
+          </div>
+
+          <p class="modal-sub">
+            Recording advance for <strong>{{ selectedOp?.name }}</strong> for Week <strong>{{ store.currentProductionWeek }}</strong>.
+          </p>
+
+          <div class="form-group mt-3">
+            <label class="form-label">Amount (ETB)</label>
+            <input
+              v-model.number="advanceForm.amount"
+              type="number"
+              min="1"
+              placeholder="e.g. 200"
+              class="form-input"
+              autofocus
+            />
+          </div>
+
+          <div class="form-group mt-3">
+            <label class="form-label">Reason / Description</label>
+            <select v-model="advanceForm.note" class="form-input">
+              <option value="Weekly Advance">Weekly Advance</option>
+              <option value="Transportation">Transportation</option>
+              <option value="Emergency Personal">Emergency Personal</option>
+              <option value="Medical">Medical</option>
+              <option value="Food & Living">Food & Living</option>
+            </select>
+          </div>
+
+          <div class="modal-actions mt-5">
+            <button class="btn-cancel" @click="showAdvanceModal = false">Cancel</button>
+            <button
+              class="btn-confirm"
+              :disabled="!advanceForm.amount || advanceForm.amount <= 0 || isSubmitting"
+              @click="submitAdvance"
+            >
+              {{ isSubmitting ? 'Saving...' : 'Confirm Advance' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           MODAL: Issue Multi-Week Installment Loan
+           ══════════════════════════════════════════════════════════════════ -->
+      <div v-if="showLoanModal" class="modal-overlay" @click.self="showLoanModal = false">
+        <div class="modal-card">
+          <div class="modal-hdr">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-rounded text-amber-400">account_balance</span>
+              <h3 class="modal-title">Issue Installment Loan</h3>
+            </div>
+            <button class="modal-close" @click="showLoanModal = false">
+              <span class="material-symbols-rounded">close</span>
+            </button>
+          </div>
+
+          <p class="modal-sub">
+            Structured installment loan for <strong>{{ selectedOp?.name }}</strong>.
+          </p>
+
+          <div class="grid grid-cols-2 gap-3 mt-3">
+            <div class="form-group">
+              <label class="form-label">Principal (ETB)</label>
+              <input
+                v-model.number="loanForm.principal"
+                type="number"
+                min="1"
+                placeholder="e.g. 1000"
+                class="form-input"
+                autofocus
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Interest Rate (%)</label>
+              <input
+                v-model.number="loanForm.interestRate"
+                type="number"
+                min="0"
+                max="50"
+                placeholder="5"
+                class="form-input"
+              />
+            </div>
+          </div>
+
+          <div class="form-group mt-3">
+            <label class="form-label">Repayment Duration (Weeks)</label>
+            <select v-model.number="loanForm.installmentWeeks" class="form-input">
+              <option :value="1">1 Week (Single deduction)</option>
+              <option :value="2">2 Weeks</option>
+              <option :value="3">3 Weeks</option>
+              <option :value="4">4 Weeks (1 Month)</option>
+              <option :value="6">6 Weeks</option>
+              <option :value="8">8 Weeks (2 Months)</option>
+              <option :value="12">12 Weeks (3 Months)</option>
+            </select>
+          </div>
+
+          <!-- Calculated schedule preview -->
+          <div v-if="loanForm.principal > 0" class="p-3 rounded-lg bg-slate-900/90 border border-white/10 mt-3 text-xs flex flex-col gap-1.5">
+            <div class="flex justify-between text-slate-300">
+              <span>Total Debt (with interest):</span>
+              <strong class="text-amber-400 font-mono">
+                {{ (loanForm.principal + loanForm.principal * (loanForm.interestRate / 100)).toFixed(2) }} ETB
+              </strong>
+            </div>
+            <div class="flex justify-between text-slate-300">
+              <span>Weekly Deduction:</span>
+              <strong class="text-emerald-400 font-mono">
+                {{ ((loanForm.principal + loanForm.principal * (loanForm.interestRate / 100)) / loanForm.installmentWeeks).toFixed(2) }} ETB / wk
+              </strong>
+            </div>
+          </div>
+
+          <div class="modal-actions mt-5">
+            <button class="btn-cancel" @click="showLoanModal = false">Cancel</button>
+            <button
+              class="btn-confirm"
+              :disabled="!loanForm.principal || loanForm.principal <= 0 || isSubmitting"
+              @click="submitLoan"
+            >
+              {{ isSubmitting ? 'Issuing Loan...' : 'Issue & Activate Loan' }}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <!-- Toast -->
       <Transition name="toast">
@@ -461,22 +790,24 @@
 
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
 import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useMesStore } from '@/store/mesStore.js'
+import { usePayrollStore } from '@/store/payrollStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
 
 const store = useMesStore()
+const payrollStore = usePayrollStore()
 const attStore = useAttendanceStore()
 
 // ── Tab definitions (identical pattern to ExecutiveAnalytics) ─────────────────
 const TABS = [
   { id: 'roster',      icon: 'badge',                  title: 'Operator Roster',    sub: 'Status & assignment'    },
   { id: 'performance', icon: 'precision_manufacturing', title: 'Performance Logs',   sub: 'KPIs & daily output'    },
-  { id: 'financials',  icon: 'account_balance_wallet',  title: 'Financial Overview', sub: 'Advances & expenses'    },
+  { id: 'financials',  icon: 'account_balance_wallet',  title: 'Financial Overview', sub: 'Wages, loans & ledger'  },
 ]
 const activeView = ref('roster')
 
@@ -540,9 +871,21 @@ watch(operators, (newOps) => {
   }
 }, { immediate: true })
 
-onMounted(() => {
+onMounted(async () => {
   if (!selectedOp.value && operators.value.length > 0) {
     selectedOp.value = operators.value[0]
+  }
+  // Initialize loan & bonus data from payroll store
+  await payrollStore.fetchLoans()
+  if (store.currentProductionWeek) {
+    await payrollStore.fetchBonuses(store.currentProductionWeek)
+  }
+})
+
+// Refresh when week changes
+watch(() => store.currentProductionWeek, (newWeek) => {
+  if (newWeek) {
+    payrollStore.fetchBonuses(newWeek)
   }
 })
 
@@ -571,9 +914,9 @@ const activityLogs = computed(() => {
     })
 })
 
-// ── KPIs ─────────────────────────────────────────────────────────────
+// ── Performance KPIs ──────────────────────────────────────────────────────────
 const kpiStats = computed(() => {
-  if (!selectedOp.value) return { good: 0, waste: 0, efficiency: '100.0', balance: '0.00', lastAdvance: '0.00' }
+  if (!selectedOp.value) return { good: 0, waste: 0, efficiency: '100.0' }
   
   const today = new Date().toISOString().split('T')[0]
   const todayLogs = (store.ledgerEntries || []).filter(e => 
@@ -585,52 +928,202 @@ const kpiStats = computed(() => {
   const total = good + waste
   const efficiency = total > 0 ? ((good / total) * 100).toFixed(1) : '100.0'
   
-  const myCash = (store.cashEntries || []).filter(c => c.operator_id === selectedOp.value.id || (!c.operator_id && c.operator === selectedOp.value.name))
-  const balance = myCash.reduce((s, c) => s + (c.type === 'advance' ? -Number(c.amount || 0) : c.type === 'payout' ? Number(c.amount || 0) : 0), 0)
-  
-  const lastAdv = myCash.filter(c => c.type === 'advance').sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
-  
-  return { good, waste, efficiency, balance: balance.toFixed(2), lastAdvance: lastAdv ? Number(lastAdv.amount || 0).toFixed(2) : '0.00' }
+  return { good, waste, efficiency }
 })
 
-const transactions = computed(() => {
-  if (!selectedOp.value) return []
-  return (store.cashEntries || [])
-    .filter(c => c.operator_id === selectedOp.value.id || (!c.operator_id && c.operator === selectedOp.value.name))
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-    .map(c => {
-      let typeStr = (c.type || 'UNKNOWN').toUpperCase()
-      let colorClass = 'val-purple'
-      let badgeClass = 'row-badge--neutral'
-      let icon = 'receipt_long'
-      
-      if (c.type === 'advance') {
-        typeStr = 'ADVANCE'
-        colorClass = 'val-red'
-        badgeClass = 'row-badge--yellow'
-        icon = 'call_made'
-      } else if (c.type === 'payout') {
-        typeStr = 'PAYROLL DEP'
-        colorClass = 'val-green'
-        badgeClass = 'row-badge--green'
-        icon = 'payments'
-      }
-      
-      const dt = c.timestamp ? new Date(c.timestamp) : null
-      const dateStr = dt && !isNaN(dt.getTime()) ? dt.toLocaleDateString('en-GB').toUpperCase() : '—'
-      
-      return {
-        date: dateStr,
-        type: typeStr,
-        amount: (c.type === 'advance' ? '−' : '+') + Number(c.amount || 0).toFixed(2),
-        status: c.status === 'pending' ? 'PENDING' : 'CLEARED',
-        icon,
-        colorClass,
-        badgeClass,
-        old: false
-      }
-    })
+// ── Financial Engine Computations ─────────────────────────────────────────────
+const workerProfile = computed(() => {
+  if (!selectedOp.value) return null
+  return payrollStore.getWorkerProfile(selectedOp.value.id)
 })
+
+const payoutDetails = computed(() => {
+  if (!selectedOp.value) {
+    return {
+      grossPieceRate: 0, grossHourly: 0, attendanceFactor: 0, grossEarnings: 0,
+      totalDeduction: 0, loanBreakdown: [], bonus: 0, netPayout: 0, daysAttended: 0
+    }
+  }
+  return payrollStore.calculateFinalPayout(selectedOp.value.id, store.currentProductionWeek)
+})
+
+const payoutStatus = computed(() => {
+  if (!selectedOp.value) return { status: 'pending', reason: '' }
+  return payrollStore.getPayoutStatus(selectedOp.value.id, store.currentProductionWeek)
+})
+
+const operatorLoans = computed(() => {
+  if (!selectedOp.value) return []
+  return (payrollStore.loans || []).filter(l => l.workerId === selectedOp.value.id)
+})
+
+const activeLoans = computed(() => {
+  return operatorLoans.value.filter(l => (l.status === 'active' || l.status === 'pending') && Number(l.remainingBalance) > 0)
+})
+
+const totalOutstandingDebt = computed(() => {
+  return activeLoans.value.reduce((sum, l) => sum + (Number(l.remainingBalance) || 0), 0)
+})
+
+const thisWeekUnits = computed(() => {
+  if (!selectedOp.value) return 0
+  return (store.ledgerEntries || [])
+    .filter(e => e.operator_id === selectedOp.value.id && (e.week === store.currentProductionWeek || (!e.week && e.productionWeek === store.currentProductionWeek)))
+    .reduce((sum, e) => sum + (Number(e.goodProduction) || 0), 0)
+})
+
+// Unified Financial History Ledger
+const unifiedTransactions = computed(() => {
+  if (!selectedOp.value) return []
+  const list = []
+
+  // 1. Cash entries (Advances, Payouts, Settlement records)
+  const myCash = (store.cashEntries || []).filter(c =>
+    c.operator_id === selectedOp.value.id || (!c.operator_id && c.operator === selectedOp.value.name)
+  )
+
+  for (const c of myCash) {
+    let type = 'PAYOUT'
+    let icon = 'payments'
+    let colorClass = 'val-green'
+    let badgeClass = 'row-badge--green'
+    let amountPrefix = '+'
+    let statusText = 'CLEARED'
+
+    if (c.type === 'advance') {
+      type = 'CASH ADVANCE'
+      icon = 'call_made'
+      colorClass = 'val-red'
+      badgeClass = c.status === 'pending' ? 'row-badge--yellow' : 'row-badge--red'
+      amountPrefix = '−'
+      statusText = c.status === 'pending' ? 'PENDING' : 'DEDUCTED'
+    } else if (c.type === 'payout') {
+      type = 'WEEKLY SETTLEMENT'
+      icon = 'account_balance_wallet'
+      colorClass = 'val-green'
+      badgeClass = 'row-badge--green'
+      amountPrefix = '+'
+      statusText = 'PAID'
+    }
+
+    const dt = c.timestamp ? new Date(c.timestamp) : null
+    const dateStr = dt && !isNaN(dt.getTime()) ? dt.toLocaleDateString('en-GB').toUpperCase() : (c.date || '—')
+
+    list.push({
+      id: 'cash-' + c.id,
+      timestamp: c.timestamp || c.created_at || '2026-01-01',
+      date: dateStr,
+      type,
+      note: c.note || c.notes || 'Weekly Advance Settlement',
+      amount: amountPrefix + Number(c.amount || 0).toFixed(2),
+      status: statusText,
+      icon,
+      colorClass,
+      badgeClass
+    })
+  }
+
+  // 2. Installment Loans
+  for (const loan of operatorLoans.value) {
+    const dt = loan.issuedAt ? new Date(loan.issuedAt) : null
+    const dateStr = dt && !isNaN(dt.getTime()) ? dt.toLocaleDateString('en-GB').toUpperCase() : (loan.week || '—')
+
+    list.push({
+      id: 'loan-' + loan.id,
+      timestamp: loan.issuedAt || '2026-01-01',
+      date: dateStr,
+      type: 'INSTALLMENT LOAN',
+      note: `${loan.totalInstallments} Wks @ ${loan.weeklyInstallment.toFixed(2)} ETB/wk (${loan.interestRate}% Int)`,
+      amount: '−' + Number(loan.totalDebt || loan.amount).toFixed(2),
+      status: (loan.status || 'ACTIVE').toUpperCase(),
+      icon: 'credit_score',
+      colorClass: 'val-purple',
+      badgeClass: loan.status === 'closed' ? 'row-badge--neutral' : 'row-badge--yellow'
+    })
+  }
+
+  return list.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+})
+
+// ── Modals & Quick Financial Actions ──────────────────────────────────────────
+const showAdvanceModal = ref(false)
+const showLoanModal = ref(false)
+const isSubmitting = ref(false)
+
+const advanceForm = reactive({
+  amount: '',
+  note: 'Weekly Advance'
+})
+
+const loanForm = reactive({
+  principal: '',
+  interestRate: 5,
+  installmentWeeks: 4
+})
+
+function openAdvanceModal() {
+  advanceForm.amount = ''
+  advanceForm.note = 'Weekly Advance'
+  showAdvanceModal.value = true
+}
+
+function openLoanModal() {
+  loanForm.principal = ''
+  loanForm.interestRate = workerProfile.value?.baseInterestRate || 5
+  loanForm.installmentWeeks = 4
+  showLoanModal.value = true
+}
+
+async function submitAdvance() {
+  if (!selectedOp.value || !advanceForm.amount || advanceForm.amount <= 0) return
+  isSubmitting.value = true
+  try {
+    const success = await store.addCashEntry({
+      operator_id: selectedOp.value.id,
+      operator: selectedOp.value.name,
+      type: 'advance',
+      amount: Number(advanceForm.amount),
+      note: advanceForm.note || 'Weekly Advance'
+    })
+    if (success) {
+      showToast(`Issued ${advanceForm.amount} ETB advance to ${selectedOp.value.name}`)
+      showAdvanceModal.value = false
+    } else {
+      showToast('Failed to record advance')
+    }
+  } catch (err) {
+    console.error('Advance error:', err)
+    showToast('Failed to record advance')
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+async function submitLoan() {
+  if (!selectedOp.value || !loanForm.principal || loanForm.principal <= 0) return
+  isSubmitting.value = true
+  try {
+    await payrollStore.requestLoan(
+      selectedOp.value.id,
+      store.currentProductionWeek,
+      loanForm.principal,
+      loanForm.interestRate,
+      loanForm.installmentWeeks
+    )
+    showToast(`Issued ${loanForm.principal} ETB loan to ${selectedOp.value.name}`)
+    showLoanModal.value = false
+  } catch (err) {
+    console.error('Loan error:', err)
+    showToast('Failed to issue loan')
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+function printFinancialStatement() {
+  if (!selectedOp.value) return
+  window.print()
+}
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 const toastVisible = ref(false)
@@ -655,13 +1148,11 @@ async function handleLogBreak(op) {
   
   try {
     if (activeBreak) {
-      // End the break
       const outTime = new Date().toISOString()
       await supabase.from('mes_downtime_logs').update({ end_time: outTime }).eq('id', activeBreak.id)
       activeBreak.end_time = outTime
       showToast(`${op.name}'s break ended!`)
     } else {
-      // Start a break
       const payload = {
         production_week: store.currentProductionWeek,
         operator_id: op.id,
@@ -691,7 +1182,6 @@ async function handleEndShift(op) {
       .eq('operator_id', op.id)
       .is('clock_out', null)
       
-    // Update local attendance store state
     const logEntry = (attStore.clockInLog || []).find(log => log.operatorId === op.id && !log.clockOut)
     if (logEntry) {
       logEntry.clockOut = outTime
@@ -792,7 +1282,7 @@ function handleClockOut() {
 .dot--green { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,.6); }
 .dot--red   { background: #ef4444; }
 
-/* Bottom action button — mirrors .export-btn from ExecutiveAnalytics */
+/* Bottom action button */
 .action-bottom-btn {
   margin-top: auto;
   display: flex;
@@ -812,7 +1302,7 @@ function handleClockOut() {
 .action-bottom-btn:hover  { filter: brightness(1.1); }
 .action-bottom-btn:active { transform: scale(.97); }
 
-/* ══ Main view area — EXACT copy of ExecutiveAnalytics .view-area ════════════ */
+/* ══ Main view area ══════════════════════════════════════════════════════════ */
 .view-area {
   flex: 1;
   overflow: hidden;
@@ -843,16 +1333,14 @@ function handleClockOut() {
 .view-fade-enter-from { opacity: 0; transform: translateX(12px); }
 .view-fade-leave-to   { opacity: 0; transform: translateX(-12px); }
 
-/* ══ KPI Grid — EXACT copy ═══════════════════════════════════════════════════ */
+/* ══ KPI Grid ════════════════════════════════════════════════════════════════ */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
   gap: .85rem;
   flex-shrink: 0;
 }
-.kpi-grid--2col { grid-template-columns: repeat(2, 1fr); }
 
-/* ══ Chart card — EXACT copy ════════════════════════════════════════════════ */
+/* ══ Chart card ══════════════════════════════════════════════════════════════ */
 .chart-card {
   background: #1e293b;
   border: 1px solid rgba(255,255,255,.07);
@@ -876,8 +1364,10 @@ function handleClockOut() {
   padding: .15rem .5rem;
   border-radius: 999px;
 }
+.badge--ok   { background: rgba(16,185,129,.15); border-color: rgba(16,185,129,.3); color: #34d399; }
+.badge--warn { background: rgba(245,158,11,.15); border-color: rgba(245,158,11,.3); color: #fbbf24; }
 
-/* ══ Table — based on ExecutiveAnalytics .cost-table ════════════════════════ */
+/* ══ Table ═══════════════════════════════════════════════════════════════════ */
 .table-scroll { flex: 1; overflow-y: auto; min-height: 0; }
 .data-table {
   width: 100%;
@@ -928,7 +1418,7 @@ function handleClockOut() {
 .leg-item { display: flex; align-items: center; gap: .35rem; font-size: .65rem; color: #64748b; }
 .leg-dot  { width: .5rem; height: .5rem; border-radius: 50%; flex-shrink: 0; }
 
-/* ══ Roster view — Employee layout (EXACT copy from ExecutiveAnalytics) ══════ */
+/* ══ Roster view ═════════════════════════════════════════════════════════════ */
 .employee-layout {
   display: grid;
   grid-template-columns: 260px 1fr;
@@ -971,17 +1461,11 @@ function handleClockOut() {
 .op-card:hover { border-color: rgba(255,255,255,.1); background: rgba(255,255,255,.03); }
 .op-card--active { background: rgba(99,102,241,.15); border-color: rgba(99,102,241,.4); }
 
-.op-avatar-sm {
-  width: 2.25rem; height: 2.25rem; border-radius: .5rem;
-  display: flex; align-items: center; justify-content: center;
-  font-size: .85rem; font-weight: 800; color: #fff; flex-shrink: 0;
-}
 .op-info { flex: 1; min-width: 0; }
 .op-name-sm  { font-size: .82rem; font-weight: 700; color: #f1f5f9; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .op-role-sm  { font-size: .62rem; color: #64748b; margin: 0; }
 .empty-note  { font-size: .75rem; color: #334155; text-align: center; padding: 1rem 0; }
 
-/* Profile area */
 .profile-area { flex: 1; min-width: 0; overflow-y: auto; }
 .profile-fade-enter-active, .profile-fade-leave-active { transition: opacity .18s ease, transform .18s ease; }
 .profile-fade-enter-from { opacity: 0; transform: translateY(8px); }
@@ -993,20 +1477,12 @@ function handleClockOut() {
   min-height: 100%;
 }
 .profile-hdr { display: flex; align-items: center; gap: .85rem; flex-shrink: 0; }
-.profile-avatar {
-  width: 3.5rem; height: 3.5rem; border-radius: .85rem;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.4rem; font-weight: 800; color: #fff; flex-shrink: 0;
-}
 .profile-name { font-size: 1.2rem; font-weight: 900; color: #f1f5f9; margin: 0; }
 .profile-role-label { font-size: .72rem; color: #94a3b8; margin: 0; }
 .profile-badge {
   margin-left: auto; padding: .25rem .65rem; border-radius: 999px;
   font-size: .65rem; font-weight: 700;
 }
-.badge--ok       { background: rgba(16,185,129,.15); color: #34d399; }
-.badge--critical { background: rgba(239,68,68,.15);  color: #f87171; }
-.badge--warn     { background: rgba(245,158,11,.15); color: #fbbf24; }
 
 .metric-section {
   background: #0f172a; border: 1px solid rgba(255,255,255,.05);
@@ -1026,7 +1502,6 @@ function handleClockOut() {
 .m-value--good { color: #34d399; }
 .m-value--bad  { color: #f87171; }
 
-/* Alerts */
 .alert-section { display: flex; flex-direction: column; gap: .5rem; }
 .alert-item {
   display: flex; align-items: flex-start; gap: .65rem;
@@ -1041,7 +1516,6 @@ function handleClockOut() {
 .alert-body strong { display: block; font-size: .68rem; font-weight: 800; color: #e2e8f0; margin-bottom: .15rem; }
 .alert-body p { font-size: .75rem; color: #94a3b8; margin: 0; }
 
-/* Shift actions */
 .shift-actions { display: flex; gap: .85rem; margin-top: auto; }
 .shift-btn {
   flex: 1; display: flex; align-items: center; justify-content: center;
@@ -1055,7 +1529,6 @@ function handleClockOut() {
 .shift-btn--break { background: linear-gradient(135deg,#6366f1,#8b5cf6); }
 .shift-btn--end   { background: linear-gradient(135deg,#ef4444,#dc2626); }
 
-/* Empty state */
 .profile-empty {
   height: 100%; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 1rem;
@@ -1074,25 +1547,26 @@ function handleClockOut() {
 }
 
 .fin-actions-col {
-  width: 220px;
+  width: 280px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: .75rem;
 }
 .fin-action-btn {
-  width: 100%; height: 5rem; border-radius: .85rem;
+  width: 100%; min-height: 4.5rem; border-radius: .85rem;
   border: none; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: .35rem; font-size: .85rem; font-weight: 800; letter-spacing: .04em;
+  gap: .25rem; font-size: .85rem; font-weight: 800; letter-spacing: .03em;
+  padding: .75rem 1rem;
   transition: filter .15s, transform .08s;
   color: #fff;
 }
 .fin-action-btn .material-symbols-rounded { font-size: 1.5rem; }
 .fin-action-btn:hover  { filter: brightness(1.1); }
 .fin-action-btn:active { transform: scale(.97); }
-.fin-action-btn--primary   { background: linear-gradient(135deg,#6366f1,#8b5cf6); }
-.fin-action-btn--secondary { background: #1e293b; border: 1px solid rgba(255,255,255,.1); color: #94a3b8; }
+.fin-action-btn--primary   { background: linear-gradient(135deg,#10b981,#059669); }
+.fin-action-btn--secondary { background: #1e293b; border: 1px solid rgba(255,255,255,.1); color: #f1f5f9; }
 
 .badge-btn {
   display: flex; align-items: center; gap: .3rem; margin-left: auto;
@@ -1103,27 +1577,57 @@ function handleClockOut() {
 }
 .badge-btn:hover { background: rgba(99,102,241,.22); }
 
-.policy-rows { display: flex; flex-direction: column; gap: .65rem; }
-.policy-row { display: flex; justify-content: space-between; align-items: center; }
+/* ══ Modal Overlay & Card ═════════════════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,23,42,0.8);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 1rem;
+}
+.modal-card {
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  width: 100%; max-width: 440px;
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+  animation: modalPop 0.2s ease;
+}
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.modal-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem; }
+.modal-title { font-size: 1.1rem; font-weight: 800; color: #f8fafc; margin: 0; }
+.modal-close { background: transparent; border: none; color: #64748b; cursor: pointer; padding: 0.25rem; }
+.modal-close:hover { color: #cbd5e1; }
+.modal-sub { font-size: 0.75rem; color: #94a3b8; margin: 0.25rem 0 0.75rem 0; }
 
-.policy-warning {
-  display: flex; align-items: flex-start; gap: .5rem;
-  background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.2);
-  border-radius: .5rem; padding: .6rem .75rem;
+.form-label { display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.35rem; }
+.form-input {
+  width: 100%; background: #0f172a;
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 0.6rem;
+  padding: 0.75rem 1rem; font-size: 0.95rem; color: #fff;
+  outline: none; font-family: inherit; box-sizing: border-box;
 }
-.policy-warning p { font-size: .7rem; color: #92400e; margin: 0; line-height: 1.4; }
+.form-input:focus { border-color: #6366f1; }
 
-/* Verification block */
-.verify-block {
-  background: #0f172a; border: 1px solid rgba(255,255,255,.05);
-  border-radius: .65rem; padding: .75rem; flex-shrink: 0;
+.modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
+.btn-cancel {
+  padding: 0.65rem 1.25rem; border-radius: 0.6rem;
+  background: transparent; border: 1px solid rgba(255,255,255,0.1);
+  color: #94a3b8; font-weight: 700; font-size: 0.85rem; cursor: pointer;
 }
-.verify-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
-.sig-placeholder {
-  height: 5rem; border: 1px dashed rgba(255,255,255,.1);
-  border-radius: .5rem; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: .4rem;
+.btn-cancel:hover { background: rgba(255,255,255,0.05); color: #e2e8f0; }
+.btn-confirm {
+  padding: 0.65rem 1.25rem; border-radius: 0.6rem;
+  background: #10b981; border: none;
+  color: #fff; font-weight: 800; font-size: 0.85rem; cursor: pointer;
+  transition: all 0.15s;
 }
+.btn-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-confirm:not(:disabled):hover { background: #059669; }
 
 /* ══ Toast ═══════════════════════════════════════════════════════════════════ */
 .toast-msg {
@@ -1192,6 +1696,9 @@ function handleClockOut() {
   }
   .shift-btn, .fin-action-btn, .op-card {
     touch-action: pan-y;
+  }
+  .fin-actions-col {
+    width: 100%;
   }
 }
 </style>
