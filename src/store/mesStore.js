@@ -496,6 +496,19 @@ export const useMesStore = defineStore('mes', () => {
     }
   }
 
+  async function deleteClient(id) {
+    try {
+      const { error } = await supabase.from('mes_customers').delete().eq('id', id)
+      if (error) throw error
+      const idx = clients.value.findIndex(c => c.id === id)
+      if (idx !== -1) clients.value.splice(idx, 1)
+      return true
+    } catch (err) {
+      console.error('[Store] Delete client failed:', err)
+      return false
+    }
+  }
+
   // ─── Admin Config — Piece Rates & Thresholds ───────────────────────────────
   const pieceRates = ref({
     MFG: {
@@ -949,7 +962,7 @@ export const useMesStore = defineStore('mes', () => {
     ledgerEntries, submitProductionLog, weeklyAggregation, isWeekendOvertime,
     inventory,
     cashEntries, addCashEntry, approveCashEntry, rejectCashEntry, totalAdvances, totalExpenses,
-    dispatchLogs, clients, addClient, updateClient, addDispatch, totalDispatched,
+    dispatchLogs, clients, addClient, updateClient, deleteClient, addDispatch, totalDispatched,
     pieceRates, setPieceRate,
     wasteThresholds, setWasteThreshold,
     systemConfig, updateSystemConfig, saveSystemConfig,
