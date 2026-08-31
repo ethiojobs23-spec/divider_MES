@@ -1018,25 +1018,52 @@ async function saveProfile() {
     height: auto;
     min-height: 100%;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-bottom: 4rem;
   }
   .settings-top-nav {
     overflow-x: auto;
     padding: 0.75rem 1rem;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
   .settings-top-nav::-webkit-scrollbar { display: none; }
-  .snav-item { white-space: nowrap; flex-shrink: 0; }
+  .snav-item {
+    white-space: nowrap;
+    flex-shrink: 0;
+    touch-action: pan-y;
+  }
   .tab-panel {
-    padding: 1rem;
+    padding: 1rem 1rem 4rem 1rem;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
   .cat-tabs {
     overflow-x: auto;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
   .cat-tabs::-webkit-scrollbar { display: none; }
   .cat-tab {
     white-space: nowrap;
     flex-shrink: 0;
+    touch-action: pan-y;
+  }
+  .type-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  .type-tabs::-webkit-scrollbar { display: none; }
+  .type-tab {
+    white-space: nowrap;
+    flex-shrink: 0;
+    touch-action: pan-y;
+  }
+  .step-btn, .recipient-pill {
+    touch-action: pan-y;
   }
   .config-item {
     flex-direction: column;
