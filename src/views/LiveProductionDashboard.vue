@@ -23,9 +23,19 @@
             <p class="header-sub">{{ store.currentProductionWeek }} ({{ store.weekStatus?.dateRange }}) · Real-time · Auto-refresh every 30s</p>
           </div>
         </div>
-        <div class="pulse-indicator">
-          <span class="pulse-dot" :class="{ 'pulse-dot--live': isLive }"></span>
-          LIVE
+
+        <div class="header-actions flex items-center gap-2">
+          <!-- Manual Sync Button -->
+          <button class="sync-btn cursor-pointer" :disabled="isSyncing" @click="manualSync" title="Sync live floor data now">
+            <span class="material-symbols-rounded" :class="{ 'spin-icon': isSyncing }">sync</span>
+            <span>{{ isSyncing ? 'Syncing...' : 'Sync Now' }}</span>
+          </button>
+
+          <!-- Live Indicator -->
+          <div class="pulse-indicator">
+            <span class="pulse-dot" :class="{ 'pulse-dot--live': isLive }"></span>
+            LIVE
+          </div>
         </div>
       </header>
 
@@ -52,7 +62,7 @@
           <div>
             <p class="kpi-label">Top Operator Today</p>
             <p class="kpi-value kpi-value--name">{{ topOperator.name }}</p>
-            <p class="kpi-unit">{{ topOperator.qty }} pcs</p>
+            <p class="kpi-unit">{{ topOperator.qty }} {{ topOperator.unit }}</p>
           </div>
         </div>
         <div class="kpi-card kpi-card--blue">
@@ -113,14 +123,15 @@
                     <span v-else class="feed-qty good">{{ entry.goodProduction }} pcs good</span>
                     <span v-if="entry.wasteMaterial > 0" class="feed-qty waste">/ {{ entry.wasteMaterial }} waste</span>
                   </p>
-                  <p class="feed-meta">
+                  <p class="feed-meta flex items-center gap-1 flex-wrap">
                     <span v-if="entry.workCategory === 'TIME'" style="color:#94a3b8; font-weight:bold;">HOURLY</span>
                     <span v-else-if="entry.workCategory === 'C'" style="color:#34d399; font-weight:bold;">WOOD PREP</span>
                     <span v-else>Type <strong>{{ entry.dividerType === 'Other' ? 'Custom' : entry.dividerType }}</strong></span>
                     <span v-if="entry.workCategory !== 'MFG' && entry.workCategory !== 'TIME' && entry.placement"> · {{ entry.placement }}</span>
                     <span v-if="entry.workCategory !== 'MFG' && entry.workCategory !== 'TIME' && entry.size"> · {{ entry.size }}</span>
                     · {{ fmtTime(entry.timestamp) }}
-                    <span v-if="entry.loggedByAdmin" class="feed-admin-badge" title="Systematically registered / Admin Override">[Admin Logged]</span>
+                    <span v-if="entry.is_overtime || entry.isOvertime" class="feed-ot-badge">⚡ 1.5× OT</span>
+                    <span v-if="entry.loggedByAdmin" class="feed-admin-badge" title="Systematically registered / Admin Override">[ADMIN]</span>
                   </p>
                 </div>
                 <div class="feed-badge" :class="(entry.workCategory === 'TIME' ? entry.hoursWorked : entry.goodProduction) > 0 ? 'feed-badge--good' : 'feed-badge--waste'">
@@ -227,7 +238,17 @@ const store = useMesStore()
 
 // ── Live refresh ────────────────────────────────────────────────
 const isLive = ref(true)
+const isSyncing = ref(false)
 let refreshTimer = null
+
+async function manualSync() {
+  isSyncing.value = true
+  try {
+    await store.fetchInitialData()
+  } finally {
+    setTimeout(() => { isSyncing.value = false }, 400)
+  }
+}
 
 onMounted(() => {
   store.fetchInitialData()
@@ -251,7 +272,9 @@ const activeRangeLabel = computed(() => ranges.find(r => r.key === activeRange.v
 function getEntryTypeLabel(e) {
   if (e.workCategory === 'TIME') return 'Hourly'
   if (e.workCategory === 'C') return 'Wood Prep'
-  return e.dividerType === 'Other' ? 'Custom' : e.dividerType
+  if (e.workCategory === 'PP') return 'Partition (PP)'
+  if (e.workCategory === 'PL') return 'Pad (PL)'
+  return e.dividerType === 'Other' ? 'Custom' : (e.dividerType ? `Type ${e.dividerType}` : 'MFG')
 }
 
 function cutoffMs(rangeKey) {
@@ -267,22 +290,38 @@ function cutoffMs(rangeKey) {
 
 // ── Helpers ─────────────────────────────────────────────────────
 function fmtTime(iso) {
-  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return !isNaN(d.getTime()) ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '—'
 }
 
-const COLORS = ['#6366f1','#f59e0b','#10b981','#3b82f6','#ec4899','#14b8a6','#f97316','#8b5cf6']
-const opColorMap = {}
-let colorIdx = 0
-function operatorColor(name) {
-  if (!name) return '#334155'
-  if (!opColorMap[name]) opColorMap[name] = COLORS[(colorIdx++) % COLORS.length]
-  return opColorMap[name]
+function parseEntryDate(e) {
+  if (e.productionDate) {
+    if (typeof e.productionDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.productionDate)) {
+      const [y, m, d] = e.productionDate.split('-').map(Number)
+      return new Date(y, m - 1, d)
+    }
+    const d = new Date(e.productionDate)
+    if (!isNaN(d.getTime())) return d
+  }
+  if (e.timestamp) {
+    const d = new Date(e.timestamp)
+    if (!isNaN(d.getTime())) return d
+  }
+  return new Date()
+}
+
+function isToday(e) {
+  const d = parseEntryDate(e)
+  const now = new Date()
+  return d.getFullYear() === now.getFullYear() &&
+         d.getMonth() === now.getMonth() &&
+         d.getDate() === now.getDate()
 }
 
 // ── Today stats ─────────────────────────────────────────────────
 const todayEntries = computed(() => {
-  const today = new Date().toDateString()
-  return store.ledgerEntries.filter(e => new Date(e.timestamp).toDateString() === today)
+  return (store.ledgerEntries || []).filter(isToday)
 })
 
 const todayGood  = computed(() => todayEntries.value.reduce((s, e) => s + (Number(e.goodProduction) || 0), 0))
@@ -303,25 +342,36 @@ const activeTypes = computed(() => new Set(todayEntries.value.map(e => getEntryT
 const topOperator = computed(() => {
   const map = {}
   todayEntries.value.forEach(e => {
-    map[e.operator] = (map[e.operator] || 0) + (Number(e.goodProduction) || 0)
+    const isHourly = e.workCategory === 'TIME'
+    const qty = isHourly ? (Number(e.hoursWorked) || 0) : (Number(e.goodProduction) || 0)
+    if (!map[e.operator]) map[e.operator] = { qty: 0, isHourly }
+    map[e.operator].qty += qty
   })
-  const entries = Object.entries(map).sort((a, b) => b[1] - a[1])
-  return entries.length ? { name: entries[0][0], qty: entries[0][1] } : { name: '—', qty: 0 }
+  const entries = Object.entries(map).sort((a, b) => b[1].qty - a[1].qty)
+  if (!entries.length) return { name: '—', qty: 0, unit: 'pcs' }
+  return {
+    name: entries[0][0],
+    qty: entries[0][1].qty,
+    unit: entries[0][1].isHourly ? 'hrs' : 'pcs'
+  }
 })
 
 const efficiencyRate = computed(() => {
   const total = todayGood.value + todayWaste.value
-  if (!total) return '—'
+  if (!total) return '100.0'
   return ((todayGood.value / total) * 100).toFixed(1)
 })
 
-// ── Live feed (today, most recent first, max 30) ─────────────────
+// ── Live feed (filtered by time window, most recent first, max 40) ─
 const windowedEntries = computed(() => {
   const cutoff = cutoffMs(activeRange.value)
   return [...store.ledgerEntries]
-    .filter(e => new Date(e.timestamp).getTime() >= cutoff)
+    .filter(e => {
+      const t = parseEntryDate(e).getTime()
+      return t >= cutoff
+    })
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-    .slice(0, 30)
+    .slice(0, 40)
 })
 
 // ── Chart bars ──────────────────────────────────────────────────
@@ -336,7 +386,7 @@ const chartBars = computed(() => {
     const todayDow = (now.getDay() + 6) % 7 // 0=Mon
     bars = days.map((label, i) => {
       const entries = store.ledgerEntries.filter(e => {
-        const d = new Date(e.timestamp)
+        const d = parseEntryDate(e)
         return ((d.getDay() + 6) % 7) === i
       })
       return {
@@ -355,7 +405,7 @@ const chartBars = computed(() => {
         const msDiff = now.getTime() - d.getTime()
         const hoursAgo = msDiff / 3600_000
         const entryHour = d.getHours()
-        return entryHour === slotHour && hoursAgo < hoursBack
+        return entryHour === slotHour && hoursAgo >= 0 && hoursAgo <= hoursBack
       })
       const label = String(slotHour).padStart(2,'0') + ':00'
       return {
@@ -378,14 +428,14 @@ function barHeight(val) {
 // ── Type breakdown for selected range ───────────────────────────
 const typeBreakdown = computed(() => {
   const cutoff = cutoffMs(activeRange.value)
-  const entries = store.ledgerEntries.filter(e => new Date(e.timestamp).getTime() >= cutoff)
+  const entries = store.ledgerEntries.filter(e => parseEntryDate(e).getTime() >= cutoff)
   const map = {}
   entries.forEach(e => {
     const lbl = getEntryTypeLabel(e)
     const qty = e.workCategory === 'TIME' ? Number(e.hoursWorked) : Number(e.goodProduction)
     if (!map[lbl]) map[lbl] = { good: 0, waste: 0 }
     map[lbl].good  += qty || 0
-    map[lbl].waste += Number(e.wasteMaterial)  || 0
+    map[lbl].waste += Number(e.wasteMaterial) || 0
   })
   const total = Object.values(map).reduce((s, v) => s + v.good, 0) || 1
   return Object.entries(map)
@@ -425,6 +475,16 @@ const typeBreakdown = computed(() => {
 .header-title { font-size: 1.35rem; font-weight: 900; color: #f1f5f9; margin: 0; }
 .header-sub   { font-size: 0.72rem; color: #64748b; margin-top: 0.1rem; }
 
+.sync-btn {
+  display: flex; align-items: center; gap: 0.35rem;
+  background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3);
+  color: #a5b4fc; border-radius: 999px; padding: 0.4rem 0.85rem;
+  font-size: 0.75rem; font-weight: 700; transition: all 0.15s ease;
+}
+.sync-btn:hover { background: rgba(99,102,241,0.22); color: #fff; }
+.spin-icon { animation: spin 0.8s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
 .pulse-indicator {
   display: flex; align-items: center; gap: 0.5rem;
   font-size: 0.75rem; font-weight: 800; color: #34d399;
@@ -450,245 +510,222 @@ const typeBreakdown = computed(() => {
   display: flex; gap: 0.75rem; flex-shrink: 0;
 }
 .kpi-card {
-  flex: 1; display: flex; align-items: center; gap: 0.75rem;
-  background: #1e293b; border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 0.85rem; padding: 0.85rem 1rem;
+  flex: 1; min-width: 0;
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 0.85rem;
+  padding: 0.85rem 1rem;
+  display: flex; align-items: center; gap: 0.75rem;
+  position: relative; overflow: hidden;
 }
-.kpi-icon { font-size: 1.75rem; flex-shrink: 0; }
-.kpi-label { font-size: 0.62rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
-.kpi-value { font-size: 1.4rem; font-weight: 900; color: #f1f5f9; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.kpi-value--name { font-size: 1rem; }
-.kpi-unit  { font-size: 0.62rem; color: #475569; }
+.kpi-card::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+}
+.kpi-card--green::before  { background: #10b981; }
+.kpi-card--red::before    { background: #ef4444; }
+.kpi-card--yellow::before { background: #f59e0b; }
+.kpi-card--blue::before   { background: #3b82f6; }
+.kpi-card--purple::before { background: #8b5cf6; }
 
-.kpi-card--green  { border-color: rgba(52,211,153,0.18); }
-.kpi-card--green  .kpi-icon { color: #34d399; }
-.kpi-card--red    { border-color: rgba(248,113,113,0.18); }
-.kpi-card--red    .kpi-icon { color: #f87171; }
-.kpi-card--yellow { border-color: rgba(251,191,36,0.18); }
-.kpi-card--yellow .kpi-icon { color: #fbbf24; }
-.kpi-card--blue   { border-color: rgba(96,165,250,0.18); }
-.kpi-card--blue   .kpi-icon { color: #60a5fa; }
-.kpi-card--purple { border-color: rgba(167,139,250,0.18); }
-.kpi-card--purple .kpi-icon { color: #a78bfa; }
+.kpi-icon {
+  font-size: 1.6rem; padding: 0.45rem; border-radius: 0.6rem; flex-shrink: 0;
+}
+.kpi-card--green  .kpi-icon { color: #34d399; background: rgba(16,185,129,0.12); }
+.kpi-card--red    .kpi-icon { color: #f87171; background: rgba(239,68,68,0.12); }
+.kpi-card--yellow .kpi-icon { color: #fbbf24; background: rgba(245,158,11,0.12); }
+.kpi-card--blue   .kpi-icon { color: #60a5fa; background: rgba(59,130,246,0.12); }
+.kpi-card--purple .kpi-icon { color: #c084fc; background: rgba(139,92,246,0.12); }
 
-/* ── Body ────────────────────────────────────────────────────────── */
+.kpi-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: #64748b; margin: 0; letter-spacing: 0.05em; }
+.kpi-value { font-size: 1.35rem; font-weight: 900; color: #f1f5f9; margin: 0.1rem 0 0; line-height: 1.1; }
+.kpi-value--name { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+.kpi-unit  { font-size: 0.65rem; color: #475569; margin: 0; }
+
+/* ── Main Body ───────────────────────────────────────────────────── */
 .lpd-body {
-  flex: 1; min-height: 0;
-  display: flex; gap: 1.25rem; overflow: hidden;
+  display: flex; gap: 1rem; flex: 1; min-height: 0;
 }
 
-/* ── Shared Section Header ───────────────────────────────────────── */
+/* ── Live Feed (Left Column) ─────────────────────────────────────── */
+.feed-section {
+  flex: 1.1; min-width: 0;
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  display: flex; flex-direction: column; gap: 0.75rem;
+  min-height: 0;
+}
+
 .section-header {
   display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;
 }
-.section-header h2 {
-  font-size: 0.9rem; font-weight: 800; color: #94a3b8;
-  text-transform: uppercase; letter-spacing: 0.08em; flex: 1;
-}
+.section-header h2 { font-size: 0.9rem; font-weight: 800; color: #f1f5f9; margin: 0; }
 .entry-count-badge {
-  background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.2);
-  color: #a5b4fc; font-size: 0.7rem; font-weight: 700;
-  padding: 0.2rem 0.6rem; border-radius: 999px;
+  margin-left: auto; font-size: 0.65rem; font-weight: 700; color: #6366f1;
+  background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25);
+  padding: 0.15rem 0.5rem; border-radius: 999px;
 }
 
-/* ── Feed ────────────────────────────────────────────────────────── */
-.feed-section {
-  flex: 0 0 42%; display: flex; flex-direction: column; gap: 0.75rem;
-  background: #1e293b; border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 1rem; padding: 1.1rem; overflow: hidden;
-}
-
+/* Type breakdown pills */
 .type-pills {
-  display: flex; flex-wrap: wrap; gap: 0.4rem; flex-shrink: 0;
+  display: flex; gap: 0.4rem; flex-wrap: wrap; flex-shrink: 0;
 }
 .type-pill {
   display: flex; align-items: center; gap: 0.35rem;
-  background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2);
-  border-radius: 999px; padding: 0.2rem 0.65rem;
+  background: #0f172a; border: 1px solid rgba(255,255,255,0.07);
+  padding: 0.2rem 0.55rem; border-radius: 0.45rem;
+  font-size: 0.7rem;
 }
-.pill-type { font-size: 0.7rem; color: #94a3b8; font-weight: 700; }
-.pill-qty  { font-size: 0.75rem; color: #a5b4fc; font-weight: 900; }
+.pill-type { color: #94a3b8; font-weight: 600; }
+.pill-qty  { color: #34d399; font-weight: 800; font-family: monospace; }
 
-.feed-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; }
-
+/* Feed list */
+.feed-list {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.45rem;
+  min-height: 0;
+}
 .feed-item {
   display: flex; align-items: center; gap: 0.65rem;
-  background: #0f172a; border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 0.65rem; padding: 0.6rem 0.85rem;
-  transition: transform 0.15s ease;
-}
-.feed-item--waste { border-color: rgba(248,113,113,0.15); }
-
-.feed-avatar {
-  width: 2.25rem; height: 2.25rem; border-radius: 50%; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.9rem; font-weight: 900; color: white;
-}
-.feed-body { flex: 1; min-width: 0; }
-.feed-primary { font-size: 0.82rem; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.feed-primary strong { color: #f1f5f9; }
-.feed-meta { font-size: 0.68rem; color: #475569; margin-top: 0.15rem; }
-.feed-meta strong { color: #94a3b8; }
-
-.feed-qty { font-weight: 800; }
-.feed-qty.good  { color: #34d399; }
-.feed-qty.waste { color: #f87171; }
-
-.feed-admin-badge {
-  display: inline-block;
-  background: rgba(99,102,241,0.2);
-  color: #818cf8;
-  font-size: 0.65rem;
-  padding: 0.1rem 0.3rem;
-  border-radius: 0.2rem;
-  margin-left: 0.5rem;
-  font-weight: bold;
-  vertical-align: middle;
-}
-
-.feed-badge {
-  font-size: 0.8rem; font-weight: 900; flex-shrink: 0;
-  padding: 0.2rem 0.6rem; border-radius: 999px;
-}
-.feed-badge--good  { background: rgba(52,211,153,0.12); color: #34d399; }
-.feed-badge--waste { background: rgba(248,113,113,0.12); color: #f87171; }
-
-.feed-empty {
-  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
-  padding: 2rem 0; color: #475569; font-size: 0.82rem;
-}
-
-/* Feed animation */
-.feed-enter-active { transition: all 0.3s ease; }
-.feed-enter-from   { opacity: 0; transform: translateY(-12px); }
-
-/* ── Charts ──────────────────────────────────────────────────────── */
-.chart-section {
-  flex: 1; display: flex; flex-direction: column; gap: 0.75rem;
-  background: #1e293b; border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 1rem; padding: 1.1rem; overflow: hidden;
-}
-
-.range-tabs { display: flex; gap: 0.35rem; }
-.range-tab {
-  padding: 0.3rem 0.7rem; border-radius: 0.4rem;
-  background: #0f172a; border: 1px solid rgba(255,255,255,0.08);
-  color: #64748b; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+  background: #0f172a; border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 0.65rem; padding: 0.6rem 0.75rem;
   transition: all 0.15s ease;
 }
-.range-tab--active {
-  background: rgba(251,191,36,0.15); border-color: #f59e0b; color: #fbbf24;
+.feed-item:hover { border-color: rgba(99,102,241,0.3); }
+.feed-item--waste { border-left: 3px solid #ef4444; }
+
+.feed-body { flex: 1; min-width: 0; }
+.feed-primary { font-size: 0.78rem; color: #cbd5e1; margin: 0; }
+.feed-primary strong { color: #f1f5f9; }
+.feed-qty.good  { color: #34d399; font-weight: 800; margin-left: 0.2rem; }
+.feed-qty.waste { color: #f87171; font-weight: 800; margin-left: 0.2rem; }
+.feed-meta { font-size: 0.65rem; color: #475569; margin: 0.1rem 0 0; }
+
+.feed-ot-badge {
+  background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3);
+  color: #fbbf24; font-size: 0.6rem; font-weight: 800;
+  padding: 0.05rem 0.35rem; border-radius: 0.25rem;
 }
+.feed-admin-badge { color: #818cf8; font-size: 0.62rem; font-weight: 700; }
+
+.feed-badge {
+  font-size: 0.8rem; font-weight: 900; font-family: monospace;
+  padding: 0.25rem 0.55rem; border-radius: 0.45rem; flex-shrink: 0;
+}
+.feed-badge--good  { background: rgba(16,185,129,0.12); color: #34d399; }
+.feed-badge--waste { background: rgba(239,68,68,0.12);   color: #f87171; }
+
+.feed-empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 0.5rem;
+  color: #334155; font-size: 0.8rem;
+}
+
+/* Feed animations */
+.feed-enter-active { transition: all 0.25s ease; }
+.feed-enter-from   { opacity: 0; transform: translateY(-8px); }
+
+/* ── Charts (Right Column) ───────────────────────────────────────── */
+.chart-section {
+  flex: 1.1; min-width: 0;
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  display: flex; flex-direction: column; gap: 0.75rem;
+  min-height: 0;
+}
+
+.range-tabs {
+  margin-left: auto; display: flex; gap: 0.25rem;
+  background: #0f172a; padding: 0.2rem; border-radius: 0.5rem;
+}
+.range-tab {
+  background: transparent; border: none; color: #64748b;
+  font-size: 0.7rem; font-weight: 700; padding: 0.25rem 0.6rem;
+  border-radius: 0.35rem; cursor: pointer; transition: all 0.15s;
+}
+.range-tab--active { background: #6366f1; color: #fff; }
 
 /* Bar chart */
 .bar-chart-wrap {
-  flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0.5rem;
+  flex: 1; display: flex; flex-direction: column; min-height: 120px;
 }
 .bar-chart {
-  flex: 1; min-height: 0; display: flex; align-items: flex-end; gap: 0.25rem;
-  padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex: 1; display: flex; align-items: flex-end; gap: 0.35rem;
+  padding: 0.5rem 0 0; min-height: 90px;
 }
 .bar-col {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+  height: 100%; justify-content: flex-end;
 }
 .bar-value-label {
-  font-size: 0.6rem; color: #64748b; font-weight: 700;
-  height: 1rem; display: flex; align-items: center;
+  font-size: 0.55rem; color: #64748b; font-family: monospace; height: 12px;
 }
 .bar-track {
-  width: 100%; flex: 1; max-height: 100%;
-  display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 1px;
+  width: 100%; flex: 1; background: rgba(255,255,255,0.03);
+  border-radius: 0.25rem; display: flex; flex-direction: column;
+  justify-content: flex-end; overflow: hidden; position: relative;
 }
 .bar-fill {
-  width: 75%; border-radius: 3px 3px 0 0; transition: height 0.4s ease;
-  min-height: 2px;
+  width: 100%; border-radius: 0.2rem 0.2rem 0 0;
+  transition: height 0.4s ease;
 }
-.bar-fill--good  { background: linear-gradient(to top, #059669, #34d399); }
-.bar-fill--waste { background: linear-gradient(to top, #b91c1c, #f87171); }
-.bar-label { font-size: 0.6rem; color: #475569; font-weight: 600; text-align: center; }
-
-.chart-legend { display: flex; gap: 1rem; align-items: center; flex-shrink: 0; }
-.legend-item  { display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: #64748b; }
-.legend-dot   { width: 8px; height: 8px; border-radius: 50%; }
+.bar-fill--good  { background: #10b981; }
+.bar-fill--waste { background: #ef4444; }
+.bar-label {
+  font-size: 0.58rem; color: #475569; font-family: monospace; height: 14px;
+}
 
 .chart-empty {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 0.5rem; color: #334155; font-size: 0.82rem;
+  width: 100%; height: 100%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 0.4rem;
+  color: #334155; font-size: 0.75rem;
 }
-.chart-empty .material-symbols-rounded { font-size: 2.5rem; }
 
-/* ── Type breakdown ──────────────────────────────────────────────── */
+.chart-legend {
+  display: flex; gap: 1rem; justify-content: flex-end; padding-top: 0.25rem;
+}
+.legend-item { display: flex; align-items: center; gap: 0.3rem; font-size: 0.65rem; color: #64748b; }
+.legend-dot  { width: 6px; height: 6px; border-radius: 50%; }
+
+/* Type breakdown */
 .type-breakdown {
-  flex-shrink: 0; background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.05); border-radius: 0.75rem; padding: 0.85rem;
+  border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.6rem;
+  flex-shrink: 0;
 }
 .breakdown-title {
-  display: flex; align-items: center; gap: 0.4rem;
-  font-size: 0.68rem; font-weight: 700; color: #64748b;
-  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.6rem;
+  display: flex; align-items: center; gap: 0.35rem;
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+  color: #64748b; margin: 0 0 0.5rem; letter-spacing: 0.05em;
 }
-.breakdown-rows { display: flex; flex-direction: column; gap: 0.5rem; }
-.breakdown-row  { display: flex; align-items: center; gap: 0.65rem; }
-.breakdown-type { font-size: 0.78rem; font-weight: 800; color: #94a3b8; width: 3.5rem; flex-shrink: 0; }
+.breakdown-title .material-symbols-rounded { font-size: 0.9rem; color: #6366f1; }
+.breakdown-rows { display: flex; flex-direction: column; gap: 0.35rem; }
+.breakdown-row {
+  display: flex; align-items: center; gap: 0.6rem; font-size: 0.72rem;
+}
+.breakdown-type { width: 90px; color: #94a3b8; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .breakdown-bar-wrap {
-  flex: 1; height: 8px; background: rgba(255,255,255,0.05); border-radius: 999px; overflow: hidden;
+  flex: 1; height: 6px; background: rgba(255,255,255,0.05);
+  border-radius: 999px; overflow: hidden;
 }
 .breakdown-bar {
-  height: 100%; background: linear-gradient(to right, #6366f1, #a5b4fc); border-radius: 999px;
-  transition: width 0.5s ease;
+  height: 100%; background: linear-gradient(90deg,#6366f1,#8b5cf6);
+  border-radius: 999px; transition: width 0.4s ease;
 }
-.breakdown-qty  { font-size: 0.72rem; font-weight: 700; color: #a5b4fc; width: 4.5rem; text-align: right; flex-shrink: 0; }
-.breakdown-empty { font-size: 0.8rem; color: #475569; }
+.breakdown-qty { width: 65px; text-align: right; color: #cbd5e1; font-family: monospace; font-weight: 700; }
+.breakdown-empty { font-size: 0.7rem; color: #334155; text-align: center; padding: 0.5rem; }
 
-/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+/* ── Mobile Responsive ────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .lpd-root {
-    padding: 1rem 1rem 3rem 1rem;
-    height: auto;
-    min-height: 100%;
-    overflow-y: auto;
+    height: auto; min-height: 100%; overflow-y: auto; padding: 1rem;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
-  .lpd-header {
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-  .kpi-strip {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-  }
-  .kpi-card:last-child {
-    grid-column: 1 / -1;
-  }
-  .kpi-card {
-    padding: 0.75rem 0.85rem;
-  }
-  .lpd-body {
-    flex-direction: column;
-    height: auto;
-    overflow: visible;
-  }
-  .feed-section, .chart-section {
-    width: 100%;
-    flex: none;
-    overflow: visible;
-  }
-  .feed-list {
-    max-height: 360px;
-  }
-  .bar-chart-wrap {
-    min-height: 200px;
-  }
-  .type-pills {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    scrollbar-width: none;
-  }
-  .type-pills::-webkit-scrollbar { display: none; }
-  .type-pill {
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
+  .lpd-header { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  .header-actions { width: 100%; justify-content: space-between; }
+  .kpi-strip { flex-direction: column; }
+  .lpd-body { flex-direction: column; }
 }
 </style>
