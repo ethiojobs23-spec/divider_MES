@@ -681,17 +681,42 @@ const recentEntries = computed(() => [...store.cashEntries].reverse().slice(0, 8
   text-align: center; padding: 4rem 1rem; color: #64748b; font-size: 1.1rem; font-weight: 600;
 }
 
-/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+/* Mobile Responsive */
 @media (max-width: 768px) {
+  .cash-layout {
+    flex-direction: column;
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-bottom: 4rem;
+  }
+  .cash-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    padding: 1rem;
+  }
+  .cash-main {
+    padding: 1rem;
+    height: auto;
+    overflow: visible;
+  }
   .settings-top-nav {
     overflow-x: auto;
     padding: 0.75rem 1rem;
     scrollbar-width: none;
   }
   .settings-top-nav::-webkit-scrollbar { display: none; }
-  .snav-item { white-space: nowrap; flex-shrink: 0; }
+  .snav-item { white-space: nowrap; flex-shrink: 0; touch-action: pan-y; }
   .tab-panel {
-    padding: 1rem;
+    padding: 1rem 1rem 4rem 1rem;
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
   .presets {
     flex-wrap: wrap;
@@ -699,6 +724,11 @@ const recentEntries = computed(() => [...store.cashEntries].reverse().slice(0, 8
   .preset-btn {
     flex: 1;
     min-width: 4rem;
+    touch-action: pan-y;
+  }
+  .record-btn {
+    min-height: 3.75rem;
+    touch-action: pan-y;
   }
   .pending-item {
     flex-direction: column;
