@@ -433,4 +433,23 @@ function formatCurrency(val) {
 .line-height-tight {
   line-height: 1.4;
 }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .view-area {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-bottom: 4rem;
+  }
+  .btn-action, .custom-select {
+    touch-action: pan-y;
+  }
+  .alerts-container {
+    max-height: none;
+    overflow: visible;
+  }
+}
 </style>
