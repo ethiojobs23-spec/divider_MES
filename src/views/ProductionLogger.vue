@@ -12,6 +12,18 @@
             </option>
             <option v-if="clockedInList.length === 0" value="" disabled>No one is clocked in</option>
           </select>
+
+          <!-- No one clocked in alert with quick jump -->
+          <div v-if="clockedInList.length === 0" class="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex flex-col gap-2 mt-1">
+            <p class="font-bold flex items-center gap-1">
+              <span class="material-symbols-rounded text-sm">info</span>
+              No active operators on shift
+            </p>
+            <router-link to="/login" class="text-center py-1.5 px-3 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-extrabold rounded-md text-xs flex items-center justify-center gap-1 transition-all">
+              <span class="material-symbols-rounded text-sm">how_to_reg</span>
+              Launch Attendance Kiosk
+            </router-link>
+          </div>
         </div>
 
         <!-- Work Category Selection (Only if they have multiple categories) -->
@@ -81,6 +93,12 @@
 
         <!-- Summary Card -->
         <div class="summary-card">
+          <!-- Overtime Multiplier Notice -->
+          <div v-if="isWeekendOvertime" class="p-2 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[0.72rem] font-bold flex items-center gap-1.5 mb-2">
+            <span class="material-symbols-rounded text-sm text-amber-400">bolt</span>
+            <span>Weekend Overtime (1.5× Rate Active)</span>
+          </div>
+
           <template v-if="activeCategory === 'TIME'">
             <p class="summary-row"><span>Type</span><strong>Hourly Work</strong></p>
             <p class="summary-row"><span>Rate</span><strong class="rate-val">ETB {{ (opConfig.hourly_rate || 0).toFixed(2) }}/hr</strong></p>
@@ -95,8 +113,33 @@
           <p class="summary-row"><span>Operator</span><strong :class="{'text-red-400': !selectedOperatorId}">{{ selectedOperatorName || '—' }}</strong></p>
           
           <div class="summary-divider" />
-          <p class="summary-row"><span>Today's entries</span><strong class="count-val">{{ todayEntries.length }}</strong></p>
+          <p class="summary-row"><span>Today's entries</span><strong class="count-val">{{ operatorTodayEntries.length }}</strong></p>
           <p class="summary-row"><span>Earnings preview</span><strong class="earn-val">ETB {{ earningsPreview }}</strong></p>
+        </div>
+
+        <!-- Recent Entries Mini List -->
+        <div v-if="operatorTodayEntries.length > 0" class="sidebar-section mt-auto">
+          <p class="section-title">Recent Entries (Today)</p>
+          <div class="flex flex-col gap-1.5">
+            <div
+              v-for="entry in operatorTodayEntries"
+              :key="entry.id"
+              class="p-2 rounded-lg bg-slate-900/60 border border-white/5 text-[0.7rem] flex items-center justify-between"
+            >
+              <div>
+                <span class="font-bold text-slate-200 block">
+                  {{ entry.workCategory === 'TIME' ? 'Hourly' : `Type ${entry.dividerType || 'MFG'}` }}
+                  {{ entry.size ? `· ${entry.size}` : '' }}
+                </span>
+                <span class="text-[0.62rem] text-slate-400">
+                  {{ formatTime(entry.timestamp) }}
+                </span>
+              </div>
+              <span class="font-bold font-mono text-emerald-400">
+                {{ entry.workCategory === 'TIME' ? `${entry.hoursWorked} hrs` : `+${entry.goodProduction} pcs` }}
+              </span>
+            </div>
+          </div>
         </div>
       </aside>
 
@@ -110,8 +153,9 @@
             
             <div class="numpad-container" style="max-width: 400px; margin: 2rem auto 0; width: 100%;">
               <VirtualNumpad
-                label="Hours Worked"
+                label="Hours Worked (e.g. 8 or 4.5)"
                 v-model="values.hours"
+                :allowDecimal="true"
               />
             </div>
           </div>
@@ -166,7 +210,7 @@
 
         <!-- Save Button -->
         <button
-          class="save-btn"
+          class="save-btn cursor-pointer"
           :class="{ 'save-btn--error': toast.isError }"
           :disabled="!canSave || isSaving"
           @click="saveEntry"
@@ -189,10 +233,9 @@
 
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
-import { ref, reactive, computed, watch, watchEffect } from 'vue'
+import { ref, reactive, computed, watch, watchEffect, onMounted } from 'vue'
 import AppLayout  from '@/components/layout/AppLayout.vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
-
 import { useMesStore } from '@/store/mesStore.js'
 
 const store = useMesStore()
@@ -200,7 +243,11 @@ const store = useMesStore()
 // ─── Operator Management ───────────────────────────────────────────────────
 const clockedInList = computed(() => store.operators.filter(op => store.isOperatorClockedIn(op.id)))
 
-const selectedOperatorId = ref(Number(localStorage.getItem('mes_pl_op')) || null)
+const selectedOperatorId = ref(
+  (store.activeOperator && store.activeOperator.id) ||
+  Number(localStorage.getItem('mes_pl_op')) ||
+  null
+)
 
 watch(selectedOperatorId, (val) => {
   if (val) localStorage.setItem('mes_pl_op', val)
@@ -208,15 +255,17 @@ watch(selectedOperatorId, (val) => {
 })
 
 const selectedOperatorName = computed(() => {
-  const op = clockedInList.value.find(o => o.id === selectedOperatorId.value)
+  const op = clockedInList.value.find(o => Number(o.id) === Number(selectedOperatorId.value))
   return op ? op.name : null
 })
 
 // Auto-select operator if invalid or null
 watchEffect(() => {
-  if (!selectedOperatorId.value && clockedInList.value.length > 0) {
+  if (store.activeOperator && store.activeOperator.id && clockedInList.value.some(o => Number(o.id) === Number(store.activeOperator.id))) {
+    selectedOperatorId.value = store.activeOperator.id
+  } else if (!selectedOperatorId.value && clockedInList.value.length > 0) {
     selectedOperatorId.value = clockedInList.value[0].id
-  } else if (selectedOperatorId.value && !clockedInList.value.find(o => o.id === selectedOperatorId.value)) {
+  } else if (selectedOperatorId.value && !clockedInList.value.find(o => Number(o.id) === Number(selectedOperatorId.value))) {
     selectedOperatorId.value = clockedInList.value.length ? clockedInList.value[0].id : null
   }
 })
@@ -296,7 +345,6 @@ const values     = reactive({ good: '', waste: '', hours: '', notes: '' })
 const activeField = ref('good')
 const isSaving   = ref(false)
 
-
 // Auto-sync selections if lists update
 watchEffect(() => {
   if (availableTypes.value.length > 0 && !availableTypes.value.includes(selections.dividerType)) {
@@ -316,11 +364,16 @@ const canSave = computed(() => {
   return values.good !== '' || values.waste !== ''
 })
 
+const isWeekendOvertime = computed(() => {
+  return typeof store.isWeekendOvertime === 'function' ? store.isWeekendOvertime() : false
+})
+
 // ─── Ledger & Earnings ──────────────────────────────────────────────────────
-const todayEntries = computed(() => {
+const operatorTodayEntries = computed(() => {
+  if (!selectedOperatorId.value) return []
   const today = new Date().toDateString()
-  return store.ledgerEntries
-    .filter(e => new Date(e.timestamp).toDateString() === today)
+  return (store.ledgerEntries || [])
+    .filter(e => Number(e.operator_id) === Number(selectedOperatorId.value) && new Date(e.timestamp).toDateString() === today)
     .slice(-5)
     .reverse()
 })
@@ -344,16 +397,22 @@ const currentRate = computed(() => {
     }
   }
   
-  // Prevent crash if legacy DB state returns an object instead of a flat rate number
   return typeof rate === 'number' && !isNaN(rate) ? rate : 0
 })
 
 const earningsPreview = computed(() => {
+  const overtimeMultiplier = isWeekendOvertime.value ? 1.5 : 1.0
   if (activeCategory.value === 'TIME') {
-    return (currentRate.value * (Number(values.hours) || 0)).toFixed(2)
+    return (currentRate.value * (Number(values.hours) || 0) * overtimeMultiplier).toFixed(2)
   }
-  return (currentRate.value * (Number(values.good) || 0)).toFixed(2)
+  return (currentRate.value * (Number(values.good) || 0) * overtimeMultiplier).toFixed(2)
 })
+
+function formatTime(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'
+}
 
 // ─── Toast ──────────────────────────────────────────────────────────────────
 const toast = reactive({ visible: false, message: '', isError: false })
@@ -372,6 +431,8 @@ async function saveEntry() {
   if (!canSave.value || isSaving.value) return
   isSaving.value = true
   
+  const earnedAmount = earningsPreview.value // capture earnings before resetting values
+  
   const payload = {
     operator_id:    selectedOperatorId.value,
     workCategory:   activeCategory.value,
@@ -384,17 +445,23 @@ async function saveEntry() {
     notes:          values.notes
   }
   
-  const ok = await store.submitProductionLog(payload)
+  const res = await store.submitProductionLog(payload)
   isSaving.value = false
-  if (ok) {
+  
+  if (res && (res === true || res.ok)) {
     values.good  = ''
     values.waste = ''
     values.hours = ''
-    showToast(`✓ Saved — ETB ${earningsPreview.value} earned`)
+    values.notes = ''
+    showToast(`✓ Saved — ETB ${earnedAmount} earned`)
   } else {
     showToast('⚠ Save failed. Check your connection.', true)
   }
 }
+
+onMounted(() => {
+  store.fetchInitialData()
+})
 </script>
 
 <style scoped>
@@ -432,7 +499,7 @@ async function saveEntry() {
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 0.5rem;
   padding: 0.75rem 1rem;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   width: 100%;
   appearance: none;
@@ -448,157 +515,205 @@ async function saveEntry() {
   background: rgba(99,102,241,.15);
   border: 1px dashed rgba(99,102,241,.3);
   color: #a5b4fc;
-  padding: 0.75rem;
-  border-radius: 0.65rem;
-  font-weight: 700; font-size: 0.85rem;
+  padding: 0.6rem;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  font-size: 0.85rem;
 }
 
-.toggle-group { display: flex; flex-wrap: wrap; gap: .4rem; }
+.toggle-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+}
 .toggle-group--col { flex-direction: column; }
 
 .toggle-btn {
-  flex: 1 1 calc(33% - .4rem);
-  min-height: 2.8rem;
+  flex: 1;
+  min-width: 3.5rem;
+  padding: .6rem .5rem;
   background: #0f172a;
-  border: 1px solid rgba(255,255,255,.1);
-  color: #94a3b8;
+  border: 1px solid rgba(255,255,255,.08);
   border-radius: .5rem;
-  font-size: .95rem;
+  color: #94a3b8;
+  font-size: .85rem;
   font-weight: 700;
   cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all .13s ease;
-  -webkit-tap-highlight-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s ease;
 }
-.toggle-btn--sm { min-height: 2.4rem; font-size: 0.8rem; }
-.toggle-btn:hover       { background: #1e293b; color: #e2e8f0; }
-.toggle-btn:active      { transform: scale(.96); }
+.toggle-btn:hover { border-color: rgba(99,102,241,.4); color: #f1f5f9; }
 .toggle-btn--active {
-  background: rgba(99,102,241,.25);
-  border-color: #6366f1;
-  color: #a5b4fc;
+  background: #6366f1 !important;
+  border-color: #6366f1 !important;
+  color: #fff !important;
+}
+.toggle-btn--sm {
+  font-size: .75rem;
+  padding: .45rem .6rem;
 }
 
 .summary-card {
-  margin-top: auto;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.07);
+  background: #0f172a;
+  border: 1px solid rgba(255,255,255,.08);
   border-radius: .75rem;
-  padding: .85rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: .4rem;
+  gap: .5rem;
 }
 .summary-row {
   display: flex;
   justify-content: space-between;
-  font-size: .75rem;
+  align-items: center;
+  font-size: .78rem;
   color: #64748b;
 }
-.summary-row strong { color: #e2e8f0; }
-.rate-val   { color: #a5b4fc !important; }
-.earn-val   { color: #34d399 !important; font-size: .9rem; }
-.count-val  { color: #fbbf24 !important; }
-.summary-divider { height: 1px; background: rgba(255,255,255,.07); margin: .2rem 0; }
-.earn-badge {
-  background: rgba(16,185,129,.2);
-  color: #34d399;
-  font-size: .8rem;
-  font-weight: 900;
-  padding: .15rem .55rem;
-  border-radius: 999px;
-  margin-left: .25rem;
-}
+.summary-row strong { color: #f1f5f9; font-weight: 700; }
+.summary-divider { height: 1px; background: rgba(255,255,255,.08); margin: .2rem 0; }
+.rate-val  { color: #a5b4fc !important; font-size: .85rem; }
+.count-val { color: #34d399 !important; font-size: 1rem; }
+.earn-val  { color: #34d399 !important; font-size: 1.1rem; font-weight: 800 !important; }
 
-/* Main */
+/* Main numpad area */
 .prod-main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 2rem;
-  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  gap: 1.25rem;
+  overflow-y: auto;
   position: relative;
-  overflow: hidden;
 }
 
 .time-form {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 100%; flex: 1; text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
-.time-form h2 { color: #f8fafc; font-size: 2rem; font-weight: 900; margin-bottom: 0.5rem; }
-.time-rate { color: #94a3b8; font-size: 1.1rem; }
+.time-form h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  margin: 0 0 0.5rem 0;
+}
+.time-rate {
+  font-size: 1rem;
+  color: #94a3b8;
+  margin: 0;
+}
 
 .field-tabs {
   display: flex;
-  gap: .5rem;
+  gap: .75rem;
+  width: 100%;
+  max-width: 400px;
 }
 .field-tab {
   flex: 1;
-  height: 3.25rem;
+  padding: .75rem 1rem;
   background: #1e293b;
   border: 1px solid rgba(255,255,255,.08);
+  border-radius: .75rem;
   color: #64748b;
-  border-radius: .65rem;
-  font-size: .95rem;
+  font-size: .88rem;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: .5rem;
-  transition: all .13s ease;
+  gap: .4rem;
+  transition: all .15s ease;
 }
-.field-tab--active        { background: rgba(99,102,241,.2); border-color: #6366f1; color: #a5b4fc; }
-.field-tab--waste.field-tab--active { background: rgba(239,68,68,.15); border-color: #ef4444; color: #fca5a5; }
+.field-tab:hover { border-color: rgba(99,102,241,.4); color: #f1f5f9; }
+.field-tab--active {
+  background: rgba(16,185,129,.15);
+  border-color: #10b981;
+  color: #34d399;
+}
+.field-tab--waste.field-tab--active {
+  background: rgba(239,68,68,.15);
+  border-color: #ef4444;
+  color: #f87171;
+}
 
-.values-row { display: flex; gap: 1rem; }
+.values-row {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  max-width: 400px;
+}
 .value-chip {
   flex: 1;
   background: #1e293b;
-  border-radius: .65rem;
-  padding: .5rem 1rem;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: .75rem;
+  padding: .6rem 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border: 1px solid rgba(255,255,255,.07);
 }
-.value-chip span   { font-size: .7rem; color: #64748b; text-transform: uppercase; letter-spacing: .06em; }
-.value-chip strong { font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.value-chip span { font-size: .75rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
+.value-chip strong { font-size: 1.3rem; font-weight: 800; }
 .value-chip--good  strong { color: #34d399; }
 .value-chip--waste strong { color: #f87171; }
 
-.numpad-container { flex: 1; display: flex; align-items: flex-start; }
+.numpad-container {
+  width: 100%;
+  max-width: 400px;
+}
+
+.mes-input {
+  background: #0f172a;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 0.5rem;
+  color: #fff;
+  outline: none;
+}
+.mes-input:focus { border-color: #6366f1; }
 
 .save-btn {
-  height: 5rem;
+  width: 100%;
+  max-width: 400px;
+  height: 4.25rem;
   background: linear-gradient(135deg,#6366f1,#8b5cf6);
   border: none;
   border-radius: .85rem;
   color: #fff;
-  font-size: 1.35rem;
+  font-size: 1.05rem;
   font-weight: 800;
-  letter-spacing: .1em;
+  letter-spacing: .06em;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: .6rem;
-  cursor: pointer;
   transition: all .15s ease;
-  margin-top: auto;
+  box-shadow: 0 4px 15px rgba(99,102,241,.3);
 }
-.save-btn:disabled { opacity: .35; cursor: not-allowed; }
-.save-btn:not(:disabled):hover  { filter: brightness(1.1); }
+.save-btn:disabled { opacity: .3; cursor: not-allowed; box-shadow: none; }
+.save-btn:not(:disabled):hover  { filter: brightness(1.1); transform: translateY(-1px); }
 .save-btn:not(:disabled):active { transform: scale(.98); }
-.save-btn--error { background: linear-gradient(135deg,#dc2626,#ef4444) !important; }
+.save-btn--error { background: linear-gradient(135deg,#ef4444,#dc2626) !important; }
 
+.earn-badge {
+  background: rgba(255,255,255,.2);
+  padding: .2rem .5rem;
+  border-radius: .4rem;
+  font-size: .8rem;
+}
+
+/* Toast */
 .toast {
   position: absolute;
-  bottom: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(16,185,129,.9);
+  bottom: 2rem;
+  background: rgba(16,185,129,.95);
   color: #fff;
-  border-radius: .65rem;
+  border-radius: .75rem;
   padding: .75rem 1.5rem;
   font-size: .9rem;
   font-weight: 700;
@@ -606,9 +721,10 @@ async function saveEntry() {
   align-items: center;
   gap: .4rem;
   backdrop-filter: blur(8px);
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4);
 }
 .toast-enter-active, .toast-leave-active { transition: all .25s ease; }
-.toast-enter-from, .toast-leave-to       { opacity: 0; transform: translate(-50%, 1rem); }
+.toast-enter-from, .toast-leave-to       { opacity: 0; transform: translateY(1rem); }
 
 /* ── Mobile Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
@@ -619,39 +735,19 @@ async function saveEntry() {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
-    padding-bottom: 3.5rem;
   }
   .prod-sidebar {
     max-width: 100%;
     border-right: none;
     border-bottom: 1px solid rgba(99,102,241,.2);
     padding: 1rem;
-    gap: 1rem;
+    overflow: visible;
   }
   .prod-main {
     padding: 1rem;
-    gap: 1rem;
     overflow: visible;
-  }
-  .values-row {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .field-tabs {
-    flex-direction: row;
-    gap: 0.5rem;
-  }
-  .field-tab {
-    padding: 0.75rem 0.5rem;
-    font-size: 0.8rem;
-  }
-  .save-btn {
-    min-height: 3.75rem;
     height: auto;
-    padding: 1rem;
-    font-size: 1.1rem;
-    margin-top: 1rem;
-    touch-action: pan-y;
+    padding-bottom: 4rem;
   }
 }
 </style>
