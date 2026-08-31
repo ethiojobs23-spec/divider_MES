@@ -795,10 +795,13 @@ export const useMesStore = defineStore('mes', () => {
   }
 
   async function approveShift(submissionId, adminPin) {
-    // Validate admin pin
+    // Validate admin pin against operator list or master auth
     const adminRoles = ['admin', 'System Admin', 'manager', 'Supervisor']
     const admin = operators.value.find(o => adminRoles.includes(o.role) && String(o.pin_code) === String(adminPin))
-    if (!admin) return { ok: false, reason: 'Invalid Admin PIN' }
+    const sysAuth = useSystemAuthStore()
+    const sysAuthCheck = await sysAuth.verifyPin(adminPin, 'admin')
+
+    if (!admin && !sysAuthCheck.success) return { ok: false, reason: 'Invalid Admin PIN' }
     try {
       const { error } = await supabase.from('mes_financial_ledger')
         .update({ target_name: 'approved' })
@@ -816,16 +819,25 @@ export const useMesStore = defineStore('mes', () => {
   async function rejectShift(submissionId, adminPin, reason) {
     const adminRoles = ['admin', 'System Admin', 'manager', 'Supervisor']
     const admin = operators.value.find(o => adminRoles.includes(o.role) && String(o.pin_code) === String(adminPin))
-    if (!admin) return { ok: false, reason: 'Invalid Admin PIN' }
+    const sysAuth = useSystemAuthStore()
+    const sysAuthCheck = await sysAuth.verifyPin(adminPin, 'admin')
+
+    if (!admin && !sysAuthCheck.success) return { ok: false, reason: 'Invalid Admin PIN' }
     try {
+      const currentNotes = JSON.parse(shiftSubmissions.value.find(s => s.id === submissionId)?.notes || '{}')
+      const updatedNotes = JSON.stringify({ ...currentNotes, rejectionReason: reason || 'Shift rejected by supervisor' })
       const { error } = await supabase.from('mes_financial_ledger')
-        .update({ target_name: 'rejected', notes: JSON.stringify({ ...JSON.parse((shiftSubmissions.value.find(s=>s.id===submissionId)?.notes||'{}')), rejectionReason: reason }) })
+        .update({ target_name: 'rejected', notes: updatedNotes })
         .eq('id', submissionId)
       if (error) throw error
       const sub = shiftSubmissions.value.find(s => s.id === submissionId)
-      if (sub) { sub.target_name = 'rejected'; sub.details.rejectionReason = reason }
+      if (sub) { 
+        sub.target_name = 'rejected'
+        if (sub.details) sub.details.rejectionReason = reason || 'Shift rejected by supervisor'
+      }
       return { ok: true }
     } catch (err) {
+      console.error('[Store] Reject shift failed:', err)
       return { ok: false, reason: 'DB error' }
     }
   }

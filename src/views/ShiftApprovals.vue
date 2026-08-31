@@ -7,16 +7,24 @@
             <span class="material-symbols-rounded" style="color:#fbbf24">task_alt</span>
             Shift Approvals
           </h1>
-          <p class="sa-sub">Review and authorize employee shift submissions. Admin PIN required.</p>
+          <p class="sa-sub">Review and authorize employee shift submissions. Supervisor / Admin PIN required.</p>
         </div>
-        <div class="header-counts">
-          <div class="count-chip count-chip--warn">
-            <span class="material-symbols-rounded">pending</span>
-            {{ pendingSubmissions.length }} Pending
-          </div>
-          <div class="count-chip count-chip--green">
-            <span class="material-symbols-rounded">check_circle</span>
-            {{ approvedToday }} Approved Today
+
+        <div class="header-right flex items-center gap-3">
+          <button class="sync-btn cursor-pointer" :disabled="isSyncing" @click="manualSync" title="Sync submissions now">
+            <span class="material-symbols-rounded" :class="{ 'spin-icon': isSyncing }">sync</span>
+            <span>{{ isSyncing ? 'Syncing...' : 'Sync' }}</span>
+          </button>
+
+          <div class="header-counts">
+            <div class="count-chip count-chip--warn">
+              <span class="material-symbols-rounded">pending</span>
+              {{ pendingSubmissions.length }} Pending
+            </div>
+            <div class="count-chip count-chip--green">
+              <span class="material-symbols-rounded">check_circle</span>
+              {{ approvedToday }} Approved Today
+            </div>
           </div>
         </div>
       </header>
@@ -136,7 +144,7 @@
                   <td>
                     <span v-if="e.workCategory === 'TIME'" class="text-slate-500">—</span>
                     <span v-else-if="e.workCategory === 'C'" class="text-emerald-400 font-bold">WOOD</span>
-                    <span v-else>{{ e.dividerType === 'Other' ? 'Custom' : e.dividerType }}</span>
+                    <span v-else>{{ e.dividerType === 'Other' ? 'Custom' : (e.dividerType ? `Type ${e.dividerType}` : 'MFG') }}</span>
                   </td>
                   <td>
                     <span v-if="e.workCategory === 'MFG' || e.workCategory === 'TIME'" class="text-slate-500">—</span>
@@ -248,73 +256,72 @@
               </p>
               <div class="chip-row">
                 <button
-                  v-for="dt in DIVIDER_TYPES"
-                  :key="dt"
-                  class="cfg-chip cfg-chip--sm cfg-chip--indigo"
-                  :class="{ 'cfg-chip--active': getOpConfig(op).divider_types.includes(dt) }"
-                  @click="toggleField(op, 'divider_types', dt)"
-                >{{ dt }}</button>
+                  v-for="t in DIVIDER_TYPES"
+                  :key="t"
+                  class="cfg-chip"
+                  :class="{ 'cfg-chip--active': getOpConfig(op).divider_types?.includes(t) }"
+                  @click="toggleField(op, 'divider_types', t)"
+                >Type {{ t }}</button>
               </div>
             </div>
 
-            <!-- ③ Placement Styles (only for MFG or C workers) -->
-            <div class="config-section" v-if="hasMfgOrC(op)">
+            <!-- ③ Placement Styles (C only) -->
+            <div class="config-section" v-if="getOpConfig(op).categories?.includes('C')">
               <p class="config-section-label">
-                <span class="material-symbols-rounded">tune</span>
-                Placement Styles
-                <span class="config-hint">MFG &amp; Wood Prep only</span>
+                <span class="material-symbols-rounded">layers</span>
+                Placement Styles (Wood Prep)
               </p>
               <div class="chip-row">
                 <button
-                  v-for="pl in PLACEMENTS"
-                  :key="pl"
-                  class="cfg-chip cfg-chip--sm cfg-chip--emerald"
-                  :class="{ 'cfg-chip--active': getOpConfig(op).placements.includes(pl) }"
-                  @click="toggleField(op, 'placements', pl)"
-                >{{ pl }}</button>
+                  v-for="p in PLACEMENTS"
+                  :key="p"
+                  class="cfg-chip"
+                  :class="{ 'cfg-chip--active': getOpConfig(op).placements?.includes(p) }"
+                  @click="toggleField(op, 'placements', p)"
+                >{{ p }}</button>
               </div>
             </div>
 
-            <!-- ④ Sizes (hidden for TIME-only workers) -->
-            <div class="config-section" v-if="!isTimeOnly(op)">
+            <!-- ④ Sizes (PP / PL / C) -->
+            <div class="config-section" v-if="hasMfgOrC(op) || getOpConfig(op).categories?.includes('PP') || getOpConfig(op).categories?.includes('PL')">
               <p class="config-section-label">
                 <span class="material-symbols-rounded">straighten</span>
                 Sizes
               </p>
               <div class="chip-row">
                 <button
-                  v-for="sz in SIZES"
-                  :key="sz"
-                  class="cfg-chip cfg-chip--sm cfg-chip--amber"
-                  :class="{ 'cfg-chip--active': getOpConfig(op).sizes.includes(sz) }"
-                  @click="toggleField(op, 'sizes', sz)"
-                >{{ sz }}</button>
+                  v-for="s in SIZES"
+                  :key="s"
+                  class="cfg-chip"
+                  :class="{ 'cfg-chip--active': getOpConfig(op).sizes?.includes(s) }"
+                  @click="toggleField(op, 'sizes', s)"
+                >{{ s }}</button>
               </div>
             </div>
 
-            <!-- ⑤ Hourly Rate (only when TIME is selected) -->
-            <div class="config-section" v-if="getOpConfig(op).categories.includes('TIME')">
+            <!-- ⑤ Hourly Rate (for TIME category) -->
+            <div class="config-section" v-if="getOpConfig(op).categories?.includes('TIME')">
               <p class="config-section-label">
-                <span class="material-symbols-rounded">schedule</span>
-                Hourly Rate
+                <span class="material-symbols-rounded">payments</span>
+                Hourly Rate (ETB/hour)
               </p>
-              <div class="rate-input-row">
+              <div class="flex items-center gap-2">
                 <input
                   type="number"
-                  class="rate-input"
                   min="0"
                   step="0.5"
-                  :value="getOpConfig(op).hourly_rate || ''"
+                  :value="getOpConfig(op).hourly_rate"
+                  placeholder="e.g. 45.00"
+                  class="bg-slate-900 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white font-mono w-32 focus:border-indigo-500 outline-none"
                   @input="setHourlyRate(op, $event.target.value)"
-                  placeholder="e.g. 20"
                 />
-                <span class="rate-unit">ETB / hr</span>
+                <span class="text-xs text-slate-400">ETB per hour</span>
               </div>
             </div>
 
-            <!-- Save button -->
+            <!-- Save Button -->
             <button
-              class="btn-save-wt"
+              class="cfg-save-btn cursor-pointer"
               :disabled="savingWt === op.id"
               @click="saveWorkConfig(op)"
             >
@@ -329,44 +336,55 @@
 
       <!-- PIN Auth Modal -->
       <div v-if="actionModal.visible" class="modal-overlay" @click.self="actionModal.visible = false">
-        <div class="modal">
-          <h2>{{ actionModal.type === 'approve' ? '✓ Approve Shift' : '✗ Reject Shift' }}</h2>
-          <p style="color:#94a3b8; margin-bottom: 1.5rem">
-            {{ operatorName(actionModal.sub?.operator_id) }} ·
-            {{ Number(actionModal.sub?.amount).toFixed(2) }} ETB ·
-            {{ actionModal.sub?.details?.totalGood }} pcs
-          </p>
-
-          <div v-if="actionModal.type === 'reject'" class="modal-field">
-            <label>Rejection Reason</label>
-            <input v-model="actionModal.reason" type="text" placeholder="e.g. Numbers not matching station record" />
+        <div class="modal max-w-sm w-full">
+          <div class="flex items-center justify-between mb-1">
+            <h2 class="text-base font-bold m-0" :class="actionModal.type === 'approve' ? 'text-emerald-400' : 'text-rose-400'">
+              {{ actionModal.type === 'approve' ? '✓ Approve Shift' : '✗ Reject Shift' }}
+            </h2>
+            <button class="text-slate-400 hover:text-white" @click="actionModal.visible = false">
+              <span class="material-symbols-rounded text-lg">close</span>
+            </button>
           </div>
 
-          <div class="modal-field">
-            <label>Admin PIN</label>
-            <div class="pin-row">
-              <input
-                v-model="actionModal.pin"
-                type="password"
-                inputmode="numeric"
-                maxlength="4"
-                placeholder="• • • •"
-                class="pin-input"
-              />
+          <p class="text-xs text-slate-400 mb-3">
+            {{ operatorName(actionModal.sub?.operator_id) }} ·
+            {{ Number(actionModal.sub?.amount).toFixed(2) }} ETB
+          </p>
+
+          <div v-if="actionModal.type === 'reject'" class="modal-field mb-3">
+            <label class="block text-xs font-bold text-slate-400 mb-1">Rejection Reason</label>
+            <input v-model="actionModal.reason" type="text" placeholder="e.g. Discrepancy in unit count" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-xs text-white outline-none" />
+          </div>
+
+          <!-- Touch Virtual Numpad for Admin PIN -->
+          <div class="modal-field flex flex-col items-center">
+            <label class="block text-xs font-bold text-slate-400 mb-2">Supervisor / Admin PIN</label>
+            
+            <div class="pin-dots flex gap-3 mb-3">
+              <span v-for="i in 4" :key="i" class="w-3 h-3 rounded-full border-2 border-slate-600 transition-all" :class="{ 'bg-indigo-500 border-indigo-400': i <= actionModal.pin.length }"></span>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 w-full max-w-[200px] mb-3">
+              <button v-for="n in [1,2,3,4,5,6,7,8,9]" :key="n" class="p-2.5 rounded-lg bg-slate-800 text-white font-bold text-sm hover:bg-slate-700 active:scale-95 transition-all cursor-pointer" @click="appendModalNum(n)">{{ n }}</button>
+              <button class="p-2.5 rounded-lg bg-rose-500/10 text-rose-400 font-bold text-sm hover:bg-rose-500/20 active:scale-95 transition-all cursor-pointer" @click="actionModal.pin = ''">C</button>
+              <button class="p-2.5 rounded-lg bg-slate-800 text-white font-bold text-sm hover:bg-slate-700 active:scale-95 transition-all cursor-pointer" @click="appendModalNum(0)">0</button>
+              <button class="p-2.5 rounded-lg bg-slate-800 text-white font-bold text-sm hover:bg-slate-700 active:scale-95 transition-all flex items-center justify-center cursor-pointer" @click="actionModal.pin = actionModal.pin.slice(0, -1)">
+                <span class="material-symbols-rounded text-base">backspace</span>
+              </button>
             </div>
           </div>
 
-          <p v-if="actionModal.error" class="modal-error">{{ actionModal.error }}</p>
+          <p v-if="actionModal.error" class="modal-error text-rose-400 text-xs font-bold text-center mb-2">{{ actionModal.error }}</p>
 
-          <div class="modal-actions">
-            <button class="btn-cancel" @click="actionModal.visible = false">Cancel</button>
+          <div class="modal-actions flex gap-2 justify-end mt-2">
+            <button class="btn-cancel px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 bg-transparent border border-white/10 cursor-pointer hover:bg-slate-800" @click="actionModal.visible = false">Cancel</button>
             <button
-              class="btn-confirm"
-              :class="actionModal.type === 'reject' ? 'btn-confirm--reject' : 'btn-confirm--approve'"
-              :disabled="!actionModal.pin || actionModal.loading"
+              class="btn-confirm px-4 py-1.5 rounded-lg text-xs font-bold text-white cursor-pointer transition-all"
+              :class="actionModal.type === 'reject' ? 'bg-rose-600 hover:bg-rose-500' : 'bg-emerald-600 hover:bg-emerald-500'"
+              :disabled="actionModal.pin.length < 4 || actionModal.loading"
               @click="executeAction"
             >
-              {{ actionModal.loading ? 'Processing...' : (actionModal.type === 'approve' ? 'Confirm Approval' : 'Confirm Rejection') }}
+              {{ actionModal.loading ? 'Processing...' : (actionModal.type === 'approve' ? 'Authorize Approval' : 'Authorize Rejection') }}
             </button>
           </div>
         </div>
@@ -377,12 +395,35 @@
 
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useMesStore } from '@/store/mesStore.js'
 
 const store = useMesStore()
+
+const isSyncing = ref(false)
+let refreshTimer = null
+
+async function manualSync() {
+  isSyncing.value = true
+  try {
+    await store.fetchInitialData()
+  } finally {
+    setTimeout(() => { isSyncing.value = false }, 400)
+  }
+}
+
+onMounted(async () => {
+  await store.fetchInitialData()
+  refreshTimer = setInterval(async () => {
+    await store.fetchInitialData()
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
+})
 
 // ─── Work Assignment Constants ──────────────────────────────────────────────
 const CATEGORIES = [
@@ -406,12 +447,9 @@ const PLACEMENTS    = ['ብተና', 'ውስጥ', 'other']
 const SIZES         = ['9cm', '7cm']
 
 // ─── Per-operator config helpers ────────────────────────────────────────────
-// Returns a live config object for an operator (new structured format)
 function getOpConfig(op) {
   const wt = op.work_types
-  // Already new structured format
   if (wt && !Array.isArray(wt) && typeof wt === 'object') return wt
-  // Legacy flat array — treat operator as MFG-only with no restrictions
   return {
     categories:   ['MFG'],
     divider_types:[],
@@ -431,7 +469,6 @@ function hasMfgOrC(op) {
   return cats.includes('MFG') || cats.includes('C')
 }
 
-// Toggle a category on/off for an operator
 function toggleCategory(op, catId) {
   const cfg = ensureStructuredConfig(op)
   const idx = cfg.categories.indexOf(catId)
@@ -439,7 +476,6 @@ function toggleCategory(op, catId) {
   else cfg.categories.splice(idx, 1)
 }
 
-// Toggle a field value (divider_types, placements, sizes)
 function toggleField(op, field, value) {
   const cfg = ensureStructuredConfig(op)
   const idx = cfg[field].indexOf(value)
@@ -452,7 +488,6 @@ function setHourlyRate(op, val) {
   cfg.hourly_rate = val ? Number(val) : null
 }
 
-// Ensure op.work_types is the new structured object (migrates old format in place)
 function ensureStructuredConfig(op) {
   if (!op.work_types || Array.isArray(op.work_types) || typeof op.work_types !== 'object') {
     op.work_types = {
@@ -481,7 +516,7 @@ const filterStatus = ref('all')
 const expanded = ref(null)
 
 function operatorName(id) {
-  return store.operators.find(o => o.id === id)?.name ?? `Operator #${id}`
+  return store.operators.find(o => Number(o.id) === Number(id))?.name ?? `Operator #${id}`
 }
 
 const allSubmissions = computed(() =>
@@ -513,8 +548,14 @@ function openAction(sub, type) {
   actionModal.visible = true
 }
 
+function appendModalNum(n) {
+  if (actionModal.pin.length < 4) {
+    actionModal.pin += String(n)
+  }
+}
+
 async function executeAction() {
-  if (!actionModal.pin) return
+  if (!actionModal.pin || actionModal.pin.length < 4) return
   actionModal.loading = true
   actionModal.error   = ''
 
@@ -530,6 +571,7 @@ async function executeAction() {
     actionModal.visible = false
   } else {
     actionModal.error = result.reason || 'Action failed'
+    actionModal.pin = ''
   }
 }
 </script>
@@ -542,265 +584,155 @@ async function executeAction() {
 }
 
 .sa-header {
-  display: flex; justify-content: space-between; align-items: flex-start;
+  display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;
 }
 .sa-title {
   display: flex; align-items: center; gap: 0.75rem;
   font-size: 1.4rem; font-weight: 900; color: #f1f5f9; margin: 0;
 }
-.sa-sub { color: #64748b; font-size: 0.85rem; margin-top: 0.25rem; margin-left: 2.5rem; }
+.sa-sub { font-size: 0.75rem; color: #64748b; margin: 0.25rem 0 0; }
 
-.header-counts { display: flex; gap: 0.75rem; align-items: center; }
+.sync-btn {
+  display: flex; align-items: center; gap: 0.35rem;
+  background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3);
+  color: #a5b4fc; border-radius: 0.5rem; padding: 0.45rem 0.85rem;
+  font-size: 0.75rem; font-weight: 700; transition: all 0.15s ease;
+}
+.sync-btn:hover { background: rgba(99,102,241,0.22); color: #fff; }
+.spin-icon { animation: spin 0.8s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.header-counts { display: flex; gap: 0.75rem; }
 .count-chip {
   display: flex; align-items: center; gap: 0.4rem;
-  padding: 0.5rem 1rem; border-radius: 999px; font-weight: 700; font-size: 0.82rem;
+  font-size: 0.75rem; font-weight: 700; padding: 0.45rem 0.85rem; border-radius: 999px;
 }
-.count-chip--warn  { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
-.count-chip--green { background: rgba(16,185,129,0.10); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
+.count-chip--warn  { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3); color: #fbbf24; }
+.count-chip--green { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: #34d399; }
 
 .filters { display: flex; gap: 0.5rem; }
 .filter-btn {
-  padding: 0.5rem 1.25rem; border-radius: 0.6rem; cursor: pointer;
   background: #1e293b; border: 1px solid rgba(255,255,255,0.08);
-  color: #64748b; font-weight: 700; font-size: 0.85rem;
+  color: #64748b; font-size: 0.75rem; font-weight: 700;
+  padding: 0.4rem 0.9rem; border-radius: 0.5rem; cursor: pointer; transition: all 0.15s;
 }
-.filter-btn--active { background: rgba(99,102,241,0.15); border-color: #6366f1; color: #a5b4fc; }
+.filter-btn:hover { color: #f1f5f9; }
+.filter-btn--active { background: #6366f1; border-color: #6366f1; color: #fff; }
 
-.submissions-list { display: flex; flex-direction: column; gap: 1rem; }
-
+.submissions-list { display: flex; flex-direction: column; gap: 0.75rem; }
 .submission-card {
   background: #1e293b; border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 1rem; padding: 1.5rem; transition: all 0.2s;
+  border-radius: 1rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;
 }
 .submission-card--pending  { border-left: 4px solid #f59e0b; }
 .submission-card--approved { border-left: 4px solid #10b981; }
-.submission-card--rejected { border-left: 4px solid #ef4444; opacity: 0.8; }
+.submission-card--rejected { border-left: 4px solid #ef4444; }
 
-.card-top { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
-.card-info h3 { color: #f1f5f9; font-size: 1.1rem; margin: 0; }
-.card-info p  { color: #64748b; font-size: 0.8rem; margin: 0.15rem 0 0 0; }
+.card-top { display: flex; align-items: center; gap: 0.75rem; }
+.card-info { flex: 1; min-width: 0; }
+.card-info h3 { font-size: 0.95rem; font-weight: 800; color: #f1f5f9; margin: 0; }
+.card-info p  { font-size: 0.7rem; color: #64748b; margin: 0; }
+
 .status-badge {
-  margin-left: auto; font-size: 0.72rem; font-weight: 800;
-  padding: 0.3rem 0.85rem; border-radius: 999px; letter-spacing: 0.08em;
+  font-size: 0.65rem; font-weight: 800; padding: 0.2rem 0.65rem; border-radius: 999px; letter-spacing: 0.05em;
 }
-.status-badge--pending  { background: rgba(245,158,11,0.12); color: #fbbf24; }
-.status-badge--approved { background: rgba(16,185,129,0.12); color: #34d399; }
-.status-badge--rejected { background: rgba(239,68,68,0.12);  color: #f87171; }
+.status-badge--pending  { background: rgba(245,158,11,0.15); color: #fbbf24; }
+.status-badge--approved { background: rgba(16,185,129,0.15); color: #34d399; }
+.status-badge--rejected { background: rgba(239,68,68,0.15); color: #f87171; }
 
 .card-stats {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;
-  margin-bottom: 1rem;
+  display: flex; gap: 1.5rem; flex-wrap: wrap;
+  background: #0f172a; border-radius: 0.6rem; padding: 0.75rem 1rem;
 }
-.card-stat {
-  background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 0.65rem; padding: 0.85rem; text-align: center;
-}
-.stat-lbl { display: block; font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; margin-bottom: 0.3rem; }
-.stat-val  { display: block; font-size: 1.2rem; font-weight: 800; }
+.card-stat { display: flex; flex-direction: column; gap: 0.15rem; }
+.stat-lbl { font-size: 0.62rem; color: #64748b; font-weight: 700; text-transform: uppercase; }
+.stat-val { font-size: 1rem; font-weight: 900; font-family: monospace; }
 
-.entry-table-wrap { overflow-x: auto; margin-bottom: 1rem; }
-.entry-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.entry-table th { color: #64748b; padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; }
-.entry-table td { padding: 0.5rem 0.75rem; color: #e2e8f0; border-bottom: 1px solid rgba(255,255,255,0.04); }
-.cat-pill { font-size: 0.65rem; font-weight: 800; padding: 0.15rem 0.5rem; border-radius: 999px; letter-spacing: 0.06em; }
+.entry-table-wrap { overflow-x: auto; }
+.entry-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+.entry-table th { text-align: left; color: #64748b; font-size: 0.65rem; padding: 0.4rem 0.6rem; }
+.entry-table td { padding: 0.4rem 0.6rem; border-top: 1px solid rgba(255,255,255,0.04); }
+.cat-pill { font-size: 0.62rem; font-weight: 800; padding: 0.1rem 0.4rem; border-radius: 0.3rem; }
 
-.card-actions {
-  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
-  padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05);
-}
+.card-actions { display: flex; justify-content: space-between; align-items: center; }
 .btn-expand {
-  display: flex; align-items: center; gap: 0.35rem;
-  background: transparent; border: 1px solid rgba(255,255,255,0.1);
-  color: #64748b; padding: 0.5rem 1rem; border-radius: 0.55rem; font-size: 0.82rem; cursor: pointer;
+  background: transparent; border: none; color: #6366f1;
+  font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 0.2rem; cursor: pointer;
 }
-.action-btns { margin-left: auto; display: flex; gap: 0.75rem; }
-.btn-reject, .btn-approve {
-  display: flex; align-items: center; gap: 0.4rem;
-  padding: 0.65rem 1.25rem; border-radius: 0.65rem; font-weight: 700; cursor: pointer; border: none;
+.action-btns { display: flex; gap: 0.5rem; }
+.btn-approve, .btn-reject {
+  display: flex; align-items: center; gap: 0.3rem;
+  padding: 0.45rem 0.9rem; border-radius: 0.5rem; border: none;
+  font-size: 0.75rem; font-weight: 800; cursor: pointer; transition: all 0.15s;
 }
-.btn-reject  { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
-.btn-approve { background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
-.btn-approve:hover { background: #10b981; color: white; }
-.btn-reject:hover  { background: #ef4444; color: white; }
+.btn-approve { background: #10b981; color: #fff; }
+.btn-reject  { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #f87171; }
+.btn-approve:hover { filter: brightness(1.1); }
+.btn-reject:hover  { background: rgba(239,68,68,0.25); }
 
 .reject-reason-display {
-  display: flex; align-items: center; gap: 0.5rem;
-  color: #fca5a5; font-size: 0.82rem; margin-left: auto;
+  display: flex; align-items: center; gap: 0.3rem;
+  color: #f87171; font-size: 0.75rem; background: rgba(239,68,68,0.08);
+  padding: 0.35rem 0.75rem; border-radius: 0.5rem;
 }
-.empty-state {
-  display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
-  padding: 3rem; color: #334155; font-size: 0.9rem;
-}
-.empty-state .material-symbols-rounded { font-size: 3rem; }
 
-/* ── Work Assignment Panel ─────────────────────────────────────────────────── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.5rem; padding: 3rem; color: #334155;
+}
+
+/* ── Work Types Admin ────────────────────────────────────────────── */
 .work-types-admin {
-  background: #1e293b; border: 1px solid rgba(255,255,255,0.06); border-radius: 1rem; padding: 1.5rem;
+  background: #1e293b; border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 1rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;
 }
 .work-types-admin h2 {
-  display: flex; align-items: center; gap: 0.75rem;
-  font-size: 1.1rem; font-weight: 800; color: #94a3b8; margin: 0 0 1.25rem 0;
-  text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: 1rem; font-weight: 800; color: #f1f5f9; margin: 0;
+  display: flex; align-items: center; gap: 0.5rem;
 }
-.admin-note {
-  font-size: 0.65rem; font-weight: 800; padding: 0.2rem 0.65rem;
-  background: rgba(239,68,68,0.1); color: #fca5a5;
-  border: 1px solid rgba(239,68,68,0.2); border-radius: 999px;
-}
-.operator-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1rem; }
+.admin-note { font-size: 0.65rem; color: #64748b; font-weight: 400; margin-left: auto; }
+
+.operator-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
 .op-config-card {
-  background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 0.85rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem;
+  background: #0f172a; border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 0.75rem; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;
 }
-.op-config-header { display: flex; align-items: center; gap: 0.75rem; }
-.op-header-text { flex: 1; min-width: 0; }
-.op-name { font-weight: 700; color: #e2e8f0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.op-role { font-size: 0.72rem; color: #64748b; margin: 0; text-transform: capitalize; }
-.op-cat-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-left: auto; }
-.cat-badge {
-  font-size: 0.6rem; font-weight: 800; padding: 0.15rem 0.5rem;
-  border-radius: 999px; border: 1px solid; letter-spacing: 0.06em;
-}
+.op-config-header { display: flex; align-items: center; gap: 0.6rem; }
+.op-header-text { flex: 1; }
+.op-name { font-size: 0.85rem; font-weight: 800; color: #f1f5f9; margin: 0; }
+.op-role { font-size: 0.65rem; color: #64748b; margin: 0; }
+.op-cat-badges { display: flex; gap: 0.25rem; }
+.cat-badge { font-size: 0.6rem; font-weight: 800; padding: 0.1rem 0.35rem; border-radius: 0.25rem; border: 1px solid; }
 
-/* Config sections inside each operator card */
-.config-section { display: flex; flex-direction: column; gap: 0.5rem; }
+.config-section { display: flex; flex-direction: column; gap: 0.35rem; }
 .config-section-label {
-  display: flex; align-items: center; gap: 0.35rem;
-  font-size: 0.68rem; font-weight: 700; color: #64748b;
-  text-transform: uppercase; letter-spacing: 0.1em;
-  padding-bottom: 0.3rem; border-bottom: 1px solid rgba(255,255,255,0.05);
+  font-size: 0.62rem; font-weight: 700; color: #64748b; text-transform: uppercase;
+  display: flex; align-items: center; gap: 0.25rem; margin: 0;
 }
-.config-section-label .material-symbols-rounded { font-size: 0.95rem; }
-.config-hint {
-  margin-left: auto; font-size: 0.6rem; font-weight: 600;
-  color: #475569; text-transform: none; letter-spacing: 0;
-}
-
-/* Chip rows */
-.chip-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-
-/* Base chip */
+.config-section-label .material-symbols-rounded { font-size: 0.85rem; }
+.chip-row { display: flex; gap: 0.3rem; flex-wrap: wrap; }
 .cfg-chip {
-  display: flex; align-items: center; gap: 0.3rem;
-  padding: 0.35rem 0.75rem; border-radius: 0.45rem; cursor: pointer;
-  background: #0f172a; border: 1px solid rgba(255,255,255,0.08);
-  color: #475569; font-size: 0.8rem; font-weight: 700;
-  transition: all 0.13s ease; -webkit-tap-highlight-color: transparent;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  color: #64748b; font-size: 0.68rem; font-weight: 700;
+  padding: 0.25rem 0.55rem; border-radius: 0.35rem; cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; gap: 0.2rem;
 }
-.cfg-chip:hover { background: #1e293b; color: #94a3b8; border-color: rgba(255,255,255,0.15); }
-.cfg-chip:active { transform: scale(0.96); }
-
-/* Small variant for types/placements/sizes */
-.cfg-chip--sm { padding: 0.28rem 0.6rem; font-size: 0.75rem; }
-
-/* Active state — base (for category chips using inline :style) */
-.cfg-chip--active { font-weight: 800; }
-
-/* Color-coded active states for specific groups */
-.cfg-chip--indigo.cfg-chip--active { background: rgba(99,102,241,0.2); border-color: #6366f1; color: #a5b4fc; }
-.cfg-chip--emerald.cfg-chip--active { background: rgba(16,185,129,0.2); border-color: #10b981; color: #34d399; }
-.cfg-chip--amber.cfg-chip--active { background: rgba(245,158,11,0.2); border-color: #f59e0b; color: #fbbf24; }
-
-/* Hourly rate input */
-.rate-input-row { display: flex; align-items: center; gap: 0.75rem; }
-.rate-input {
-  width: 120px; background: #0f172a; border: 1px solid rgba(255,255,255,0.1);
-  color: #f1f5f9; padding: 0.6rem 0.85rem; border-radius: 0.5rem;
-  font-size: 1rem; font-weight: 700;
+.cfg-chip--active { border-color: currentColor; }
+.cfg-save-btn {
+  margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 0.3rem;
+  background: #6366f1; border: none; color: #fff; font-size: 0.75rem; font-weight: 800;
+  padding: 0.5rem; border-radius: 0.5rem; cursor: pointer; transition: filter 0.15s;
 }
-.rate-input:focus { outline: none; border-color: #3b82f6; }
-.rate-unit { font-size: 0.82rem; color: #64748b; font-weight: 600; }
+.cfg-save-btn:hover { filter: brightness(1.1); }
+.cfg-save-btn:disabled { opacity: 0.4; }
 
-/* Save button */
-.btn-save-wt {
-  display: flex; align-items: center; justify-content: center; gap: 0.4rem;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: white; border: none; border-radius: 0.55rem;
-  padding: 0.65rem; font-weight: 700; cursor: pointer; font-size: 0.88rem;
-  transition: all 0.2s; margin-top: auto;
-}
-.btn-save-wt:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn-save-wt:not(:disabled):hover { filter: brightness(1.1); }
-.btn-save-wt:not(:disabled):active { transform: scale(0.98); }
-
-/* ── Modal ─────────────────────────────────────────────────────────────────── */
+/* ── Modal ───────────────────────────────────────────────────────── */
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
-  display: flex; align-items: center; justify-content: center; z-index: 100;
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 1000;
 }
 .modal {
   background: #1e293b; border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 1.25rem; padding: 2.5rem; width: 100%; max-width: 460px;
-  box-shadow: 0 25px 60px rgba(0,0,0,0.5);
-}
-.modal h2 { color: #f1f5f9; font-size: 1.4rem; margin: 0 0 0.5rem 0; }
-.modal-field { margin-bottom: 1.25rem; }
-.modal-field label { display: block; color: #94a3b8; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; }
-.modal-field input {
-  width: 100%; background: #0f172a; border: 1px solid rgba(255,255,255,0.1);
-  color: white; padding: 0.85rem 1rem; border-radius: 0.65rem; font-size: 1rem;
-}
-.pin-input { text-align: center; font-size: 1.5rem; letter-spacing: 0.5rem; }
-.modal-error { color: #f87171; font-size: 0.9rem; margin-bottom: 0.75rem; font-weight: 700; }
-.modal-actions { display: flex; gap: 0.75rem; }
-.btn-cancel, .btn-confirm {
-  flex: 1; padding: 0.85rem; border-radius: 0.75rem; font-weight: 700; cursor: pointer; border: none; font-size: 1rem;
-}
-.btn-cancel { background: rgba(255,255,255,0.05); color: #94a3b8; }
-.btn-confirm--approve { background: #10b981; color: white; }
-.btn-confirm--reject  { background: #ef4444; color: white; }
-.btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* ── Mobile Responsive ────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .sa-root {
-    padding: 1rem 1rem 4rem 1rem !important;
-    height: auto;
-    min-height: 100%;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-  }
-  .sa-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-  .header-counts {
-    width: 100%;
-    justify-content: space-between;
-  }
-  .filters {
-    overflow-x: auto;
-    width: 100%;
-    padding-bottom: 0.25rem;
-    scrollbar-width: none;
-  }
-  .filters::-webkit-scrollbar { display: none; }
-  .filter-btn { white-space: nowrap; flex-shrink: 0; }
-  .card-stats {
-    grid-template-columns: 1fr 1fr !important;
-    gap: 0.5rem;
-  }
-  .operator-cards {
-    grid-template-columns: 1fr !important;
-  }
-  .modal {
-    margin: 1rem;
-    padding: 1.5rem;
-    max-width: calc(100vw - 2rem);
-  }
-  .card-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .action-btns {
-    margin-left: 0;
-    width: 100%;
-  }
-  .btn-reject, .btn-approve {
-    flex: 1;
-    justify-content: center;
-  }
+  border-radius: 1.25rem; padding: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6);
 }
 </style>
