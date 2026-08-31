@@ -23,6 +23,14 @@
           <span v-if="activeView === tab.id" class="tab-indicator" />
         </button>
 
+        <button class="nav-tab sync-tab cursor-pointer" :disabled="isSyncing" @click="manualSync" title="Sync employee records">
+          <span class="material-symbols-rounded tab-icon" :class="{ 'spin-icon': isSyncing }">sync</span>
+          <div class="tab-labels">
+            <span class="tab-title">{{ isSyncing ? 'Syncing...' : 'Sync Data' }}</span>
+            <span class="tab-sub">Refresh records</span>
+          </div>
+        </button>
+
         <!-- Selected Operator Chip -->
         <div class="selected-op-block" v-if="selectedOp">
           <p class="nav-heading" style="margin-top:1rem">SELECTED OPERATOR</p>
@@ -945,6 +953,25 @@ watch(selectedOp, (newOp) => {
     fetchOperatorLogs(newOp.id)
   }
 })
+
+const isSyncing = ref(false)
+
+async function manualSync() {
+  isSyncing.value = true
+  try {
+    await store.fetchInitialData()
+    await payrollStore.fetchLoans()
+    if (store.currentProductionWeek) {
+      await payrollStore.fetchBonuses(store.currentProductionWeek)
+    }
+    if (selectedOp.value && selectedOp.value.id) {
+      await fetchOperatorLogs(selectedOp.value.id)
+    }
+    showToast('✓ Profile and payroll data synced')
+  } finally {
+    setTimeout(() => { isSyncing.value = false }, 400)
+  }
+}
 
 onMounted(async () => {
   // Ensure store state is freshly fetched
