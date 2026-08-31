@@ -196,21 +196,21 @@ export const useMesStore = defineStore('mes', () => {
   const ledgerEntries = ref([])
 
   function mapSupabaseLedgerToLocal(dbRow) {
-    const op = operators.value.find(o => o.id === dbRow.operator_id)
+    const op = operators.value.find(o => Number(o.id) === Number(dbRow.operator_id))
     return {
       id: dbRow.id,
       timestamp: dbRow.created_at,
-      productionDate: dbRow.production_date || dbRow.created_at,
+      productionDate: dbRow.production_date || (dbRow.created_at ? dbRow.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
       week: dbRow.production_week,
-      operator: op ? op.name : 'Unknown',
-      operator_id: dbRow.operator_id,
+      operator: op ? op.name : (dbRow.operator_name || 'Unknown'),
+      operator_id: dbRow.operator_id != null ? Number(dbRow.operator_id) : null,
       workCategory: dbRow.work_category || 'MFG',
       dividerType: dbRow.divider_type,
       placement: dbRow.placement_style,
       size: dbRow.size_cm ? dbRow.size_cm + 'cm' : null,
-      goodProduction: dbRow.qty_produced,
-      wasteMaterial: dbRow.qty_waste,
-      hoursWorked: dbRow.hours_worked || null,
+      goodProduction: Number(dbRow.qty_produced) || 0,
+      wasteMaterial: Number(dbRow.qty_waste) || 0,
+      hoursWorked: dbRow.hours_worked != null ? Number(dbRow.hours_worked) : null,
       loggedByAdmin: dbRow.logged_by_admin || false
     }
   }
@@ -606,7 +606,10 @@ export const useMesStore = defineStore('mes', () => {
   // ─── Analytics Computeds ───────────────────────────────────────────────────
   const operatorEfficiency = computed(() => {
     return operators.value.map(op => {
-      const entries = ledgerEntries.value.filter(e => e.operator === op.name)
+      const entries = ledgerEntries.value.filter(e => 
+        (e.operator_id != null && Number(e.operator_id) === Number(op.id)) ||
+        (e.operator && e.operator === op.name)
+      )
       const good  = entries.reduce((s, e) => s + (Number(e.goodProduction) || 0), 0)
       const waste = entries.reduce((s, e) => s + (Number(e.wasteMaterial)  || 0), 0)
       const total = good + waste

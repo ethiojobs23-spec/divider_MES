@@ -227,32 +227,59 @@
         <Transition name="view-fade" mode="out-in">
           <section v-if="activeView === 'performance'" class="view-panel" key="performance">
 
-            <div class="panel-header">
-              <h2 class="panel-title">Operator Performance & Production Logs</h2>
-              <p class="panel-sub">Daily KPIs · Units produced · Waste tracking · Efficiency rates</p>
+            <div class="panel-header flex flex-col md:flex-row md:items-center justify-between gap-2">
+              <div>
+                <h2 class="panel-title">Operator Performance & Production Logs</h2>
+                <p class="panel-sub">Daily KPIs · Units produced · Waste tracking · Efficiency rates · {{ selectedOp?.name ?? 'No operator selected' }}</p>
+              </div>
+
+              <!-- Time Range Selector -->
+              <div class="flex items-center gap-1 bg-slate-800/80 p-1.5 rounded-xl border border-white/10 shrink-0">
+                <button
+                  class="px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer"
+                  :class="prodTimeRange === 'today' ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200'"
+                  @click="prodTimeRange = 'today'"
+                >
+                  Today
+                </button>
+                <button
+                  class="px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer"
+                  :class="prodTimeRange === 'week' ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200'"
+                  @click="prodTimeRange = 'week'"
+                >
+                  This Week
+                </button>
+                <button
+                  class="px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer"
+                  :class="prodTimeRange === 'all' ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-500/40' : 'text-slate-400 hover:text-slate-200'"
+                  @click="prodTimeRange = 'all'"
+                >
+                  All Logs
+                </button>
+              </div>
             </div>
 
-            <!-- KPI Cards (same as ExecutiveAnalytics) -->
+            <!-- KPI Cards -->
             <div class="kpi-grid grid grid-cols-1 md:grid-cols-3 gap-3 shrink-0">
               <AnalyticsDataCard
-                title="Total Units (Today)"
-                :value="kpiStats.good + ' pcs'"
+                :title="prodTimeRange === 'today' ? 'Good Output (Today)' : (prodTimeRange === 'week' ? 'Good Output (This Week)' : 'Good Output (All Time)')"
+                :value="kpiStats.rangeGood + (kpiStats.isHourly ? ' hrs' : ' pcs')"
                 icon="inventory_2"
                 icon-bg="rgba(99,102,241,.15)"
                 icon-color="#a5b4fc"
                 :trend="0"
               />
               <AnalyticsDataCard
-                title="Efficiency %"
-                :value="kpiStats.efficiency + '%'"
+                :title="prodTimeRange === 'today' ? 'Efficiency % (Today)' : (prodTimeRange === 'week' ? 'Efficiency % (This Week)' : 'Efficiency % (All Time)')"
+                :value="kpiStats.rangeEfficiency + '%'"
                 icon="trending_up"
                 icon-bg="rgba(16,185,129,.15)"
                 icon-color="#34d399"
                 :trend="0"
               />
               <AnalyticsDataCard
-                title="Total Waste"
-                :value="kpiStats.waste + ' pcs'"
+                :title="prodTimeRange === 'today' ? 'Total Waste (Today)' : (prodTimeRange === 'week' ? 'Total Waste (This Week)' : 'Total Waste (All Time)')"
+                :value="kpiStats.rangeWaste + ' pcs'"
                 icon="delete_sweep"
                 icon-bg="rgba(239,68,68,.12)"
                 icon-color="#f87171"
@@ -261,44 +288,59 @@
               />
             </div>
 
-            <!-- Activity Logs Table (same chart-card style as ExecutiveAnalytics) -->
+            <!-- Activity Logs Table -->
             <div class="chart-card" style="flex:1;min-height:0">
-              <div class="card-hdr">
+              <div class="card-hdr flex items-center gap-2">
                 <span class="material-symbols-rounded" style="color:#a5b4fc">history</span>
                 <div>
                   <p class="card-hdr-title">Production Activity Log</p>
-                  <p class="card-hdr-sub">Real-time shift entries for {{ selectedOp?.name ?? 'selected operator' }}</p>
+                  <p class="card-hdr-sub">
+                    {{ isFetchingLogs ? 'Syncing records from database...' : `Showing ${activityLogs.length} entries for ${selectedOp?.name || 'operator'}` }}
+                  </p>
                 </div>
-                <div class="badge" style="margin-left:auto">Today</div>
+                <div class="badge ml-auto">
+                  {{ prodTimeRange === 'today' ? 'Today\'s Shift' : (prodTimeRange === 'week' ? 'Week ' + store.currentProductionWeek : 'Full History') }}
+                </div>
               </div>
 
               <div class="table-scroll overflow-x-auto w-full">
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th>Time</th>
-                      <th>Variant</th>
+                      <th>Date & Time</th>
+                      <th>Work Category</th>
                       <th>Size</th>
                       <th>Placement</th>
-                      <th class="num">Quantity</th>
+                      <th class="num">Good Output</th>
+                      <th class="num">Waste</th>
                       <th class="num">Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(log, idx) in activityLogs" :key="idx"
-                        :class="{ 'row-error': log.status === 'WASTE' }">
-                      <td class="font-mono">
-                        {{ log.time }}
+                    <tr v-for="log in activityLogs" :key="log.id"
+                        :class="{ 'row-error': log.status === 'SCRAP / WASTE' }">
+                      <td class="font-mono text-xs text-slate-300">
+                        {{ log.fullDateTime }}
                         <span v-if="log.loggedByAdmin" class="row-badge row-badge--neutral text-[0.6rem] ml-1" title="Systematically registered / Admin Override">ADMIN</span>
                       </td>
-                      <td class="val-purple bold">{{ log.variant }}</td>
-                      <td class="val-muted">{{ log.size }}</td>
-                      <td class="val-muted">{{ log.placement }}</td>
-                      <td class="num val-main">{{ log.qty > 0 ? log.qty : log.waste }}</td>
+                      <td class="val-purple bold text-xs">{{ log.variant }}</td>
+                      <td class="val-muted text-xs">{{ log.size }}</td>
+                      <td class="val-muted text-xs">{{ log.placement }}</td>
+                      <td class="num val-main text-xs" :class="log.qty > 0 ? 'text-emerald-400' : 'text-slate-400'">
+                        {{ log.qty > 0 ? log.qty + ' ' + log.unit : '—' }}
+                      </td>
+                      <td class="num text-xs" :class="log.waste > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'">
+                        {{ log.waste > 0 ? log.waste + ' pcs' : '0' }}
+                      </td>
                       <td class="num">
-                        <span class="row-badge" :class="log.status === 'WASTE' ? 'row-badge--red' : 'row-badge--green'">
+                        <span class="row-badge" :class="log.statusClass">
                           {{ log.status }}
                         </span>
+                      </td>
+                    </tr>
+                    <tr v-if="activityLogs.length === 0">
+                      <td colspan="7" class="text-center py-8 text-slate-500 text-xs">
+                        {{ isFetchingLogs ? 'Loading entries from database...' : 'No production logs found for ' + (selectedOp?.name || 'this operator') + ' in this range.' }}
                       </td>
                     </tr>
                   </tbody>
@@ -307,7 +349,8 @@
 
               <div class="chart-legend">
                 <div class="leg-item"><span class="leg-dot" style="background:#34d399"/> Good Production</div>
-                <div class="leg-item"><span class="leg-dot" style="background:#ef4444"/> Waste / Reject</div>
+                <div class="leg-item"><span class="leg-dot" style="background:#ef4444"/> Waste / Scrap</div>
+                <div class="leg-item"><span class="leg-dot" style="background:#fbbf24"/> Overtime (1.5x)</div>
               </div>
             </div>
 
@@ -790,7 +833,7 @@
 
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
@@ -815,7 +858,7 @@ const activeView = ref('roster')
 const operators = computed(() =>
   (store.operators || []).map(op => {
     const isClockedIn = store.isOperatorClockedIn(op.id)
-    const currentShift = (attStore.clockInLog || []).find(log => log.operatorId === op.id && !log.clockOut)
+    const currentShift = (attStore.clockInLog || []).find(log => Number(log.operatorId) === Number(op.id) && !log.clockOut)
     
     let startTime = '—'
     let hoursLogged = '00:00:00'
@@ -861,25 +904,73 @@ const filteredOperators = computed(() => {
 
 const selectedOp = ref(null)
 
+// ── Operator Dedicated Production Logs State ─────────────────────────────────
+const operatorDbLogs = ref([])
+const isFetchingLogs = ref(false)
+const prodTimeRange = ref('today') // 'today' | 'week' | 'all'
+let autoRefreshTimer = null
+
+async function fetchOperatorLogs(opId) {
+  if (!opId) return
+  isFetchingLogs.value = true
+  try {
+    const { data, error } = await supabase
+      .from('mes_production_logs')
+      .select('*')
+      .eq('operator_id', opId)
+      .order('created_at', { ascending: false })
+      .limit(300)
+    if (!error && data) {
+      operatorDbLogs.value = data.map(store.mapSupabaseLedgerToLocal)
+    }
+  } catch (err) {
+    console.error('Error fetching operator logs from Supabase:', err)
+  } finally {
+    isFetchingLogs.value = false
+  }
+}
+
 // Ensure selectedOp is populated when operators load
 watch(operators, (newOps) => {
   if (selectedOp.value) {
-    const updated = newOps.find(o => o.id === selectedOp.value.id)
+    const updated = newOps.find(o => Number(o.id) === Number(selectedOp.value.id))
     if (updated) selectedOp.value = updated
   } else if (newOps.length > 0) {
     selectedOp.value = newOps[0]
   }
 }, { immediate: true })
 
+watch(selectedOp, (newOp) => {
+  if (newOp && newOp.id) {
+    fetchOperatorLogs(newOp.id)
+  }
+})
+
 onMounted(async () => {
+  // Ensure store state is freshly fetched
+  await store.fetchInitialData()
   if (!selectedOp.value && operators.value.length > 0) {
     selectedOp.value = operators.value[0]
+  }
+  if (selectedOp.value && selectedOp.value.id) {
+    await fetchOperatorLogs(selectedOp.value.id)
   }
   // Initialize loan & bonus data from payroll store
   await payrollStore.fetchLoans()
   if (store.currentProductionWeek) {
     await payrollStore.fetchBonuses(store.currentProductionWeek)
   }
+
+  // Periodic refresh every 30 seconds
+  autoRefreshTimer = setInterval(async () => {
+    if (selectedOp.value && selectedOp.value.id) {
+      await fetchOperatorLogs(selectedOp.value.id)
+    }
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer)
 })
 
 // Refresh when week changes
@@ -892,43 +983,163 @@ watch(() => store.currentProductionWeek, (newWeek) => {
 const attendanceRate = (op) =>
   op && op.expectedDays > 0 ? Math.round(((op.daysAttended || 0) / op.expectedDays) * 100) : 0
 
-// ── Activity logs ─────────────────────────────────────────────────────────────
-const activityLogs = computed(() => {
+// ── Unified Production Logs Logic (Store + DB) ────────────────────────────────
+function parseEntryDate(entry) {
+  if (entry.productionDate) {
+    if (typeof entry.productionDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.productionDate)) {
+      const [y, m, d] = entry.productionDate.split('-').map(Number)
+      return new Date(y, m - 1, d)
+    }
+    const d = new Date(entry.productionDate)
+    if (!isNaN(d.getTime())) return d
+  }
+  if (entry.timestamp) {
+    const d = new Date(entry.timestamp)
+    if (!isNaN(d.getTime())) return d
+  }
+  return new Date()
+}
+
+function isSameCalendarDay(d1, d2) {
+  if (!d1 || !d2) return false
+  return d1.getFullYear() === d2.getFullYear() &&
+         d1.getMonth() === d2.getMonth() &&
+         d1.getDate() === d2.getDate()
+}
+
+const allOperatorLogs = computed(() => {
   if (!selectedOp.value) return []
-  return (store.ledgerEntries || [])
-    .filter(e => e.operator_id === selectedOp.value.id)
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-    .map(e => {
-      const dt = e.timestamp ? new Date(e.timestamp) : null
-      const timeStr = dt && !isNaN(dt.getTime()) ? dt.toLocaleTimeString('en-GB') : '—'
-      return {
-        time: timeStr,
-        variant: e.dividerType || '—',
-        size: e.size || '—',
-        placement: e.placement || '—',
-        qty: e.goodProduction || 0,
-        waste: e.wasteMaterial || 0,
-        status: e.wasteMaterial > 0 && (!e.goodProduction || e.goodProduction === 0) ? 'WASTE' : 'OK',
-        loggedByAdmin: e.loggedByAdmin
-      }
-    })
+  const opId = Number(selectedOp.value.id)
+  const opName = selectedOp.value.name
+
+  // Store logs
+  const storeLogs = (store.ledgerEntries || []).filter(e =>
+    (e.operator_id != null && Number(e.operator_id) === opId) ||
+    (e.operator && e.operator === opName)
+  )
+
+  // Database logs
+  const dbLogs = operatorDbLogs.value
+
+  // Merge by id (deduplicate)
+  const map = new Map()
+  for (const log of dbLogs) {
+    if (log.id) map.set(String(log.id), log)
+  }
+  for (const log of storeLogs) {
+    if (log.id) map.set(String(log.id), log)
+  }
+
+  return Array.from(map.values()).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+})
+
+const filteredOperatorLogs = computed(() => {
+  const logs = allOperatorLogs.value
+  const now = new Date()
+
+  if (prodTimeRange.value === 'today') {
+    return logs.filter(e => isSameCalendarDay(parseEntryDate(e), now))
+  }
+  if (prodTimeRange.value === 'week') {
+    return logs.filter(e => e.week === store.currentProductionWeek)
+  }
+  return logs
+})
+
+// ── Activity logs Table Formatter ─────────────────────────────────────────────
+const activityLogs = computed(() => {
+  return filteredOperatorLogs.value.map(e => {
+    const dt = e.timestamp ? new Date(e.timestamp) : parseEntryDate(e)
+    const isValidDate = dt && !isNaN(dt.getTime())
+    const timeStr = isValidDate ? dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '—'
+    const dateStr = isValidDate ? dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—'
+
+    let variantLabel = 'Type ' + (e.dividerType || 'MFG')
+    if (e.workCategory === 'TIME') variantLabel = 'Hourly Work (TIME)'
+    else if (e.workCategory === 'C') variantLabel = 'Wood Prep (C)'
+    else if (e.workCategory === 'PP') variantLabel = 'Partition (PP)'
+    else if (e.workCategory === 'PL') variantLabel = 'Pad (PL)'
+    else if (e.dividerType === 'Other') variantLabel = 'Custom'
+
+    const isHourly = e.workCategory === 'TIME'
+    const qty = isHourly ? (e.hoursWorked || e.goodProduction || 0) : (e.goodProduction || 0)
+    const waste = Number(e.wasteMaterial) || 0
+
+    let status = 'OK'
+    let statusClass = 'row-badge--green'
+    if (e.isOvertime || e.is_overtime) {
+      status = 'OVERTIME 1.5x'
+      statusClass = 'row-badge--yellow'
+    } else if (waste > 0 && (!qty || qty === 0)) {
+      status = 'SCRAP / WASTE'
+      statusClass = 'row-badge--red'
+    } else if (isHourly) {
+      status = 'HOURLY'
+      statusClass = 'row-badge--neutral'
+    }
+
+    return {
+      id: e.id,
+      time: timeStr,
+      date: dateStr,
+      fullDateTime: `${dateStr}, ${timeStr}`,
+      category: e.workCategory || 'MFG',
+      variant: variantLabel,
+      size: e.size || (e.size_cm ? e.size_cm + 'cm' : '—'),
+      placement: e.placement || '—',
+      qty,
+      waste,
+      unit: isHourly ? 'hrs' : 'pcs',
+      status,
+      statusClass,
+      loggedByAdmin: e.loggedByAdmin || e.logged_by_admin || false
+    }
+  })
 })
 
 // ── Performance KPIs ──────────────────────────────────────────────────────────
 const kpiStats = computed(() => {
-  if (!selectedOp.value) return { good: 0, waste: 0, efficiency: '100.0' }
-  
-  const today = new Date().toISOString().split('T')[0]
-  const todayLogs = (store.ledgerEntries || []).filter(e => 
-    e.operator_id === selectedOp.value.id && 
-    (e.productionDate === today || (e.timestamp && e.timestamp.startsWith(today)))
-  )
-  const good = todayLogs.reduce((s, e) => s + (Number(e.goodProduction) || 0), 0)
-  const waste = todayLogs.reduce((s, e) => s + (Number(e.wasteMaterial) || 0), 0)
-  const total = good + waste
-  const efficiency = total > 0 ? ((good / total) * 100).toFixed(1) : '100.0'
-  
-  return { good, waste, efficiency }
+  if (!selectedOp.value) {
+    return {
+      todayGood: 0, todayWaste: 0, todayEfficiency: '100.0',
+      rangeGood: 0, rangeWaste: 0, rangeEfficiency: '100.0',
+      weekGood: 0, weekWaste: 0, isHourly: false
+    }
+  }
+
+  const isHourly = !!workerProfile.value?.isHourly
+  const now = new Date()
+
+  // Today's logs
+  const todayLogs = allOperatorLogs.value.filter(e => isSameCalendarDay(parseEntryDate(e), now))
+  const todayGood = todayLogs.reduce((s, e) => s + (e.workCategory === 'TIME' ? (Number(e.hoursWorked) || Number(e.goodProduction) || 0) : (Number(e.goodProduction) || 0)), 0)
+  const todayWaste = todayLogs.reduce((s, e) => s + (Number(e.wasteMaterial) || 0), 0)
+  const todayTotal = todayGood + todayWaste
+  const todayEfficiency = todayTotal > 0 ? ((todayGood / todayTotal) * 100).toFixed(1) : '100.0'
+
+  // Selected range logs
+  const rangeLogs = filteredOperatorLogs.value
+  const rangeGood = rangeLogs.reduce((s, e) => s + (e.workCategory === 'TIME' ? (Number(e.hoursWorked) || Number(e.goodProduction) || 0) : (Number(e.goodProduction) || 0)), 0)
+  const rangeWaste = rangeLogs.reduce((s, e) => s + (Number(e.wasteMaterial) || 0), 0)
+  const rangeTotal = rangeGood + rangeWaste
+  const rangeEfficiency = rangeTotal > 0 ? ((rangeGood / rangeTotal) * 100).toFixed(1) : '100.0'
+
+  // Week's logs
+  const weekLogs = allOperatorLogs.value.filter(e => e.week === store.currentProductionWeek)
+  const weekGood = weekLogs.reduce((s, e) => s + (Number(e.goodProduction) || 0), 0)
+  const weekWaste = weekLogs.reduce((s, e) => s + (Number(e.wasteMaterial) || 0), 0)
+
+  return {
+    todayGood,
+    todayWaste,
+    todayEfficiency,
+    rangeGood,
+    rangeWaste,
+    rangeEfficiency,
+    weekGood,
+    weekWaste,
+    isHourly
+  }
 })
 
 // ── Financial Engine Computations ─────────────────────────────────────────────
@@ -954,7 +1165,7 @@ const payoutStatus = computed(() => {
 
 const operatorLoans = computed(() => {
   if (!selectedOp.value) return []
-  return (payrollStore.loans || []).filter(l => l.workerId === selectedOp.value.id)
+  return (payrollStore.loans || []).filter(l => Number(l.workerId) === Number(selectedOp.value.id))
 })
 
 const activeLoans = computed(() => {
@@ -967,8 +1178,9 @@ const totalOutstandingDebt = computed(() => {
 
 const thisWeekUnits = computed(() => {
   if (!selectedOp.value) return 0
-  return (store.ledgerEntries || [])
-    .filter(e => e.operator_id === selectedOp.value.id && (e.week === store.currentProductionWeek || (!e.week && e.productionWeek === store.currentProductionWeek)))
+  const opId = Number(selectedOp.value.id)
+  return allOperatorLogs.value
+    .filter(e => Number(e.operator_id) === opId && (e.week === store.currentProductionWeek || (!e.week && e.productionWeek === store.currentProductionWeek)))
     .reduce((sum, e) => sum + (Number(e.goodProduction) || 0), 0)
 })
 
@@ -976,10 +1188,13 @@ const thisWeekUnits = computed(() => {
 const unifiedTransactions = computed(() => {
   if (!selectedOp.value) return []
   const list = []
+  const opId = Number(selectedOp.value.id)
+  const opName = selectedOp.value.name
 
   // 1. Cash entries (Advances, Payouts, Settlement records)
   const myCash = (store.cashEntries || []).filter(c =>
-    c.operator_id === selectedOp.value.id || (!c.operator_id && c.operator === selectedOp.value.name)
+    (c.operator_id != null && Number(c.operator_id) === opId) ||
+    (!c.operator_id && c.operator === opName)
   )
 
   for (const c of myCash) {
@@ -1139,12 +1354,12 @@ function showToast(msg) {
 
 function isOperatorOnBreak(op) {
   if (!op) return false
-  return (store.downtimeSessions || []).some(d => d.operator_id === op.id && d.downtime_reason === 'Break' && !d.end_time)
+  return (store.downtimeSessions || []).some(d => Number(d.operator_id) === Number(op.id) && d.downtime_reason === 'Break' && !d.end_time)
 }
 
 async function handleLogBreak(op) {
   if (!op) return
-  const activeBreak = (store.downtimeSessions || []).find(d => d.operator_id === op.id && d.downtime_reason === 'Break' && !d.end_time)
+  const activeBreak = (store.downtimeSessions || []).find(d => Number(d.operator_id) === Number(op.id) && d.downtime_reason === 'Break' && !d.end_time)
   
   try {
     if (activeBreak) {
@@ -1182,7 +1397,7 @@ async function handleEndShift(op) {
       .eq('operator_id', op.id)
       .is('clock_out', null)
       
-    const logEntry = (attStore.clockInLog || []).find(log => log.operatorId === op.id && !log.clockOut)
+    const logEntry = (attStore.clockInLog || []).find(log => Number(log.operatorId) === Number(op.id) && !log.clockOut)
     if (logEntry) {
       logEntry.clockOut = outTime
     }
