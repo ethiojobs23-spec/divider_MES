@@ -1,92 +1,115 @@
 <template>
   <AppLayout>
     <div class="tablet-layout">
-      <div class="header">
-      <span class="material-symbols-rounded header-icon">settings_account_box</span>
-      <div>
-        <h1 class="header-title">Worker Payout Settings</h1>
-        <p class="header-sub">Configure payment methods and interest rates</p>
-      </div>
-    </div>
+      <div class="header flex justify-between items-center flex-wrap gap-3">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-rounded header-icon">settings_account_box</span>
+          <div>
+            <h1 class="header-title">Worker Payout Settings</h1>
+            <p class="header-sub">Configure payment methods, CBE/Telebirr accounts, and interest rates</p>
+          </div>
+        </div>
 
-    <div class="content-area">
-      <div class="sidebar">
-        <h2 class="sidebar-title">Select Operator</h2>
-        <ul class="operator-list">
-          <li 
-            v-for="op in mesStore.operators" 
-            :key="op.id"
-            @click="selectOperator(op)"
-            :class="['operator-item', { active: activeOperator?.id === op.id }]"
-          >
-            <OperatorAvatar :avatar="op.avatar" :name="op.name" :color="op.color" size="md" />
-            <div class="op-info">
-              <span class="op-name">{{ op.name }}</span>
-              <span class="op-role">{{ op.role }}</span>
+        <button class="sync-btn cursor-pointer" :disabled="isSyncing" @click="manualSync" title="Sync payout settings now">
+          <span class="material-symbols-rounded" :class="{ 'spin-icon': isSyncing }">sync</span>
+          <span>{{ isSyncing ? 'Syncing...' : 'Sync' }}</span>
+        </button>
+      </div>
+
+      <div class="content-area">
+        <div class="sidebar">
+          <h2 class="sidebar-title">Select Operator ({{ operatorList.length }})</h2>
+          <ul class="operator-list">
+            <li 
+              v-for="op in operatorList" 
+              :key="op.id"
+              @click="selectOperator(op)"
+              :class="['operator-item', { active: activeOperator?.id === op.id }]"
+            >
+              <OperatorAvatar :avatar="op.avatar" :name="op.name" :color="op.color" size="md" />
+              <div class="op-info">
+                <span class="op-name">{{ op.name }}</span>
+                <span class="op-role">{{ op.role }}</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="main-panel" v-if="activeOperator">
+          <h2 class="panel-title">Settings for {{ activeOperator.name }}</h2>
+          
+          <form @submit.prevent="saveSettings" class="settings-form">
+            <div class="form-group">
+              <label>Payment Disbursement Method</label>
+              <select v-model="formData.paymentMethod" class="massive-input cursor-pointer">
+                <option value="Cash">Cash (Physical Birr)</option>
+                <option value="Telebirr">Telebirr Wallet</option>
+                <option value="CBE Bank Transfer">Commercial Bank of Ethiopia (CBE)</option>
+              </select>
             </div>
-          </li>
-        </ul>
+
+            <div class="form-group" v-if="formData.paymentMethod !== 'Cash'">
+              <label>{{ formData.paymentMethod === 'Telebirr' ? 'Telebirr Phone Number' : 'CBE Account Number' }}</label>
+              <input 
+                type="text" 
+                v-model="formData.accountInfo" 
+                class="massive-input" 
+                :placeholder="formData.paymentMethod === 'Telebirr' ? 'e.g. 0911234567' : 'e.g. 1000123456789'" 
+              />
+            </div>
+
+            <div class="form-group">
+              <label>Base Loan Interest Rate (%)</label>
+              <VirtualNumpad
+                label="Interest Rate (%)"
+                v-model="formData.baseInterestRate"
+                :maxLen="5"
+                :allowDecimal="true"
+              />
+              <p class="hint">Default interest surcharge applied when issuing advances / loans.</p>
+            </div>
+
+            <button type="submit" class="btn-save massive-btn cursor-pointer" :disabled="isSaving">
+              {{ isSaving ? 'SAVING...' : 'SAVE SETTINGS' }}
+            </button>
+          </form>
+        </div>
+        <div class="main-panel empty-state" v-else>
+          <span class="material-symbols-rounded empty-icon">person_search</span>
+          <p>Select an operator to configure payout settings</p>
+        </div>
       </div>
 
-      <div class="main-panel" v-if="activeOperator">
-        <h2 class="panel-title">Settings for {{ activeOperator.name }}</h2>
-        
-        <form @submit.prevent="saveSettings" class="settings-form">
-          <div class="form-group">
-            <label>Payment Method</label>
-            <select v-model="formData.paymentMethod" class="massive-input">
-              <option value="Cash">Cash</option>
-              <option value="Telebirr">Telebirr</option>
-              <option value="CBE Bank Transfer">CBE Bank Transfer</option>
-            </select>
-          </div>
-
-          <div class="form-group" v-if="formData.paymentMethod !== 'Cash'">
-            <label>Account Number / Telebirr Phone Number</label>
-            <input 
-              type="text" 
-              v-model="formData.accountInfo" 
-              class="massive-input" 
-              placeholder="e.g. 0911..." 
-            />
-          </div>
-
-          <div class="form-group">
-            <label>Base Interest Rate (%)</label>
-            <VirtualNumpad
-              label="Interest Rate (%)"
-              v-model="formData.baseInterestRate"
-              :maxLen="5"
-              allowDecimal
-            />
-            <p class="hint">Applied automatically when requesting a loan.</p>
-          </div>
-
-          <button type="submit" class="btn-save massive-btn">
-            SAVE SETTINGS
-          </button>
-        </form>
-      </div>
-      <div class="main-panel empty-state" v-else>
-        <span class="material-symbols-rounded empty-icon">person_search</span>
-        <p>Select an operator to configure payout settings</p>
-      </div>
+      <!-- Toast -->
+      <Transition name="toast">
+        <div v-if="toast.visible" class="pos-toast">
+          <span class="material-symbols-rounded">check_circle</span>
+          {{ toast.message }}
+        </div>
+      </Transition>
     </div>
-  </div>
   </AppLayout>
 </template>
 
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
-import { ref, computed } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 import { useMesStore } from '@/store/mesStore.js'
-import { usePayrollStore } from '@/store/payrollStore'
+import { usePayrollStore } from '@/store/payrollStore.js'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 
 const mesStore = useMesStore()
 const payrollStore = usePayrollStore()
+
+const isSyncing = ref(false)
+const isSaving = ref(false)
+let refreshTimer = null
+
+const operatorList = computed(() => {
+  return mesStore.operators.filter(o => o.role !== 'customer')
+})
 
 const activeOperator = ref(null)
 const formData = ref({
@@ -98,13 +121,61 @@ const formData = ref({
 function selectOperator(op) {
   activeOperator.value = op
   const profile = payrollStore.getWorkerProfile(op.id)
-  formData.value = { ...profile }
+  formData.value = {
+    paymentMethod: profile.paymentMethod || 'Cash',
+    accountInfo: profile.accountInfo || '',
+    baseInterestRate: profile.baseInterestRate !== undefined ? profile.baseInterestRate : 5
+  }
+}
+
+async function manualSync() {
+  isSyncing.value = true
+  try {
+    await mesStore.fetchInitialData()
+    if (activeOperator.value) {
+      selectOperator(activeOperator.value)
+    }
+  } finally {
+    setTimeout(() => { isSyncing.value = false }, 400)
+  }
+}
+
+onMounted(async () => {
+  await mesStore.fetchInitialData()
+  if (mesStore.activeOperator) {
+    selectOperator(mesStore.activeOperator)
+  } else if (operatorList.value.length > 0) {
+    selectOperator(operatorList.value[0])
+  }
+
+  refreshTimer = setInterval(async () => {
+    await mesStore.fetchInitialData()
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
+})
+
+const toast = reactive({ visible: false, message: '' })
+let toastTimer = null
+function showToast(msg) {
+  toast.message = msg
+  toast.visible = true
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { toast.visible = false }, 2500)
 }
 
 async function saveSettings() {
-  if (activeOperator.value) {
+  if (!activeOperator.value || isSaving.value) return
+  isSaving.value = true
+  try {
     await payrollStore.setWorkerProfile(activeOperator.value.id, { ...formData.value })
-    alert(`Settings saved for ${activeOperator.value.name}`)
+    showToast(`✓ Settings saved for ${activeOperator.value.name}`)
+  } catch (err) {
+    showToast(`⚠ Failed to save settings`)
+  } finally {
+    isSaving.value = false
   }
 }
 </script>
@@ -118,20 +189,28 @@ async function saveSettings() {
   background: #0f172a;
   color: #f1f5f9;
   font-family: 'Inter', sans-serif;
+  position: relative;
 }
 
 .header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.5rem 2rem;
+  padding: 1rem 1.5rem;
   background: #1e293b;
   border-bottom: 1px solid rgba(99,102,241,.2);
 }
 
-.header-icon { font-size: 2.5rem; color: #a5b4fc; }
-.header-title { font-size: 1.5rem; font-weight: 800; margin: 0; }
-.header-sub { font-size: 0.9rem; color: #64748b; margin: 0; }
+.header-icon { font-size: 2.25rem; color: #a5b4fc; }
+.header-title { font-size: 1.25rem; font-weight: 800; margin: 0; }
+.header-sub { font-size: 0.72rem; color: #64748b; margin: 0.15rem 0 0; }
+
+.sync-btn {
+  display: flex; align-items: center; gap: 0.35rem;
+  background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3);
+  color: #a5b4fc; border-radius: 0.5rem; padding: 0.45rem 0.85rem;
+  font-size: 0.75rem; font-weight: 700; transition: all 0.15s ease;
+}
+.sync-btn:hover { background: rgba(99,102,241,0.22); color: #fff; }
+.spin-icon { animation: spin 0.8s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 .content-area {
   display: flex;
@@ -141,8 +220,7 @@ async function saveSettings() {
 
 .sidebar {
   width: 100%;
-
-  max-width: 350px;
+  max-width: 300px;
   background: #1e293b;
   border-right: 1px solid rgba(255,255,255,0.05);
   display: flex;
@@ -150,8 +228,11 @@ async function saveSettings() {
 }
 
 .sidebar-title {
-  padding: 1.5rem;
-  font-size: 1.1rem;
+  padding: 1rem 1.25rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: #94a3b8;
   border-bottom: 1px solid rgba(255,255,255,0.05);
   margin: 0;
@@ -168,79 +249,63 @@ async function saveSettings() {
 .operator-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1.2rem 1.5rem;
+  gap: 0.85rem;
+  padding: 0.85rem 1.25rem;
   cursor: pointer;
   border-bottom: 1px solid rgba(255,255,255,0.02);
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .operator-item:hover { background: rgba(255,255,255,0.03); }
 .operator-item.active { background: rgba(99,102,241,0.15); border-left: 4px solid #6366f1; }
 
-.op-avatar {
-  width: 3rem; height: 3rem;
-  border-radius: 0.5rem;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.2rem; font-weight: 800; color: #fff;
-}
-
 .op-info { display: flex; flex-direction: column; }
-.op-name { font-size: 1.1rem; font-weight: 700; }
-.op-role { font-size: 0.8rem; color: #64748b; }
+.op-name { font-size: 0.95rem; font-weight: 700; color: #f8fafc; }
+.op-role { font-size: 0.72rem; color: #64748b; }
 
 .main-panel {
   flex: 1;
-  padding: 3rem;
+  padding: 2rem;
   overflow-y: auto;
 }
 
 .panel-title {
-  font-size: 1.8rem;
-  margin-bottom: 2.5rem;
+  font-size: 1.3rem;
+  font-weight: 800;
+  margin-bottom: 1.5rem;
   color: #e2e8f0;
 }
 
 .settings-form {
-  max-width: 600px;
+  max-width: 520px;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.25rem;
 }
 
-.form-group { display: flex; flex-direction: column; gap: 0.8rem; }
-.form-group label { font-size: 1.1rem; font-weight: 600; color: #cbd5e1; }
-.hint { font-size: 0.85rem; color: #64748b; margin: 0; }
+.form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.form-group label { font-size: 0.8rem; font-weight: 700; color: #cbd5e1; text-transform: uppercase; }
+.hint { font-size: 0.72rem; color: #64748b; margin: 0; }
 
 .massive-input {
   width: 100%;
-  padding: 1.2rem;
-  font-size: 1.3rem;
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
   background: rgba(15,23,42,0.6);
-  border: 2px solid rgba(99,102,241,0.3);
-  border-radius: 0.75rem;
+  border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 0.6rem;
   color: #fff;
   outline: none;
   transition: border-color 0.2s;
 }
 .massive-input:focus { border-color: #6366f1; }
 
-.input-with-icon { position: relative; }
-.input-with-icon .icon {
-  position: absolute;
-  right: 1.2rem;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 1.3rem;
-  color: #64748b;
-}
-
 .massive-btn {
-  margin-top: 1rem;
-  padding: 1.5rem;
-  font-size: 1.2rem;
+  margin-top: 0.5rem;
+  padding: 1rem;
+  font-size: 0.95rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.05em;
   color: #fff;
   background: linear-gradient(135deg, #4f46e5, #4338ca);
   border: none;
@@ -249,7 +314,8 @@ async function saveSettings() {
   box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.4);
   transition: transform 0.1s, box-shadow 0.1s;
 }
-.massive-btn:active { transform: scale(0.98); box-shadow: 0 5px 15px -5px rgba(79, 70, 229, 0.4); }
+.massive-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.massive-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .empty-state {
   display: flex;
@@ -257,7 +323,16 @@ async function saveSettings() {
   align-items: center;
   justify-content: center;
   color: #64748b;
+  text-align: center;
 }
-.empty-icon { font-size: 5rem; margin-bottom: 1rem; opacity: 0.5; }
-.empty-state p { font-size: 1.2rem; }
+.empty-icon { font-size: 3rem; margin-bottom: 0.5rem; }
+
+.pos-toast {
+  position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  background: rgba(16,185,129,0.95); color: #fff;
+  padding: 0.75rem 1.5rem; border-radius: 0.75rem; font-weight: 700; font-size: 0.85rem;
+  display: flex; align-items: center; gap: 0.4rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 100;
+}
+.toast-enter-active, .toast-leave-active { transition: all 0.2s ease; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 1rem); }
 </style>
