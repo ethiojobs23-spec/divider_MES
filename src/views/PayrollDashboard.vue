@@ -46,6 +46,11 @@
               <span class="material-symbols-rounded text-xs">restart_alt</span>
               Live Week
             </button>
+
+            <button class="sync-btn cursor-pointer ml-1" :disabled="isSyncing" @click="manualSync" title="Sync payroll data now">
+              <span class="material-symbols-rounded" :class="{ 'spin-icon': isSyncing }">sync</span>
+              <span>{{ isSyncing ? 'Syncing...' : 'Sync' }}</span>
+            </button>
           </div>
         </div>
 
@@ -548,7 +553,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
 import PaymentReceiptModal from '@/components/ui/PaymentReceiptModal.vue'
 import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useMesStore } from '@/store/mesStore.js'
 import { usePayrollStore } from '@/store/payrollStore.js'
 
@@ -556,12 +561,46 @@ const mesStore = useMesStore()
 const payrollStore = usePayrollStore()
 
 const activeTab = ref('pending')
+const isSyncing = ref(false)
+let refreshTimer = null
+
+const isPayoutDayAllowed = computed(() => {
+  return true // Authorized supervisors and admins can review and approve payroll
+})
 
 const currentWeek = computed(() => mesStore.currentProductionWeek)
 
+async function manualSync() {
+  isSyncing.value = true
+  try {
+    await Promise.all([
+      mesStore.fetchInitialData(),
+      payrollStore.fetchLoans(),
+      payrollStore.fetchBonuses(currentWeek.value)
+    ])
+  } finally {
+    setTimeout(() => { isSyncing.value = false }, 400)
+  }
+}
+
 onMounted(async () => {
-  await payrollStore.fetchLoans()
-  await payrollStore.fetchBonuses(currentWeek.value)
+  await Promise.all([
+    mesStore.fetchInitialData(),
+    payrollStore.fetchLoans(),
+    payrollStore.fetchBonuses(currentWeek.value)
+  ])
+
+  refreshTimer = setInterval(async () => {
+    await Promise.all([
+      mesStore.fetchInitialData(),
+      payrollStore.fetchLoans(),
+      payrollStore.fetchBonuses(currentWeek.value)
+    ])
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
 })
 
 // Re-fetch bonuses if the week changes
