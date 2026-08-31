@@ -21,6 +21,14 @@
           <span v-if="activeView === tab.id" class="tab-indicator" />
         </button>
 
+        <button class="nav-tab sync-tab cursor-pointer" :disabled="isSyncing" @click="manualSync" title="Sync factory analytics now">
+          <span class="material-symbols-rounded tab-icon" :class="{ 'spin-icon': isSyncing }">sync</span>
+          <div class="tab-labels">
+            <span class="tab-title">{{ isSyncing ? 'Syncing...' : 'Sync Factory' }}</span>
+            <span class="tab-sub">Real-time refresh</span>
+          </div>
+        </button>
+
         <button class="export-btn" @click="exportTelegram">
           <span class="material-symbols-rounded">send</span>
           Export to Frezer
@@ -75,6 +83,11 @@
               >
                 <span class="material-symbols-rounded text-xs">restart_alt</span>
                 Live Week
+              </button>
+
+              <button class="sync-btn cursor-pointer ml-1" :disabled="isSyncing" @click="manualSync" title="Sync factory analytics now">
+                <span class="material-symbols-rounded text-xs" :class="{ 'spin-icon': isSyncing }">sync</span>
+                <span>{{ isSyncing ? 'Syncing...' : 'Sync' }}</span>
               </button>
             </div>
           </div>
@@ -718,7 +731,7 @@
 
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
 import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
@@ -729,6 +742,42 @@ import { useInventoryStore } from '@/store/inventoryStore.js'
 const store = useMesStore()
 const attStore = useAttendanceStore()
 const inventoryStore = useInventoryStore()
+
+const isSyncing = ref(false)
+let refreshTimer = null
+
+async function manualSync() {
+  isSyncing.value = true
+  try {
+    await Promise.all([
+      store.fetchInitialData(),
+      attStore.loadAttendanceLogs(),
+      inventoryStore.fetchInventory()
+    ])
+  } finally {
+    setTimeout(() => { isSyncing.value = false }, 400)
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([
+    store.fetchInitialData(),
+    attStore.loadAttendanceLogs(),
+    inventoryStore.fetchInventory()
+  ])
+
+  refreshTimer = setInterval(async () => {
+    await Promise.all([
+      store.fetchInitialData(),
+      attStore.loadAttendanceLogs(),
+      inventoryStore.fetchInventory()
+    ])
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
+})
 
 // ── Tab definitions ──────────────────────────────────────────────────────────
 const TABS = [
@@ -1411,6 +1460,16 @@ td.bar-cell { width: 80px; }
 }
 .toast-enter-active, .toast-leave-active { transition: all .4s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 20px) scale(.9); }
+
+.sync-btn {
+  display: flex; align-items: center; gap: 0.35rem;
+  background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3);
+  color: #a5b4fc; border-radius: 0.5rem; padding: 0.45rem 0.85rem;
+  font-size: 0.75rem; font-weight: 700; transition: all 0.15s ease;
+}
+.sync-btn:hover { background: rgba(99,102,241,0.22); color: #fff; }
+.spin-icon { animation: spin 0.8s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* ══ Profile Transition ══════════════════════════════════════════════════════ */
 .profile-fade-enter-active, .profile-fade-leave-active { transition: all .2s ease; }
