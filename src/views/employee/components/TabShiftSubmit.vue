@@ -281,8 +281,20 @@ defineEmits(['submitTodayShift'])
 .success-msg { color: #34d399; font-weight: 600; margin-top: 1rem; text-align: center; }
 
 @media (max-width: 768px) {
-  .shift-summary-card, .production-list-card { padding: 1.5rem; }
+  .shift-summary-card, .production-list-card { padding: 1.25rem 0.75rem; }
   .shift-stats { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .btn-submit-shift { touch-action: pan-y; }
+  .data-table-container {
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+  .data-table {
+    min-width: 500px;
+  }
+  .history-list {
+    max-height: none;
+    overflow: visible;
+  }
   .submission-row { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
   .sub-stats { width: 100%; justify-content: space-between; }
   .sub-status { align-self: flex-start; }

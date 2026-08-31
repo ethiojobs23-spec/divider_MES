@@ -217,4 +217,14 @@ async function saveProfile() {
 
 .success-msg { color: #34d399; font-weight: 600; margin-top: 1rem; text-align: center; }
 .error-text { color: #f87171 !important; }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .production-list-card {
+    padding: 1.5rem 1rem;
+  }
+  .btn-submit-shift, .nav-upload-btn, .input-field {
+    touch-action: pan-y;
+  }
+}
 </style>

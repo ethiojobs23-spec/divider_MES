@@ -179,6 +179,7 @@ const navItems = [
     padding-bottom: 0.5rem;
     gap: 0.5rem;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
     -ms-overflow-style: none;
   }
   .portal-nav::-webkit-scrollbar { display: none; }
@@ -187,9 +188,14 @@ const navItems = [
     white-space: nowrap;
     padding: 0.75rem 1rem;
     font-size: 0.95rem;
+    touch-action: pan-y;
   }
   
   .sidebar-actions { margin-top: 1rem; padding-top: 0; }
-  .btn-logout { padding: 0.85rem; font-size: 0.95rem; }
+  .btn-logout {
+    padding: 0.85rem;
+    font-size: 0.95rem;
+    touch-action: pan-y;
+  }
 }
 </style>

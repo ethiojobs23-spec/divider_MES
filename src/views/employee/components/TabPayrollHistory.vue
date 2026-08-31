@@ -75,6 +75,13 @@ defineProps({
 .empty-text { text-align: center !important; color: #64748b !important; padding: 3rem !important; }
 
 @media (max-width: 768px) {
-  .production-list-card { padding: 1.5rem 1rem; }
+  .production-list-card { padding: 1.25rem 0.75rem; }
+  .data-table-container {
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+  .data-table {
+    min-width: 450px;
+  }
 }
 </style>

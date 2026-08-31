@@ -179,6 +179,8 @@ function onRequest() {
 
 @media (max-width: 768px) {
   .split-layout { grid-template-columns: 1fr; gap: 1rem; }
-  .form-card, .history-card { padding: 1.5rem; }
+  .form-card, .history-card { padding: 1.25rem; }
+  .btn-submit { touch-action: pan-y; }
+  .history-list { max-height: none; overflow: visible; }
 }
 </style>

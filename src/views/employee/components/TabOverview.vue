@@ -175,4 +175,18 @@ defineProps({
   color: #475569; font-size: 1rem; padding: 1rem;
   background: rgba(255,255,255,0.02); border-radius: 0.75rem;
 }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .stat-card {
+    padding: 1.25rem;
+  }
+  .work-types-section {
+    padding: 1.25rem;
+  }
+}
 </style>

@@ -295,7 +295,9 @@ const attendanceScore = computed(() => {
 
 @media (max-width: 768px) {
   .split-layout { grid-template-columns: 1fr; gap: 1rem; }
-  .attendance-card, .history-card { padding: 1.5rem; }
-  .btn-clock { width: 100%; justify-content: center; padding: 1rem; font-size: 1rem; }
+  .attendance-card, .history-card { padding: 1.25rem; }
+  .btn-clock { width: 100%; justify-content: center; padding: 1rem; font-size: 1rem; touch-action: pan-y; }
+  .icon-btn { touch-action: pan-y; }
+  .history-list { max-height: none; overflow: visible; }
 }
 </style>

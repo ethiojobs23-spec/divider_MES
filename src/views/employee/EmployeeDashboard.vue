@@ -479,12 +479,18 @@ function logout() {
   .employee-portal {
     flex-direction: column;
     height: auto;
-    min-height: 100vh;
+    min-height: 100%;
     overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-bottom: 4rem;
   }
   .portal-main {
-    padding: 1.5rem 1rem;
+    padding: 1.25rem 1rem 4rem 1rem;
     overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
   }
   .portal-header { margin-bottom: 1.5rem; }
   .portal-header h1 { font-size: 1.75rem; }
