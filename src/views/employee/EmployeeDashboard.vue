@@ -11,9 +11,16 @@
 
     <!-- Main Content -->
     <main class="portal-main">
-      <header class="portal-header">
-        <h1>{{ tabTitles[activeTab] || 'Employee Portal' }}</h1>
-        <p>Production Week: {{ currentWeek }}</p>
+      <header class="portal-header flex justify-between items-center flex-wrap gap-3">
+        <div>
+          <h1>{{ tabTitles[activeTab] || 'Employee Portal' }}</h1>
+          <p>Production Week: {{ currentWeek }} &bull; {{ employee?.name ?? 'Worker' }}</p>
+        </div>
+
+        <button class="sync-btn cursor-pointer" :disabled="isSyncing" @click="manualSync" title="Sync my portal data now">
+          <span class="material-symbols-rounded" :class="{ 'spin-icon': isSyncing }">sync</span>
+          <span>{{ isSyncing ? 'Syncing...' : 'Sync Data' }}</span>
+        </button>
       </header>
 
       <!-- Section Components -->
@@ -120,7 +127,7 @@
 
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
@@ -148,6 +155,41 @@ const attStore = useAttendanceStore()
 
 const currentWeek = computed(() => mesStore.currentProductionWeek)
 const activeTab = ref('overview')
+const isSyncing = ref(false)
+let refreshTimer = null
+
+async function manualSync() {
+  isSyncing.value = true
+  try {
+    await Promise.all([
+      mesStore.fetchInitialData(),
+      payrollStore.fetchLoans(),
+      attStore.loadAttendanceLogs()
+    ])
+  } finally {
+    setTimeout(() => { isSyncing.value = false }, 400)
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([
+    mesStore.fetchInitialData(),
+    payrollStore.fetchLoans(),
+    attStore.loadAttendanceLogs()
+  ])
+
+  refreshTimer = setInterval(async () => {
+    await Promise.all([
+      mesStore.fetchInitialData(),
+      payrollStore.fetchLoans(),
+      attStore.loadAttendanceLogs()
+    ])
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
+})
 
 const tabTitles = {
   overview: 'My Dashboard',
@@ -300,7 +342,9 @@ async function clockOut() {
 async function handleAdminOverride(pin) {
   const adminRoles = ['admin', 'System Admin', 'manager', 'Supervisor']
   const admin = mesStore.operators.find(o => String(o.pin_code) === String(pin) && adminRoles.includes(o.role))
-  if (!admin) {
+  const sysAuthCheck = await sysAuth.verifyPin(pin, 'admin')
+
+  if (!admin && !sysAuthCheck.success) {
     adminOverrideModal.value.error = 'Invalid Admin/Supervisor PIN. Try again.'
     return
   }
@@ -495,4 +539,14 @@ function logout() {
   .portal-header { margin-bottom: 1.5rem; }
   .portal-header h1 { font-size: 1.75rem; }
 }
+
+.sync-btn {
+  display: flex; align-items: center; gap: 0.35rem;
+  background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3);
+  color: #a5b4fc; border-radius: 0.5rem; padding: 0.5rem 0.9rem;
+  font-size: 0.75rem; font-weight: 700; transition: all 0.15s ease;
+}
+.sync-btn:hover { background: rgba(99,102,241,0.22); color: #fff; }
+.spin-icon { animation: spin 0.8s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>
