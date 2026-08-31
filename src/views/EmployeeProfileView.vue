@@ -461,7 +461,7 @@
 
 <script setup>
 // Developer: Mintesnot Abebe | Brand: dev MinteIO
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AnalyticsDataCard from '@/components/ui/AnalyticsDataCard.vue'
@@ -470,6 +470,7 @@ import { useMesStore } from '@/store/mesStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
 
 const store = useMesStore()
+const attStore = useAttendanceStore()
 
 // ── Tab definitions (identical pattern to ExecutiveAnalytics) ─────────────────
 const TABS = [
@@ -480,25 +481,25 @@ const TABS = [
 const activeView = ref('roster')
 
 // ── Operator list (pulls from store + adds extra fields) ─────────────────────
-const attStore = useAttendanceStore()
-
 const operators = computed(() =>
-  store.operators.map(op => {
-    const isClockedIn = attStore.isOperatorClockedIn(op.id)
-    const currentShift = attStore.clockInLog.find(log => log.operatorId === op.id && !log.clockOut)
+  (store.operators || []).map(op => {
+    const isClockedIn = store.isOperatorClockedIn(op.id)
+    const currentShift = (attStore.clockInLog || []).find(log => log.operatorId === op.id && !log.clockOut)
     
     let startTime = '—'
     let hoursLogged = '00:00:00'
-    if (currentShift) {
+    if (currentShift && currentShift.clockIn) {
       const d = new Date(currentShift.clockIn)
-      startTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      const diffMs = new Date() - d
+      startTime = isNaN(d.getTime()) ? '—' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      const diffMs = Math.max(0, new Date() - d)
       const h = Math.floor(diffMs / 3600000).toString().padStart(2, '0')
       const m = Math.floor((diffMs % 3600000) / 60000).toString().padStart(2, '0')
       hoursLogged = `${h}:${m}`
     }
 
-    const daysAttended = attStore.getDaysAttended(op.id, store.currentProductionWeek)
+    const daysAttended = typeof attStore.getDaysAttended === 'function' 
+      ? attStore.getDaysAttended(op.id, store.currentProductionWeek) 
+      : 0
     
     const alerts = []
     if (isClockedIn) {
@@ -529,52 +530,72 @@ const filteredOperators = computed(() => {
 
 const selectedOp = ref(null)
 
+// Ensure selectedOp is populated when operators load
+watch(operators, (newOps) => {
+  if (selectedOp.value) {
+    const updated = newOps.find(o => o.id === selectedOp.value.id)
+    if (updated) selectedOp.value = updated
+  } else if (newOps.length > 0) {
+    selectedOp.value = newOps[0]
+  }
+}, { immediate: true })
+
+onMounted(() => {
+  if (!selectedOp.value && operators.value.length > 0) {
+    selectedOp.value = operators.value[0]
+  }
+})
+
 const attendanceRate = (op) =>
-  op.expectedDays > 0 ? Math.round((op.daysAttended / op.expectedDays) * 100) : 0
+  op && op.expectedDays > 0 ? Math.round(((op.daysAttended || 0) / op.expectedDays) * 100) : 0
 
 // ── Activity logs ─────────────────────────────────────────────────────────────
 const activityLogs = computed(() => {
   if (!selectedOp.value) return []
-  return store.ledgerEntries
+  return (store.ledgerEntries || [])
     .filter(e => e.operator_id === selectedOp.value.id)
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-    .map(e => ({
-      time: new Date(e.timestamp).toLocaleTimeString('en-GB'),
-      variant: e.dividerType,
-      size: e.size,
-      placement: e.placement,
-      qty: e.goodProduction,
-      waste: e.wasteMaterial,
-      status: e.wasteMaterial > 0 && e.goodProduction === 0 ? 'WASTE' : 'OK',
-      loggedByAdmin: e.loggedByAdmin
-    }))
+    .map(e => {
+      const dt = e.timestamp ? new Date(e.timestamp) : null
+      const timeStr = dt && !isNaN(dt.getTime()) ? dt.toLocaleTimeString('en-GB') : '—'
+      return {
+        time: timeStr,
+        variant: e.dividerType || '—',
+        size: e.size || '—',
+        placement: e.placement || '—',
+        qty: e.goodProduction || 0,
+        waste: e.wasteMaterial || 0,
+        status: e.wasteMaterial > 0 && (!e.goodProduction || e.goodProduction === 0) ? 'WASTE' : 'OK',
+        loggedByAdmin: e.loggedByAdmin
+      }
+    })
 })
 
 // ── KPIs ─────────────────────────────────────────────────────────────
 const kpiStats = computed(() => {
-  if (!selectedOp.value) return { good: 0, waste: 0, efficiency: 0, balance: 0, lastAdvance: 0 }
+  if (!selectedOp.value) return { good: 0, waste: 0, efficiency: '100.0', balance: '0.00', lastAdvance: '0.00' }
   
   const today = new Date().toISOString().split('T')[0]
-  const todayLogs = store.ledgerEntries.filter(e => 
+  const todayLogs = (store.ledgerEntries || []).filter(e => 
     e.operator_id === selectedOp.value.id && 
     (e.productionDate === today || (e.timestamp && e.timestamp.startsWith(today)))
   )
   const good = todayLogs.reduce((s, e) => s + (Number(e.goodProduction) || 0), 0)
   const waste = todayLogs.reduce((s, e) => s + (Number(e.wasteMaterial) || 0), 0)
   const total = good + waste
-  const efficiency = total > 0 ? ((good / total) * 100).toFixed(1) : 100
+  const efficiency = total > 0 ? ((good / total) * 100).toFixed(1) : '100.0'
   
-  const myCash = store.cashEntries.filter(c => c.operator_id === selectedOp.value.id || (!c.operator_id && c.operator === selectedOp.value.name))
-  const balance = myCash.reduce((s, c) => s + (c.type === 'advance' ? -Number(c.amount) : c.type === 'payout' ? Number(c.amount) : 0), 0)
+  const myCash = (store.cashEntries || []).filter(c => c.operator_id === selectedOp.value.id || (!c.operator_id && c.operator === selectedOp.value.name))
+  const balance = myCash.reduce((s, c) => s + (c.type === 'advance' ? -Number(c.amount || 0) : c.type === 'payout' ? Number(c.amount || 0) : 0), 0)
   
   const lastAdv = myCash.filter(c => c.type === 'advance').sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
   
-  return { good, waste, efficiency, balance: balance.toFixed(2), lastAdvance: lastAdv ? Number(lastAdv.amount).toFixed(2) : '0.00' }
+  return { good, waste, efficiency, balance: balance.toFixed(2), lastAdvance: lastAdv ? Number(lastAdv.amount || 0).toFixed(2) : '0.00' }
 })
 
 const transactions = computed(() => {
   if (!selectedOp.value) return []
-  return store.cashEntries
+  return (store.cashEntries || [])
     .filter(c => c.operator_id === selectedOp.value.id || (!c.operator_id && c.operator === selectedOp.value.name))
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
     .map(c => {
@@ -595,10 +616,13 @@ const transactions = computed(() => {
         icon = 'payments'
       }
       
+      const dt = c.timestamp ? new Date(c.timestamp) : null
+      const dateStr = dt && !isNaN(dt.getTime()) ? dt.toLocaleDateString('en-GB').toUpperCase() : '—'
+      
       return {
-        date: new Date(c.timestamp).toLocaleDateString('en-GB').toUpperCase(),
+        date: dateStr,
         type: typeStr,
-        amount: (c.type === 'advance' ? '−' : '+') + Number(c.amount).toFixed(2),
+        amount: (c.type === 'advance' ? '−' : '+') + Number(c.amount || 0).toFixed(2),
         status: c.status === 'pending' ? 'PENDING' : 'CLEARED',
         icon,
         colorClass,
@@ -620,15 +644,14 @@ function showToast(msg) {
   toastTimer = setTimeout(() => { toastVisible.value = false }, 2500)
 }
 
-
 function isOperatorOnBreak(op) {
   if (!op) return false
-  return store.downtimeSessions.some(d => d.operator_id === op.id && d.downtime_reason === 'Break' && !d.end_time)
+  return (store.downtimeSessions || []).some(d => d.operator_id === op.id && d.downtime_reason === 'Break' && !d.end_time)
 }
 
 async function handleLogBreak(op) {
   if (!op) return
-  const activeBreak = store.downtimeSessions.find(d => d.operator_id === op.id && d.downtime_reason === 'Break' && !d.end_time)
+  const activeBreak = (store.downtimeSessions || []).find(d => d.operator_id === op.id && d.downtime_reason === 'Break' && !d.end_time)
   
   try {
     if (activeBreak) {
@@ -647,6 +670,7 @@ async function handleLogBreak(op) {
       }
       const { data } = await supabase.from('mes_downtime_logs').insert(payload).select().single()
       if (data) {
+        if (!store.downtimeSessions) store.downtimeSessions = []
         store.downtimeSessions.push(data)
       }
       showToast(`${op.name} is now on break!`)
@@ -668,7 +692,7 @@ async function handleEndShift(op) {
       .is('clock_out', null)
       
     // Update local attendance store state
-    const logEntry = attStore.clockInLog.find(log => log.operatorId === op.id && !log.clockOut)
+    const logEntry = (attStore.clockInLog || []).find(log => log.operatorId === op.id && !log.clockOut)
     if (logEntry) {
       logEntry.clockOut = outTime
     }
@@ -681,7 +705,7 @@ async function handleEndShift(op) {
 
 function handleClockOut() {
   if (selectedOp.value) {
-    showToast(`${selectedOp.value.name} clocked out successfully`)
+    handleEndShift(selectedOp.value)
   }
 }
 </script>
@@ -1112,4 +1136,62 @@ function handleClockOut() {
 }
 .toast-enter-active, .toast-leave-active { transition: all .25s ease; }
 .toast-enter-from, .toast-leave-to       { opacity: 0; transform: translate(-50%, 1rem); }
+
+/* ── Mobile Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .emp-root {
+    flex-direction: column;
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding-bottom: 4rem;
+  }
+  .view-nav {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0.75rem 1rem;
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    gap: 0.5rem;
+  }
+  .view-nav::-webkit-scrollbar { display: none; }
+  .nav-heading { display: none; }
+  .nav-tab {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 0.6rem 0.85rem;
+    touch-action: pan-y;
+  }
+  .selected-op-block { display: none; }
+  .action-bottom-btn { display: none; }
+  .view-area {
+    overflow: visible;
+    height: auto;
+    padding: 1rem;
+  }
+  .view-panel {
+    overflow: visible;
+    height: auto;
+    padding: 0;
+  }
+  .operator-list {
+    width: 100% !important;
+    max-height: 200px !important;
+    margin-bottom: 1rem;
+  }
+  .profile-area {
+    width: 100%;
+  }
+  .shift-actions {
+    flex-direction: column;
+  }
+  .shift-btn, .fin-action-btn, .op-card {
+    touch-action: pan-y;
+  }
+}
 </style>
