@@ -474,33 +474,134 @@
 
     <!-- Payment History View -->
     <div class="history-view w-full flex-1 min-h-0 overflow-y-auto p-4 md:p-8 bg-slate-900" v-show="activeTab === 'history'">
-      <div class="max-w-5xl mx-auto">
-        <h2 class="text-2xl font-bold text-slate-100 mb-6">Past Payroll Settlements</h2>
-        
+      <div class="max-w-5xl mx-auto space-y-6">
+        <!-- Header Bar with Filters -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-black text-slate-100 tracking-tight">Past Payroll Settlements</h2>
+            <p class="text-xs text-slate-400 mt-1">Audit log of all finalized and logged payments from the financial ledger</p>
+          </div>
+          
+          <div class="flex flex-wrap items-center gap-2.5">
+            <!-- Search Worker -->
+            <div class="relative min-w-[180px]">
+              <span class="material-symbols-rounded absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+              <input
+                v-model="historySearchQuery"
+                type="text"
+                placeholder="Search worker..."
+                class="w-full bg-slate-800 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 placeholder-slate-500"
+              />
+            </div>
+            
+            <!-- Week Filter -->
+            <select
+              v-model="historyWeekFilter"
+              class="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-slate-200 focus:outline-none focus:border-indigo-500"
+            >
+              <option value="all">All Weeks</option>
+              <option v-for="w in availableHistoryWeeks" :key="w" :value="w">{{ w }}</option>
+            </select>
+
+            <!-- Export CSV -->
+            <button
+              @click="exportHistoryCSV"
+              :disabled="filteredPaymentHistory.length === 0"
+              class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Export Payment History to CSV"
+            >
+              <span class="material-symbols-rounded text-sm">download</span>
+              Export CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI Summary Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="bg-slate-800/80 border border-white/10 rounded-xl p-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+              <span class="material-symbols-rounded text-xl">payments</span>
+            </div>
+            <div>
+              <p class="text-[0.7rem] uppercase font-bold text-slate-400">Total Settled</p>
+              <p class="text-lg font-black text-emerald-400 font-mono">{{ totalHistoryPaid.toFixed(2) }} ETB</p>
+            </div>
+          </div>
+          <div class="bg-slate-800/80 border border-white/10 rounded-xl p-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center">
+              <span class="material-symbols-rounded text-xl">receipt_long</span>
+            </div>
+            <div>
+              <p class="text-[0.7rem] uppercase font-bold text-slate-400">Settlements</p>
+              <p class="text-lg font-black text-slate-100 font-mono">{{ filteredPaymentHistory.length }}</p>
+            </div>
+          </div>
+          <div class="bg-slate-800/80 border border-white/10 rounded-xl p-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center">
+              <span class="material-symbols-rounded text-xl">group</span>
+            </div>
+            <div>
+              <p class="text-[0.7rem] uppercase font-bold text-slate-400">Unique Payees</p>
+              <p class="text-lg font-black text-purple-300 font-mono">{{ uniqueHistoryPayeesCount }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- History Table -->
         <div class="bg-slate-800 border border-white/10 rounded-xl overflow-hidden shadow-xl">
-          <div class="table-scroll overflow-x-auto w-full">
-            <table class="w-full text-left border-collapse min-w-full max-w-[600px]">
-              <thead class="bg-slate-900 border-b border-white/10">
+          <div class="overflow-x-auto w-full">
+            <table class="w-full text-left border-collapse min-w-full">
+              <thead class="bg-slate-900/90 border-b border-white/10">
                 <tr>
-                  <th class="p-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Date</th>
-                  <th class="p-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Worker</th>
-                  <th class="p-4 text-xs font-bold tracking-wider text-slate-400 uppercase">Note</th>
-                  <th class="p-4 text-xs font-bold tracking-wider text-slate-400 uppercase text-right">Amount (ETB)</th>
+                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase">Date</th>
+                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase">Worker</th>
+                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase">Week</th>
+                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase">Note</th>
+                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase text-right">Amount (ETB)</th>
+                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase text-center">Receipt</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-white/5">
-                <tr v-for="entry in paymentHistory" :key="entry.id" class="hover:bg-white/5 transition-colors">
-                  <td class="p-4 text-sm text-slate-300 font-mono">{{ entry.timestamp.split('T')[0] }}</td>
-                  <td class="p-4 text-sm font-bold text-slate-100 flex items-center gap-3">
-                    <OperatorAvatar :name="entry.operator" size="sm" />
-                    {{ entry.operator }}
+              <tbody class="divide-y divide-white/5 text-slate-200">
+                <tr v-for="entry in filteredPaymentHistory" :key="entry.id" class="hover:bg-white/5 transition-colors">
+                  <td class="p-3.5 text-xs text-slate-300 font-mono">
+                    {{ (entry.timestamp || entry.transaction_date || '').split('T')[0] || '—' }}
                   </td>
-                  <td class="p-4 text-sm text-slate-400">{{ entry.note || `Payroll for ${entry.week}` }}</td>
-                  <td class="p-4 text-sm font-bold text-emerald-400 text-right">{{ Number(entry.amount).toFixed(2) }}</td>
+                  <td class="p-3.5 text-sm font-bold text-slate-100 flex items-center gap-2.5">
+                    <OperatorAvatar 
+                      :name="entry.operator" 
+                      :avatar="getOperatorObj(entry)?.avatar" 
+                      :color="getOperatorObj(entry)?.color" 
+                      size="sm" 
+                    />
+                    <span>{{ entry.operator }}</span>
+                  </td>
+                  <td class="p-3.5 text-xs">
+                    <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2.5 py-0.5 rounded-full font-mono font-bold">
+                      {{ entry.week || 'W--' }}
+                    </span>
+                  </td>
+                  <td class="p-3.5 text-xs text-slate-400 max-w-xs truncate" :title="entry.note">
+                    {{ entry.note || `Weekly Payroll Settlement for ${entry.week}` }}
+                  </td>
+                  <td class="p-3.5 text-sm font-bold text-emerald-400 text-right font-mono">
+                    {{ Number(entry.amount || 0).toFixed(2) }}
+                  </td>
+                  <td class="p-3.5 text-center">
+                    <button
+                      @click="viewHistoricalReceipt(entry)"
+                      class="px-2.5 py-1 rounded-lg text-xs font-bold bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white border border-white/10 transition-all flex items-center gap-1 mx-auto cursor-pointer"
+                      title="View & Print Official Receipt"
+                    >
+                      <span class="material-symbols-rounded text-sm text-indigo-400">receipt</span>
+                      Receipt
+                    </button>
+                  </td>
                 </tr>
-                <tr v-if="!paymentHistory.length">
-                  <td colspan="4" class="p-8 text-center text-slate-500 font-medium">
-                    No payment history available yet.
+                <tr v-if="!filteredPaymentHistory.length">
+                  <td colspan="6" class="p-12 text-center text-slate-400">
+                    <span class="material-symbols-rounded text-4xl mb-2 text-slate-500 block">receipt_long</span>
+                    <p class="font-bold text-slate-300">No payment history found</p>
+                    <p class="text-xs text-slate-500 mt-1">No settled payouts match your current filter.</p>
                   </td>
                 </tr>
               </tbody>
@@ -693,12 +794,92 @@ function onBonusReasonInput(event) {
   payrollStore.setBonusForWorker(selectedWorkerId.value, currentWeek.value, amount, reason)
 }
 
-// Payment History
+// ── Payment History ────────────────────────────────────────────────────────
+const historySearchQuery = ref('')
+const historyWeekFilter = ref('all')
+
 const paymentHistory = computed(() => {
   return mesStore.cashEntries
     .filter(e => e.type === 'payout')
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    .sort((a, b) => new Date(b.timestamp || b.transaction_date || 0) - new Date(a.timestamp || a.transaction_date || 0))
 })
+
+const availableHistoryWeeks = computed(() => {
+  const weeks = new Set()
+  paymentHistory.value.forEach(e => {
+    if (e.week) weeks.add(e.week)
+  })
+  return Array.from(weeks).sort().reverse()
+})
+
+const filteredPaymentHistory = computed(() => {
+  return paymentHistory.value.filter(entry => {
+    // Week filter
+    if (historyWeekFilter.value !== 'all' && entry.week !== historyWeekFilter.value) {
+      return false
+    }
+    // Search query
+    if (historySearchQuery.value.trim()) {
+      const q = historySearchQuery.value.toLowerCase()
+      const opMatch = (entry.operator || '').toLowerCase().includes(q)
+      const noteMatch = (entry.note || '').toLowerCase().includes(q)
+      if (!opMatch && !noteMatch) return false
+    }
+    return true
+  })
+})
+
+const totalHistoryPaid = computed(() => {
+  return filteredPaymentHistory.value.reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+})
+
+const uniqueHistoryPayeesCount = computed(() => {
+  const payees = new Set(filteredPaymentHistory.value.map(e => e.operator_id || e.operator))
+  return payees.size
+})
+
+function getOperatorObj(entry) {
+  return mesStore.operators.find(o => 
+    (entry.operator_id != null && Number(o.id) === Number(entry.operator_id)) || 
+    (entry.operator && o.name === entry.operator)
+  )
+}
+
+function viewHistoricalReceipt(entry) {
+  currentReceiptData.value = {
+    employeeName: entry.operator || 'Unknown',
+    date: entry.timestamp || entry.transaction_date || new Date().toISOString(),
+    grossPay: Number(entry.amount) || 0,
+    deductions: 0,
+    bonus: 0,
+    bonusReason: '',
+    netPayout: Number(entry.amount) || 0,
+  }
+  isReceiptModalOpen.value = true
+}
+
+function exportHistoryCSV() {
+  if (filteredPaymentHistory.value.length === 0) return
+
+  let csvContent = "Date,Operator,Week,Note,Amount_ETB\n"
+  filteredPaymentHistory.value.forEach(entry => {
+    const date = (entry.timestamp || entry.transaction_date || '').split('T')[0]
+    const op = entry.operator || 'Unknown'
+    const week = entry.week || ''
+    const note = (entry.note || '').replace(/"/g, '""')
+    const amount = Number(entry.amount || 0).toFixed(2)
+    csvContent += `"${date}","${op}","${week}","${note}","${amount}"\n`
+  })
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.setAttribute("href", url)
+  link.setAttribute("download", `payroll_payment_history_${historyWeekFilter.value}_${Date.now()}.csv`)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
 
 // ── Cash Denomination Calculator ─────────────────────────────────────────────
 // Ethiopian Birr physical note denominations (greedy algorithm — largest first)

@@ -258,7 +258,7 @@ const myLoans = computed(() => {
 const myAdvances = computed(() => {
   if (!employee.value) return []
   return mesStore.cashEntries
-    .filter(e => (e.type === 'advance' || e.type === 'pending_advance' || e.type === 'rejected_advance') && e.operator === employee.value.name)
+    .filter(e => (e.type === 'advance' || e.type === 'pending_advance' || e.type === 'rejected_advance') && (e.operator_id === employee.value.id || e.operator === employee.value.name))
     .reverse()
 })
 
