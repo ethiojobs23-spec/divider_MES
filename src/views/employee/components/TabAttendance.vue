@@ -105,14 +105,18 @@ function shiftWeek(delta) {
   viewWeek.value = getShiftedWeekLabel(viewWeek.value, delta)
 }
 
-watch(viewWeek, async (newWeek) => {
-  if (!props.employee) return
-  const { data } = await supabase.from('mes_attendance')
-    .select('*')
-    .eq('production_week', newWeek)
-    .eq('operator_id', props.employee.id)
-  if (data) viewWeekAttendance.value = data
-  else viewWeekAttendance.value = []
+watch([viewWeek, () => props.employee?.id], async ([newWeek, opId]) => {
+  if (!opId) return
+  try {
+    const { data } = await supabase.from('mes_attendance')
+      .select('*')
+      .eq('production_week', newWeek)
+      .eq('operator_id', opId)
+    if (data) viewWeekAttendance.value = data
+    else viewWeekAttendance.value = []
+  } catch (err) {
+    console.error('[TabAttendance] Failed to load weekly attendance:', err)
+  }
 }, { immediate: true })
 
 function parseTimeToMins(timeStr) {

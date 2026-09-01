@@ -164,7 +164,8 @@ async function manualSync() {
     await Promise.all([
       mesStore.fetchInitialData(),
       payrollStore.fetchLoans(),
-      attStore.fetchAttendance()
+      attStore.fetchAttendance(),
+      payrollStore.fetchBonuses(currentWeek.value)
     ])
   } catch (err) {
     console.error('[EmployeePortal] Sync error:', err)
@@ -178,7 +179,8 @@ onMounted(async () => {
     await Promise.all([
       mesStore.fetchInitialData(),
       payrollStore.fetchLoans(),
-      attStore.fetchAttendance()
+      attStore.fetchAttendance(),
+      payrollStore.fetchBonuses(currentWeek.value)
     ])
   } catch (err) {
     console.error('[EmployeePortal] Initial load error:', err)
@@ -189,7 +191,8 @@ onMounted(async () => {
       await Promise.all([
         mesStore.fetchInitialData(),
         payrollStore.fetchLoans(),
-        attStore.fetchAttendance()
+        attStore.fetchAttendance(),
+        payrollStore.fetchBonuses(currentWeek.value)
       ])
     } catch (err) {
       console.error('[EmployeePortal] Polling error:', err)
@@ -236,30 +239,25 @@ const employeePayrollConfig = computed(() => {
 
 // ─── Overview Calculations ───────────────────────────────────────────────────
 const totalProduction = computed(() => {
-  return myProduction.value.reduce((sum, e) => sum + (Number(e.goodProduction) || 0), 0)
+  return myProduction.value.reduce((sum, e) => sum + (e.workCategory === 'TIME' ? 0 : (Number(e.goodProduction) || 0)), 0)
 })
 
 const totalHours = computed(() => {
-  return myProduction.value.reduce((sum, e) => sum + (Number(e.hoursWorked) || 0), 0)
+  return myProduction.value.reduce((sum, e) => sum + (e.workCategory === 'TIME' ? (Number(e.hoursWorked) || 0) : 0), 0)
 })
 
 const daysAttended = computed(() => {
   if (!employee.value) return 0
-  return payrollStore.getDaysAttended(employee.value.id, currentWeek.value)
-})
-
-const grossPiece = computed(() => {
-  if (!employee.value) return 0
-  return payrollStore.getGrossEarnings(employee.value.id, currentWeek.value)
-})
-
-const grossHourly = computed(() => {
-  if (!employee.value) return 0
-  return payrollStore.getHourlyEarnings(employee.value.id, currentWeek.value)
+  return attStore.getDaysAttended(employee.value.id, currentWeek.value)
 })
 
 const estimatedEarnings = computed(() => {
-  return Number(grossPiece.value || 0) + Number(grossHourly.value || 0)
+  if (!employee.value) return 0
+  let total = 0
+  myProduction.value.forEach(e => {
+    total += mesStore.calculateEntryEarnings(e, employee.value.id)
+  })
+  return total
 })
 
 // ─── Cash Loans & Payment Requests ──────────────────────────────────────────
@@ -348,6 +346,7 @@ async function handlePinConfirm(pin) {
       type: 'pending_advance',
       amount: Number(pinModal.value.amount),
       operator: op.name,
+      operator_id: op.id,
       note: pinModal.value.reason,
     })
     paymentMessage.value = `Payment request of ${pinModal.value.amount} ETB submitted!`

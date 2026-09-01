@@ -848,18 +848,20 @@ export const useMesStore = defineStore('mes', () => {
 
       // Get today's production entries for this operator (piece-rate workers)
       const myEntries = ledgerEntries.value.filter(e => {
-        const d = new Date(e.timestamp).toISOString().split('T')[0]
-        return e.operator === operatorName && d === today
+        const d = e.productionDate ? e.productionDate.split('T')[0] : (e.timestamp ? new Date(e.timestamp).toISOString().split('T')[0] : '')
+        const matchId = e.operator_id != null && (Number(e.operator_id) === Number(operatorId) || String(e.operator_id) === String(operatorId))
+        const matchName = e.operator && e.operator.trim().toLowerCase() === operatorName.trim().toLowerCase()
+        return (matchId || matchName) && d === today
       })
-      const totalGood  = myEntries.reduce((s,e) => s + (Number(e.goodProduction)||0), 0)
-      const totalWaste = myEntries.reduce((s,e) => s + (Number(e.wasteMaterial)||0), 0)
+      const totalGood  = myEntries.reduce((s,e) => s + (e.workCategory === 'TIME' ? 0 : (Number(e.goodProduction)||0)), 0)
+      const totalWaste = myEntries.reduce((s,e) => s + (e.workCategory === 'TIME' ? 0 : (Number(e.wasteMaterial)||0)), 0)
 
       let totalEarnings = 0
       let hoursWorkedToday = 0
       let clockInTime = null
       let clockOutTime = null
 
-      // ── TIME (hourly) workers: calculate hours from attendance record ──
+      // ── TIME (hourly) workers: calculate hours from attendance record or logged hours ──
       if (opConfig.categories?.includes('TIME')) {
         const { useAttendanceStore } = await import('./attendanceStore.js')
         const attStore = useAttendanceStore()
@@ -883,18 +885,12 @@ export const useMesStore = defineStore('mes', () => {
         totalEarnings += hoursWorkedToday * hourlyRate
       }
 
-      // ── Piece-rate workers: calculate from production entries ──
+      // ── Piece-rate workers: calculate from production entries using calculateEntryEarnings ──
       if (!isTimeOnly) {
         myEntries.forEach(e => {
-          const cat = e.workCategory || 'MFG'
-          if (cat === 'TIME') return // already handled above
-          let rate = 0
-          if (cat === 'PP' || cat === 'PL') {
-            rate = pieceRates.value?.[cat]?.[e.dividerType]?.[e.size] ?? 0
-          } else {
-            rate = pieceRates.value?.[cat]?.[e.dividerType]?.[e.size]?.[e.placement] ?? 0
+          if ((e.workCategory || 'MFG') !== 'TIME') {
+            totalEarnings += calculateEntryEarnings(e, operatorId)
           }
-          totalEarnings += rate * (Number(e.goodProduction) || 0)
         })
       }
 
