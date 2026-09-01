@@ -984,6 +984,228 @@ export const useMesStore = defineStore('mes', () => {
     return (typeof rate === 'number' && !isNaN(rate)) ? rate : 0
   }
 
+  // ── Realtime Subscriptions ────────────────────────────────────────────────
+  let realtimeChannel = null
+
+  function initRealtime() {
+    if (realtimeChannel) return
+
+    realtimeChannel = supabase
+      .channel('mes_core_realtime')
+      // 1. Production Logs
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mes_production_logs' },
+        (payload) => {
+          const row = payload.new
+          const existing = ledgerEntries.value.find(e => 
+            e.id === row.id ||
+            (String(e.id).length > 10 && Number(e.operator_id) === Number(row.operator_id) && Number(e.goodProduction) === Number(row.qty_produced) && e.productionDate === (row.production_date || row.created_at?.split('T')[0]))
+          )
+          if (existing) {
+            existing.id = row.id
+          } else if (row.production_week === currentProductionWeek.value) {
+            ledgerEntries.value.push(mapSupabaseLedgerToLocal(row))
+          }
+          if (row.divider_type) {
+            const invItem = inventory.value.find(i => String(i.divider_type) === String(row.divider_type))
+            if (invItem) invItem.available += Number(row.qty_produced) || 0
+            else inventory.value.push({ divider_type: String(row.divider_type), available: Number(row.qty_produced) || 0 })
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'mes_production_logs' },
+        (payload) => {
+          const row = payload.new
+          const idx = ledgerEntries.value.findIndex(e => e.id === row.id)
+          if (idx !== -1) {
+            ledgerEntries.value[idx] = mapSupabaseLedgerToLocal(row)
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'mes_production_logs' },
+        (payload) => {
+          const oldRow = payload.old
+          ledgerEntries.value = ledgerEntries.value.filter(e => e.id !== oldRow.id)
+        }
+      )
+      // 2. Dispatch Logs
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mes_dispatch_logs' },
+        (payload) => {
+          const row = payload.new
+          const existing = dispatchLogs.value.find(d => d.id === row.id)
+          if (!existing) {
+            dispatchLogs.value.unshift(mapSupabaseDispatchToLocal(row))
+            if (row.divider_type) {
+              const invItem = inventory.value.find(i => String(i.divider_type) === String(row.divider_type))
+              if (invItem) invItem.available -= Number(row.quantity) || 0
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'mes_dispatch_logs' },
+        (payload) => {
+          const row = payload.new
+          const idx = dispatchLogs.value.findIndex(d => d.id === row.id)
+          if (idx !== -1) {
+            dispatchLogs.value[idx] = mapSupabaseDispatchToLocal(row)
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'mes_dispatch_logs' },
+        (payload) => {
+          const oldRow = payload.old
+          dispatchLogs.value = dispatchLogs.value.filter(d => d.id !== oldRow.id)
+        }
+      )
+      // 3. Financial Ledger (Cash advances, expenses, shift submissions, configs)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mes_financial_ledger' },
+        (payload) => {
+          const row = payload.new
+          if (row.transaction_type === 'shift_submission') {
+            if (!shiftSubmissions.value.some(s => s.id === row.id)) {
+              let details = {}
+              try { details = JSON.parse(row.notes) } catch {}
+              shiftSubmissions.value.push({ ...row, details })
+            }
+          } else if (row.transaction_type === 'operator_config') {
+            try {
+              const parsed = JSON.parse(row.notes)
+              const op = operators.value.find(o => o.id === row.operator_id)
+              if (op) {
+                if (parsed.work_types) op.work_types = parsed.work_types
+                if (parsed.payroll_config) op.payroll_config = parsed.payroll_config
+              }
+            } catch {}
+          } else if (row.transaction_type === 'system_config' && row.target_name === 'global') {
+            try {
+              const parsed = JSON.parse(row.notes)
+              if (parsed.pieceRates) pieceRates.value = parsed.pieceRates
+              if (parsed.wasteThresholds) wasteThresholds.value = parsed.wasteThresholds
+              if (parsed.systemConfig) {
+                systemConfig.value = {
+                  ...defaultSystemConfig,
+                  ...parsed.systemConfig,
+                  otherDividerType: {
+                    ...defaultSystemConfig.otherDividerType,
+                    ...(parsed.systemConfig.otherDividerType || {})
+                  },
+                  otherPlacement: {
+                    ...defaultSystemConfig.otherPlacement,
+                    ...(parsed.systemConfig.otherPlacement || {})
+                  }
+                }
+              }
+              if (parsed.clockingWindows) {
+                useAttendanceStore().clockingWindows = parsed.clockingWindows
+              }
+            } catch {}
+          } else {
+            const existing = cashEntries.value.find(c => c.id === row.id)
+            if (!existing) {
+              cashEntries.value.push(mapSupabaseCashToLocal(row))
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'mes_financial_ledger' },
+        (payload) => {
+          const row = payload.new
+          if (row.transaction_type === 'shift_submission') {
+            const s = shiftSubmissions.value.find(sub => sub.id === row.id)
+            if (s) {
+              s.transaction_type = row.transaction_type
+              try { s.details = JSON.parse(row.notes) } catch {}
+            }
+          } else {
+            const entry = cashEntries.value.find(c => c.id === row.id)
+            if (entry) {
+              entry.type = row.transaction_type
+              entry.amount = row.amount
+              entry.note = row.notes
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'mes_financial_ledger' },
+        (payload) => {
+          const oldRow = payload.old
+          cashEntries.value = cashEntries.value.filter(c => c.id !== oldRow.id)
+          shiftSubmissions.value = shiftSubmissions.value.filter(s => s.id !== oldRow.id)
+        }
+      )
+      // 4. Operators & Customers
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'mes_operators' },
+        (payload) => {
+          const { eventType, new: newRow, old: oldRow } = payload
+          if (eventType === 'INSERT') {
+            if (newRow.role !== 'customer' && !operators.value.some(o => o.id === newRow.id)) {
+              operators.value.push({
+                ...newRow,
+                color: newRow.color || 'bg-blue-500'
+              })
+            }
+          } else if (eventType === 'UPDATE') {
+            const idx = operators.value.findIndex(o => o.id === newRow.id)
+            if (idx !== -1) {
+              operators.value[idx] = { ...operators.value[idx], ...newRow }
+            }
+          } else if (eventType === 'DELETE') {
+            operators.value = operators.value.filter(o => o.id !== oldRow.id)
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'mes_customers' },
+        (payload) => {
+          const { eventType, new: newRow, old: oldRow } = payload
+          if (eventType === 'INSERT') {
+            if (!clients.value.some(c => c.id === newRow.id)) {
+              clients.value.push({
+                ...newRow,
+                name: newRow.company_name,
+                full_name: newRow.contact_person,
+                avatar: newRow.company_name?.charAt(0).toUpperCase() || 'C',
+                color: 'bg-emerald-500'
+              })
+            }
+          } else if (eventType === 'UPDATE') {
+            const idx = clients.value.findIndex(c => c.id === newRow.id)
+            if (idx !== -1) {
+              clients.value[idx] = {
+                ...clients.value[idx],
+                ...newRow,
+                name: newRow.company_name,
+                full_name: newRow.contact_person,
+              }
+            }
+          } else if (eventType === 'DELETE') {
+            clients.value = clients.value.filter(c => c.id !== oldRow.id)
+          }
+        }
+      )
+      .subscribe()
+  }
+
   return {
     isLoading, fetchInitialData,
     operators, activeOperator, clockedInOperators,
@@ -1003,6 +1225,7 @@ export const useMesStore = defineStore('mes', () => {
     downtimeSessions, activeDowntime, startDowntime, resolveDowntime, logDowntime,
     shiftSubmissions, submitShift, approveShift, rejectShift, setOperatorWorkTypes, getOperatorWorkConfig,
     calculateEntryEarnings, getEntryRate,
+    initRealtime,
   }
 }, {
   persist: {

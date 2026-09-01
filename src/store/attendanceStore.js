@@ -138,6 +138,71 @@ export const useAttendanceStore = defineStore('attendance', () => {
     }
   }
 
+  // ── Realtime Subscription ──────────────────────────────────────────────
+  let realtimeChannel = null
+
+  function initRealtime() {
+    if (realtimeChannel) return
+
+    realtimeChannel = supabase
+      .channel('mes_attendance_realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mes_attendance' },
+        (payload) => {
+          const row = payload.new
+          const existing = clockInLog.value.find(l => 
+            l.id === row.id || 
+            (l.operatorId === row.operator_id && l.shiftDate === row.shift_date && l.timestamp === row.clock_in)
+          )
+          if (existing) {
+            existing.id = row.id
+            existing.clockOut = row.clock_out
+            existing.status = row.status
+          } else {
+            clockInLog.value.push({
+              id: row.id,
+              operatorId: row.operator_id,
+              timestamp: dbRowToIso(row.clock_in),
+              clockOut: row.clock_out,
+              status: row.status,
+              shiftDate: row.shift_date,
+              week: row.production_week
+            })
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'mes_attendance' },
+        (payload) => {
+          const row = payload.new
+          const existing = clockInLog.value.find(l => 
+            l.id === row.id || 
+            (l.operatorId === row.operator_id && l.shiftDate === row.shift_date)
+          )
+          if (existing) {
+            existing.id = row.id
+            existing.clockOut = row.clock_out
+            existing.status = row.status
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'mes_attendance' },
+        (payload) => {
+          const oldRow = payload.old
+          clockInLog.value = clockInLog.value.filter(l => l.id !== oldRow.id)
+        }
+      )
+      .subscribe()
+  }
+
+  function dbRowToIso(val) {
+    return val || new Date().toISOString()
+  }
+
   return {
     clockingWindows,
     clockInLog,
@@ -146,7 +211,8 @@ export const useAttendanceStore = defineStore('attendance', () => {
     validateClockTime,
     recordClockIn,
     updateWindow,
-    getDaysAttended
+    getDaysAttended,
+    initRealtime,
   }
 }, {
   persist: {

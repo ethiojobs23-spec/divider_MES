@@ -90,6 +90,9 @@ onMounted(async () => {
 
   // Init Realtime subscriptions regardless of initial online state
   // (they will auto-connect when Supabase WS is available)
+  if (typeof mesStore.initRealtime === 'function') mesStore.initRealtime()
+  if (typeof attStore.initRealtime === 'function') attStore.initRealtime()
+  if (typeof invStore.initRealtime === 'function') invStore.initRealtime()
   if (typeof downtimeStore.initRealtime === 'function') downtimeStore.initRealtime()
   if (typeof qcStore.initRealtime === 'function') qcStore.initRealtime()
 })

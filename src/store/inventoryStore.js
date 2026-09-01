@@ -146,6 +146,68 @@ export const useInventoryStore = defineStore('inventoryStore', () => {
     })
   )
 
+  // ── Realtime Subscription ──────────────────────────────────────────────
+  let realtimeChannel = null
+
+  function initRealtime() {
+    if (realtimeChannel) return
+
+    realtimeChannel = supabase
+      .channel('mes_inventory_realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mes_inventory' },
+        (payload) => {
+          const row = payload.new
+          const existing = materials.value.find(m => String(m.id) === String(row.id) || m.name === row.material_name)
+          if (!existing) {
+            materials.value.push({
+              id:                String(row.id),
+              name:              row.material_name,
+              current_stock:     Number(row.stock_level) || 0,
+              reorder_threshold: Number(row.reorder_threshold) || 15,
+              unit:              row.unit || 'units',
+              max_capacity:      Number(row.max_capacity) || 100,
+            })
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'mes_inventory' },
+        (payload) => {
+          const row = payload.new
+          const mat = materials.value.find(m => String(m.id) === String(row.id) || m.name === row.material_name)
+          if (mat) {
+            mat.id = String(row.id)
+            mat.current_stock = Number(row.stock_level) || 0
+            mat.reorder_threshold = Number(row.reorder_threshold) || 15
+            mat.unit = row.unit || mat.unit
+            mat.max_capacity = Number(row.max_capacity) || mat.max_capacity
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'mes_inventory' },
+        (payload) => {
+          const oldRow = payload.old
+          materials.value = materials.value.filter(m => String(m.id) !== String(oldRow.id))
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'mes_inventory_logs' },
+        (payload) => {
+          const row = payload.new
+          if (!transactions.value.some(t => t.id === row.id)) {
+            transactions.value.unshift(row)
+          }
+        }
+      )
+      .subscribe()
+  }
+
   return {
     materials,
     transactions,
@@ -155,6 +217,7 @@ export const useInventoryStore = defineStore('inventoryStore', () => {
     withdrawStock,
     deductForProduction,
     lowStockAlerts,
+    initRealtime,
   }
 }, {
   persist: {
