@@ -112,4 +112,9 @@ export const useSystemAuthStore = defineStore('systemAuth', () => {
     grantAdminAccess,
     lockSystem,
   }
+}, {
+  persist: {
+    key: 'divider-system-auth',
+    pick: ['isSystemUnlocked', 'currentRole', 'currentEmployeeId', 'authorizedManager', 'shiftStartedAt', 'hasAdminAccess']
+  }
 })

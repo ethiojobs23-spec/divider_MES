@@ -13,9 +13,9 @@
           </thead>
           <tbody>
             <tr v-for="p in payouts" :key="p.id">
-              <td>{{ new Date(p.transaction_date || p.created_at).toLocaleDateString([], {weekday:'short', month:'short', day:'numeric', year:'numeric'}) }}</td>
-              <td class="align-right"><strong style="color:#34d399">{{ Number(p.amount).toFixed(2) }} ETB</strong></td>
-              <td>{{ p.note || '—' }}</td>
+              <td>{{ new Date(p.timestamp || p.transaction_date || p.created_at || Date.now()).toLocaleDateString([], {weekday:'short', month:'short', day:'numeric', year:'numeric'}) }}</td>
+              <td class="align-right"><strong style="color:#34d399">{{ Number(p.amount || 0).toFixed(2) }} ETB</strong></td>
+              <td>{{ p.displayNote || p.note || 'Weekly Payroll Settlement' }}</td>
             </tr>
             <tr v-if="!payouts.length"><td colspan="3" class="empty-text">No payroll payouts recorded yet.</td></tr>
           </tbody>

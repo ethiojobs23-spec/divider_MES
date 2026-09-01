@@ -164,26 +164,36 @@ async function manualSync() {
     await Promise.all([
       mesStore.fetchInitialData(),
       payrollStore.fetchLoans(),
-      attStore.loadAttendanceLogs()
+      attStore.fetchAttendance()
     ])
+  } catch (err) {
+    console.error('[EmployeePortal] Sync error:', err)
   } finally {
     setTimeout(() => { isSyncing.value = false }, 400)
   }
 }
 
 onMounted(async () => {
-  await Promise.all([
-    mesStore.fetchInitialData(),
-    payrollStore.fetchLoans(),
-    attStore.loadAttendanceLogs()
-  ])
-
-  refreshTimer = setInterval(async () => {
+  try {
     await Promise.all([
       mesStore.fetchInitialData(),
       payrollStore.fetchLoans(),
-      attStore.loadAttendanceLogs()
+      attStore.fetchAttendance()
     ])
+  } catch (err) {
+    console.error('[EmployeePortal] Initial load error:', err)
+  }
+
+  refreshTimer = setInterval(async () => {
+    try {
+      await Promise.all([
+        mesStore.fetchInitialData(),
+        payrollStore.fetchLoans(),
+        attStore.fetchAttendance()
+      ])
+    } catch (err) {
+      console.error('[EmployeePortal] Polling error:', err)
+    }
   }, 30000)
 })
 
@@ -204,7 +214,19 @@ const tabTitles = {
 
 // ─── Employee Info ───────────────────────────────────────────────────────────
 const employee = computed(() => {
-  return mesStore.operators.find(op => op.id === sysAuth.currentEmployeeId)
+  const currentId = sysAuth.currentEmployeeId
+  if (currentId != null) {
+    const found = mesStore.operators.find(op => Number(op.id) === Number(currentId) || String(op.id) === String(currentId))
+    if (found) return found
+  }
+  if (sysAuth.authorizedManager) {
+    const found = mesStore.operators.find(op => op.name?.trim().toLowerCase() === sysAuth.authorizedManager.trim().toLowerCase())
+    if (found) return found
+  }
+  if (mesStore.activeOperator) {
+    return mesStore.activeOperator
+  }
+  return (mesStore.operators || [])[0] || null
 })
 
 const employeePayrollConfig = computed(() => {
@@ -214,36 +236,30 @@ const employeePayrollConfig = computed(() => {
 
 // ─── Overview Calculations ───────────────────────────────────────────────────
 const totalProduction = computed(() => {
-  if (!employee.value) return 0
-  return mesStore.ledgerEntries
-    .filter(e => e.operator === employee.value.name && e.week === currentWeek.value)
-    .reduce((sum, e) => sum + (Number(e.goodProduction) || 0), 0)
+  return myProduction.value.reduce((sum, e) => sum + (Number(e.goodProduction) || 0), 0)
 })
 
 const totalHours = computed(() => {
-  if (!employee.value) return 0
-  return mesStore.ledgerEntries
-    .filter(e => e.operator === employee.value.name && e.week === currentWeek.value)
-    .reduce((sum, e) => sum + (Number(e.hoursWorked) || 0), 0)
+  return myProduction.value.reduce((sum, e) => sum + (Number(e.hoursWorked) || 0), 0)
 })
 
 const daysAttended = computed(() => {
-  if (!sysAuth.currentEmployeeId) return 0
-  return payrollStore.getDaysAttended(sysAuth.currentEmployeeId, currentWeek.value)
+  if (!employee.value) return 0
+  return payrollStore.getDaysAttended(employee.value.id, currentWeek.value)
 })
 
 const grossPiece = computed(() => {
-  if (!sysAuth.currentEmployeeId) return 0
-  return payrollStore.getGrossEarnings(sysAuth.currentEmployeeId, currentWeek.value)
+  if (!employee.value) return 0
+  return payrollStore.getGrossEarnings(employee.value.id, currentWeek.value)
 })
 
 const grossHourly = computed(() => {
-  if (!sysAuth.currentEmployeeId) return 0
-  return payrollStore.getHourlyEarnings(sysAuth.currentEmployeeId, currentWeek.value)
+  if (!employee.value) return 0
+  return payrollStore.getHourlyEarnings(employee.value.id, currentWeek.value)
 })
 
 const estimatedEarnings = computed(() => {
-  return Number(grossPiece.value) + Number(grossHourly.value)
+  return Number(grossPiece.value || 0) + Number(grossHourly.value || 0)
 })
 
 // ─── Cash Loans & Payment Requests ──────────────────────────────────────────
@@ -252,20 +268,50 @@ const paymentMessage = ref('')
 
 const myLoans = computed(() => {
   if (!employee.value) return []
-  return payrollStore.loans.filter(l => l.workerId === employee.value.id).reverse()
+  const opId = employee.value.id
+  const opName = (employee.value.name || '').trim().toLowerCase()
+  return (payrollStore.loans || [])
+    .filter(l => (l.workerId != null && (Number(l.workerId) === Number(opId) || String(l.workerId) === String(opId))) || (l.workerName && l.workerName.trim().toLowerCase() === opName))
+    .slice()
+    .reverse()
 })
 
 const myAdvances = computed(() => {
   if (!employee.value) return []
-  return mesStore.cashEntries
-    .filter(e => (e.type === 'advance' || e.type === 'pending_advance' || e.type === 'rejected_advance') && (e.operator_id === employee.value.id || e.operator === employee.value.name))
+  const opId = employee.value.id
+  const opName = (employee.value.name || '').trim().toLowerCase()
+  return (mesStore.cashEntries || [])
+    .filter(e => {
+      const isAdvanceType = e.type === 'advance' || e.type === 'pending_advance' || e.type === 'rejected_advance'
+      const matchId = e.operator_id != null && (Number(e.operator_id) === Number(opId) || String(e.operator_id) === String(opId))
+      const matchName = e.operator && e.operator.trim().toLowerCase() === opName
+      return isAdvanceType && (matchId || matchName)
+    })
+    .slice()
     .reverse()
 })
 
 const myPayouts = computed(() => {
   if (!employee.value) return []
-  return mesStore.cashEntries
-    .filter(e => e.type === 'payout' && (e.operator_id === employee.value.id || e.operator === employee.value.name))
+  const opId = employee.value.id
+  const opName = (employee.value.name || '').trim().toLowerCase()
+  return (mesStore.cashEntries || [])
+    .filter(e => {
+      const matchId = e.operator_id != null && (Number(e.operator_id) === Number(opId) || String(e.operator_id) === String(opId))
+      const matchName = e.operator && e.operator.trim().toLowerCase() === opName
+      return e.type === 'payout' && (matchId || matchName)
+    })
+    .map(p => {
+      let noteClean = p.note || 'Weekly Payroll Settlement'
+      if (typeof noteClean === 'string' && noteClean.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(noteClean)
+          noteClean = parsed.purpose || `Weekly Payroll Settlement for ${parsed.week || ''}`
+        } catch {}
+      }
+      return { ...p, displayNote: noteClean }
+    })
+    .slice()
     .reverse()
 })
 
@@ -391,26 +437,40 @@ async function executeClockOut(adminOverride = false) {
 // ─── Production & Shift Submissions ──────────────────────────────────────────
 const myProduction = computed(() => {
   if (!employee.value) return []
-  return mesStore.ledgerEntries
-    .filter(e => e.operator === employee.value.name && e.week === currentWeek.value)
+  const opId = employee.value.id
+  const opName = (employee.value.name || '').trim().toLowerCase()
+  return (mesStore.ledgerEntries || [])
+    .filter(e => {
+      const matchId = e.operator_id != null && (Number(e.operator_id) === Number(opId) || String(e.operator_id) === String(opId))
+      const matchName = e.operator && e.operator.trim().toLowerCase() === opName
+      const matchWeek = !e.week || e.week === currentWeek.value
+      return (matchId || matchName) && matchWeek
+    })
+    .slice()
     .reverse()
 })
 
 const todayEntries = computed(() => {
   if (!employee.value) return []
+  const opId = employee.value.id
+  const opName = (employee.value.name || '').trim().toLowerCase()
   const today = new Date().toISOString().split('T')[0]
-  return mesStore.ledgerEntries.filter(e => {
-    return e.operator === employee.value.name &&
-      new Date(e.timestamp).toISOString().split('T')[0] === today
+  return (mesStore.ledgerEntries || []).filter(e => {
+    const matchId = e.operator_id != null && (Number(e.operator_id) === Number(opId) || String(e.operator_id) === String(opId))
+    const matchName = e.operator && e.operator.trim().toLowerCase() === opName
+    const entryDate = e.productionDate || (e.timestamp ? e.timestamp.split('T')[0] : '')
+    return (matchId || matchName) && entryDate === today
   })
 })
 
 const todayAttendanceRecord = computed(() => {
   if (!employee.value) return null
+  const opId = employee.value.id
   const today = new Date().toISOString().split('T')[0]
-  return attStore.clockInLog.find(log =>
-    String(log.operatorId) === String(employee.value.id) && log.shiftDate === today
-  ) || null
+  return (attStore.clockInLog || []).find(log => {
+    const matchId = log.operatorId != null && (Number(log.operatorId) === Number(opId) || String(log.operatorId) === String(opId))
+    return matchId && log.shiftDate === today
+  }) || null
 })
 
 const todayHoursFromClock = computed(() => {
@@ -457,14 +517,16 @@ const canSubmitShift = computed(() => {
 
 const mySubmissions = computed(() => {
   if (!employee.value) return []
-  return mesStore.shiftSubmissions
-    .filter(s => s.operator_id === employee.value.id)
-    .sort((a,b) => new Date(b.transaction_date) - new Date(a.transaction_date))
+  const opId = employee.value.id
+  const opName = (employee.value.name || '').trim().toLowerCase()
+  return (mesStore.shiftSubmissions || [])
+    .filter(s => (s.operator_id != null && (Number(s.operator_id) === Number(opId) || String(s.operator_id) === String(opId))) || (s.operator && s.operator.trim().toLowerCase() === opName))
+    .sort((a,b) => new Date(b.transaction_date || b.created_at || 0) - new Date(a.transaction_date || a.created_at || 0))
 })
 
 const alreadySubmittedToday = computed(() => {
   const today = new Date().toISOString().split('T')[0]
-  return mySubmissions.value.find(s => s.transaction_date === today) || null
+  return mySubmissions.value.find(s => (s.transaction_date || (s.created_at ? s.created_at.split('T')[0] : '')) === today) || null
 })
 
 const pendingSubmission = computed(() => alreadySubmittedToday.value?.target_name === 'pending')
