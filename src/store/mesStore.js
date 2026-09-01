@@ -181,7 +181,7 @@ export const useMesStore = defineStore('mes', () => {
       const { data: cash } = await supabase.from('mes_financial_ledger').select('*')
       if (cash) {
         cashEntries.value = cash
-          .filter(r => r.transaction_type !== 'shift_submission' && r.transaction_type !== 'operator_config')
+          .filter(r => r.transaction_type !== 'shift_submission' && r.transaction_type !== 'operator_config' && r.transaction_type !== 'system_config')
           .map(mapSupabaseCashToLocal)
         shiftSubmissions.value = cash
           .filter(r => r.transaction_type === 'shift_submission')
@@ -454,22 +454,22 @@ export const useMesStore = defineStore('mes', () => {
   async function addCashEntry(entry) {
     try {
       const payload = {
-        operator_id: entry.operator_id || activeOperator.value?.id || null,
+        operator_id: entry.operator_id != null ? Number(entry.operator_id) : (activeOperator.value?.id ? Number(activeOperator.value.id) : null),
         target_name: entry.operator || 'Company',
         transaction_type: entry.type,
-        amount: entry.amount,
+        amount: Number(entry.amount) || 0,
         transaction_date: new Date().toISOString().split('T')[0],
-        notes: entry.note
+        notes: typeof entry.note === 'object' ? JSON.stringify(entry.note) : (entry.note || '')
       }
       const tempId = Date.now()
       const optimisticRow = { id: tempId, created_at: new Date().toISOString(), ...payload }
-      cashEntries.value.push(mapSupabaseCashToLocal(optimisticRow))
+      cashEntries.value.unshift(mapSupabaseCashToLocal(optimisticRow))
 
       if (navigator.onLine) {
         supabase.from('mes_financial_ledger').insert(payload).select().single().then(({ data: savedRow, error }) => {
           if (!error && savedRow) {
-            const entry = cashEntries.value.find(e => e.id === tempId)
-            if (entry) entry.id = savedRow.id
+            const item = cashEntries.value.find(e => e.id === tempId)
+            if (item) item.id = savedRow.id
           } else {
             syncManager.enqueue({ action: 'insert', table: 'mes_financial_ledger', payload })
           }
