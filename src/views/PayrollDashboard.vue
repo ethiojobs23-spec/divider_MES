@@ -846,14 +846,33 @@ function getOperatorObj(entry) {
 }
 
 function viewHistoricalReceipt(entry) {
+  const op = getOperatorObj(entry)
+  const profile = op ? payrollStore.getWorkerProfile(op.id) : null
+  const weekLabel = entry.week || 'W--'
+  const receiptId = String(entry.id || '').padStart(4, '0')
+  const opId = String(entry.operator_id || op?.id || '0').padStart(3, '0')
+
   currentReceiptData.value = {
-    employeeName: entry.operator || 'Unknown',
+    receiptNo: `REC-${weekLabel}-${opId}-${receiptId}`,
+    employeeName: entry.operator || op?.name || 'Unknown',
+    employeeId: entry.operator_id || op?.id || '—',
+    role: op?.role || 'Operator',
+    productionWeek: entry.week || 'Historical',
+    paymentMethod: profile?.paymentMethod || 'Cash',
+    accountInfo: profile?.accountInfo || 'N/A',
     date: entry.timestamp || entry.transaction_date || new Date().toISOString(),
     grossPay: Number(entry.amount) || 0,
+    grossPieceRate: Number(entry.amount) || 0,
+    grossHourly: 0,
+    advanceDeductions: 0,
+    loanDeductions: 0,
     deductions: 0,
+    totalDeductions: 0,
     bonus: 0,
     bonusReason: '',
     netPayout: Number(entry.amount) || 0,
+    note: entry.note || '',
+    authorizedBy: 'Divider MES Admin'
   }
   isReceiptModalOpen.value = true
 }
@@ -1024,14 +1043,37 @@ function confirmApprove(worker) {
 async function executeApprove() {
   if (selectedWorker.value) {
     const bonus = payrollStore.getBonus(selectedWorker.value.id, currentWeek.value)
+    const profile = payrollStore.getWorkerProfile(selectedWorker.value.id)
+    const worker = selectedWorker.value
+    const weekLabel = currentWeek.value || 'W--'
+    const opId = String(worker.id || '0').padStart(3, '0')
+    const timeCode = Date.now().toString().slice(-4)
+
+    const loanDeductionAmt = (worker.loanBreakdown || []).reduce((s, l) => s + (Number(l.deduction) || 0), 0)
+    const advanceDeductionAmt = Math.max(0, (Number(worker.totalDeduction) || 0) - loanDeductionAmt)
+
     currentReceiptData.value = {
-      employeeName: selectedWorker.value.name,
+      receiptNo: `REC-${weekLabel}-${opId}-${timeCode}`,
+      employeeName: worker.name,
+      employeeId: worker.id,
+      role: worker.role || 'Operator',
+      productionWeek: weekLabel,
+      paymentMethod: profile.paymentMethod || worker.paymentMethod || 'Cash',
+      accountInfo: profile.accountInfo || worker.accountInfo || 'N/A',
       date: new Date().toISOString(),
-      grossPay: selectedWorker.value.grossEarnings,
-      deductions: selectedWorker.value.totalDeduction,
+      grossPieceRate: worker.grossPieceRate || worker.grossEarnings || 0,
+      grossHourly: worker.grossHourly || 0,
+      grossPay: worker.grossEarnings || 0,
+      daysAttended: worker.daysAttended,
+      advanceDeductions: advanceDeductionAmt,
+      loanDeductions: loanDeductionAmt,
+      deductions: worker.totalDeduction || 0,
+      totalDeductions: worker.totalDeduction || 0,
       bonus: bonus.amount || 0,
       bonusReason: bonus.reason || '',
-      netPayout: selectedWorker.value.netPayout
+      netPayout: worker.netPayout || 0,
+      note: bonus.amount > 0 ? `Bonus: ${bonus.amount} ETB (${bonus.reason || 'Performance'})` : '',
+      authorizedBy: mesStore.activeOperator?.name || 'Divider MES Admin'
     }
     
     await payrollStore.approvePayout(selectedWorker.value.id, currentWeek.value)
