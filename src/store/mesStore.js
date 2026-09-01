@@ -238,6 +238,14 @@ export const useMesStore = defineStore('mes', () => {
         .order('created_at', { ascending: false })
       if (dispatches) dispatchLogs.value = dispatches.map(mapSupabaseDispatchToLocal)
 
+      // 6. Fetch live attendance for cross-device clock-in tracking
+      try {
+        const attStore = useAttendanceStore()
+        await attStore.fetchAttendance()
+      } catch (attErr) {
+        console.warn('[Store] Attendance fetch error during initial load:', attErr)
+      }
+
     } catch (err) {
       console.error('[Store] Error fetching initial data:', err)
     } finally {
@@ -252,31 +260,42 @@ export const useMesStore = defineStore('mes', () => {
   const clients = ref([])
 
   const isOperatorClockedIn = computed(() => (id) => {
-    if (clockedInOperators.value[id]) return true
+    if (!id) return false
+    const numId = Number(id)
+    if (clockedInOperators.value[id] || clockedInOperators.value[numId]) return true
     try {
       const attStore = useAttendanceStore()
-      const today = new Date().toISOString().split('T')[0]
-      return attStore.clockInLog.some(log => 
-        log.operatorId === id && 
-        log.shiftDate === today && 
-        !log.clockOut
-      )
+      const now = new Date()
+      const todayIso = now.toISOString().split('T')[0]
+      const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+      return (attStore.clockInLog || []).some(log => {
+        const matchesOp = Number(log.operatorId) === numId
+        const matchesDate = log.shiftDate === todayIso || 
+                            log.shiftDate === todayLocal || 
+                            (log.timestamp && (log.timestamp.startsWith(todayIso) || log.timestamp.startsWith(todayLocal)))
+        const isActive = !log.clockOut
+        return matchesOp && matchesDate && isActive
+      })
     } catch {
       return false
     }
   })
 
   function clockIn(operator) {
+    if (!operator) return
     clockedInOperators.value[operator.id] = new Date().toISOString()
     activeOperator.value = operator
   }
 
   function clockOut(operator) {
+    if (!operator) return
     delete clockedInOperators.value[operator.id]
+    delete clockedInOperators.value[Number(operator.id)]
     if (activeOperator.value?.id === operator.id) {
       const remaining = Object.keys(clockedInOperators.value)
       activeOperator.value = remaining.length
-        ? operators.value.find(o => o.id === Number(remaining[0])) ?? null
+        ? operators.value.find(o => Number(o.id) === Number(remaining[0])) ?? null
         : null
     }
   }

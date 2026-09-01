@@ -237,8 +237,10 @@ import { ref, reactive, computed, watch, watchEffect, onMounted } from 'vue'
 import AppLayout  from '@/components/layout/AppLayout.vue'
 import VirtualNumpad from '@/components/ui/VirtualNumpad.vue'
 import { useMesStore } from '@/store/mesStore.js'
+import { useAttendanceStore } from '@/store/attendanceStore.js'
 
 const store = useMesStore()
+const attStore = useAttendanceStore()
 
 // ─── Operator Management ───────────────────────────────────────────────────
 const clockedInList = computed(() => store.operators.filter(op => store.isOperatorClockedIn(op.id)))
@@ -459,8 +461,13 @@ async function saveEntry() {
   }
 }
 
-onMounted(() => {
-  store.fetchInitialData()
+onMounted(async () => {
+  await Promise.all([
+    store.fetchInitialData(),
+    attStore.fetchAttendance()
+  ])
+  if (typeof attStore.initRealtime === 'function') attStore.initRealtime()
+  if (typeof store.initRealtime === 'function') store.initRealtime()
 })
 </script>
 

@@ -35,7 +35,7 @@ export const useAttendanceStore = defineStore('attendance', () => {
     { id: 'shift_out', name: 'Shift End', start: '17:00', end: '17:30', type: 'out' },
   ])
 
-  // Local mirror of attendance for current week
+  // Local mirror of attendance
   const clockInLog = ref([])
 
   function validateClockTime(type) {
@@ -68,15 +68,20 @@ export const useAttendanceStore = defineStore('attendance', () => {
 
   async function fetchAttendance() {
     try {
-      const mesStore = useMesStore()
-      const { data, error } = await supabase.from('mes_attendance').select('*').eq('production_week', mesStore.currentProductionWeek)
+      const { data, error } = await supabase
+        .from('mes_attendance')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(300)
+
       if (data) {
         clockInLog.value = data.map(dbRow => ({
-          operatorId: dbRow.operator_id,
+          id: dbRow.id,
+          operatorId: dbRow.operator_id != null ? Number(dbRow.operator_id) : null,
           timestamp: dbRow.clock_in,
           clockOut: dbRow.clock_out,
           status: dbRow.status,
-          shiftDate: dbRow.shift_date,
+          shiftDate: dbRow.shift_date || (dbRow.clock_in ? dbRow.clock_in.split('T')[0] : null),
           week: dbRow.production_week
         }))
       }
@@ -90,17 +95,21 @@ export const useAttendanceStore = defineStore('attendance', () => {
     if (!val.allowed && !adminOverride) throw new Error(val.message)
     try {
       const mesStore = useMesStore()
+      const opId = Number(operator.id)
+      const nowIso = new Date().toISOString()
+      const localDate = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`
+
       const payload = {
-        operator_id: operator.id,
+        operator_id: opId,
         production_week: mesStore.currentProductionWeek,
-        shift_date: new Date().toISOString().split('T')[0],
-        clock_in: new Date().toISOString(),
+        shift_date: localDate,
+        clock_in: nowIso,
         status: val.allowed ? 'on_time' : 'late'
       }
       
       // Optimistic UI Update
-      clockInLog.value.push({
-        operatorId: payload.operator_id,
+      clockInLog.value.unshift({
+        operatorId: opId,
         timestamp: payload.clock_in,
         clockOut: null,
         status: payload.status,
@@ -109,9 +118,11 @@ export const useAttendanceStore = defineStore('attendance', () => {
       })
 
       if (navigator.onLine) {
-        supabase.from('mes_attendance').insert(payload).catch(() => {
-          syncManager.enqueue({ action: 'insert', table: 'mes_attendance', payload })
-        })
+        const { data, error } = await supabase.from('mes_attendance').insert(payload).select()
+        if (data && data[0]) {
+          const inserted = clockInLog.value.find(l => l.timestamp === nowIso && l.operatorId === opId)
+          if (inserted) inserted.id = data[0].id
+        }
       } else {
         syncManager.enqueue({ action: 'insert', table: 'mes_attendance', payload })
       }
@@ -120,8 +131,40 @@ export const useAttendanceStore = defineStore('attendance', () => {
     }
   }
 
+  async function recordClockOut(operatorId, adminOverride = false) {
+    const val = validateClockTime('out')
+    if (!val.allowed && !adminOverride) throw new Error(val.message)
+    try {
+      const opId = Number(operatorId)
+      const nowIso = new Date().toISOString()
+      const localDate = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`
+
+      const activeEntry = clockInLog.value.find(l => 
+        Number(l.operatorId) === opId && 
+        !l.clockOut &&
+        (l.shiftDate === localDate || (l.timestamp && l.timestamp.startsWith(localDate)))
+      )
+
+      if (activeEntry) {
+        activeEntry.clockOut = nowIso
+        if (activeEntry.id && navigator.onLine) {
+          await supabase.from('mes_attendance').update({ clock_out: nowIso }).eq('id', activeEntry.id)
+        } else if (activeEntry.id) {
+          syncManager.enqueue({ action: 'update', table: 'mes_attendance', payload: { id: activeEntry.id, clock_out: nowIso } })
+        }
+      } else if (navigator.onLine) {
+        await supabase.from('mes_attendance')
+          .update({ clock_out: nowIso })
+          .eq('operator_id', opId)
+          .is('clock_out', null)
+      }
+    } catch (err) {
+      console.error('[AttendanceStore] Error recording clock out:', err)
+    }
+  }
+
   function getDaysAttended(workerId, week) {
-    const entries = clockInLog.value.filter(e => e.operatorId === workerId && e.week === week)
+    const entries = clockInLog.value.filter(e => Number(e.operatorId) === Number(workerId) && e.week === week)
     const uniqueDays = new Set(entries.map(e => e.shiftDate))
     return uniqueDays.size
   }
@@ -151,18 +194,19 @@ export const useAttendanceStore = defineStore('attendance', () => {
         { event: 'INSERT', schema: 'public', table: 'mes_attendance' },
         (payload) => {
           const row = payload.new
+          const opId = row.operator_id != null ? Number(row.operator_id) : null
           const existing = clockInLog.value.find(l => 
             l.id === row.id || 
-            (l.operatorId === row.operator_id && l.shiftDate === row.shift_date && l.timestamp === row.clock_in)
+            (Number(l.operatorId) === opId && l.shiftDate === row.shift_date && l.timestamp === row.clock_in)
           )
           if (existing) {
             existing.id = row.id
             existing.clockOut = row.clock_out
             existing.status = row.status
           } else {
-            clockInLog.value.push({
+            clockInLog.value.unshift({
               id: row.id,
-              operatorId: row.operator_id,
+              operatorId: opId,
               timestamp: dbRowToIso(row.clock_in),
               clockOut: row.clock_out,
               status: row.status,
@@ -177,9 +221,10 @@ export const useAttendanceStore = defineStore('attendance', () => {
         { event: 'UPDATE', schema: 'public', table: 'mes_attendance' },
         (payload) => {
           const row = payload.new
+          const opId = row.operator_id != null ? Number(row.operator_id) : null
           const existing = clockInLog.value.find(l => 
             l.id === row.id || 
-            (l.operatorId === row.operator_id && l.shiftDate === row.shift_date)
+            (Number(l.operatorId) === opId && l.shiftDate === row.shift_date)
           )
           if (existing) {
             existing.id = row.id
@@ -210,6 +255,7 @@ export const useAttendanceStore = defineStore('attendance', () => {
     loadAttendanceLogs: fetchAttendance,
     validateClockTime,
     recordClockIn,
+    recordClockOut,
     updateWindow,
     getDaysAttended,
     initRealtime,
@@ -217,5 +263,7 @@ export const useAttendanceStore = defineStore('attendance', () => {
 }, {
   persist: {
     key: 'divider-attendance-store',
+    paths: ['clockingWindows']
   },
 })
+

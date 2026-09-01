@@ -268,7 +268,7 @@ function getWeekStartDate(weekStr) {
 // ─── Grid Data Store ───────────────────────────────────────────────────────
 function getCellValue(dayName, col, placement, size) {
   const targetIndex = dayIndexMap[dayName]
-  const filterId = isAdmin.value ? targetOperatorId.value : (sysAuth.currentEmployeeId || store.activeOperator?.id)
+  const filterId = isAdmin.value ? (targetOperatorId.value || 'all') : (sysAuth.currentEmployeeId || store.activeOperator?.id || 'all')
 
   return store.ledgerEntries
     .filter(e => {
