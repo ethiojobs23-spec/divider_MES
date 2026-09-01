@@ -155,7 +155,7 @@
       </button>
 
       <!-- 10. Quality Control -->
-      <button class="module-card card--amber" @click="go('/quality')">
+      <button class="module-card card--amber" @click="go('/quality-control')">
         <div class="card-glow" />
         <span class="material-symbols-rounded card-icon">verified_user</span>
         <div class="card-body">

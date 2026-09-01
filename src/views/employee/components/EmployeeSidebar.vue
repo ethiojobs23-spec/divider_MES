@@ -19,7 +19,6 @@
         <span v-if="item.id === 'shift-submit' && pendingSubmission" class="nav-badge">!</span>
       </button>
     </nav>
-
     <div class="sidebar-actions">
       <button class="btn-logout" @click="$emit('logout')">
         <span class="material-symbols-rounded">logout</span>
