@@ -64,38 +64,51 @@ export const usePayrollStore = defineStore('payroll', () => {
     workerProfiles.value[workerId] = newProfile
 
     try {
-      const { data: existing } = await supabase.from('mes_financial_ledger')
-        .select('*')
-        .eq('operator_id', workerId)
-        .eq('transaction_type', 'operator_config')
-      
-      let notesObj = { payroll_config: newProfile }
-      let targetId = null
-      
-      if (existing && existing.length > 0) {
-        const latest = existing[existing.length - 1]
-        targetId = latest.id
-        try {
-          const parsed = JSON.parse(latest.notes)
-          notesObj = { ...parsed, payroll_config: newProfile }
-        } catch (e) {}
-      }
-
-      const notes = JSON.stringify(notesObj)
-
-      if (targetId) {
-        await supabase.from('mes_financial_ledger').update({ notes }).eq('id', targetId)
-      } else {
-        await supabase.from('mes_financial_ledger').insert({
-          operator_id: workerId, target_name: '', transaction_type: 'operator_config',
-          amount: 0, transaction_date: new Date().toISOString().split('T')[0], notes
-        })
-      }
-      
       const mesStore = useMesStore()
       const op = mesStore.operators.find(o => o.id === workerId)
       if (op) {
         op.payroll_config = newProfile
+      }
+
+      const { data: existing } = await supabase.from('mes_financial_ledger')
+        .select('id, notes')
+        .eq('operator_id', workerId)
+        .eq('transaction_type', 'operator_config')
+        .order('id', { ascending: true })
+      
+      let existingWorkTypes = op?.work_types || null
+      let targetId = null
+      const duplicateIds = []
+      
+      if (existing && existing.length > 0) {
+        const latest = existing[existing.length - 1]
+        targetId = latest.id
+        for (let i = 0; i < existing.length - 1; i++) {
+          duplicateIds.push(existing[i].id)
+        }
+        try {
+          const parsed = JSON.parse(latest.notes)
+          if (parsed.work_types) existingWorkTypes = parsed.work_types
+        } catch (e) {}
+      }
+
+      const notesPayload = {
+        payroll_config: newProfile,
+        ...(existingWorkTypes ? { work_types: existingWorkTypes } : {})
+      }
+      const notes = JSON.stringify(notesPayload)
+
+      if (targetId) {
+        await supabase.from('mes_financial_ledger').update({ notes }).eq('id', targetId)
+      } else {
+        await supabase.from('mes_financial_ledger').insert([{
+          operator_id: workerId, target_name: 'Config', transaction_type: 'operator_config',
+          amount: 0, transaction_date: new Date().toISOString().split('T')[0], notes
+        }])
+      }
+
+      if (duplicateIds.length > 0) {
+        await supabase.from('mes_financial_ledger').delete().in('id', duplicateIds)
       }
     } catch (err) {
       console.error('[PayrollStore] setWorkerProfile failed to persist:', err)

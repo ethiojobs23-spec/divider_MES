@@ -991,20 +991,59 @@ export const useMesStore = defineStore('mes', () => {
 
   async function setOperatorWorkTypes(operatorId, workTypes) {
     try {
-      // workTypes can be a structured object (new) or flat array (legacy)
-      const notes = JSON.stringify({ work_types: workTypes })
-      const existing = (await supabase.from('mes_financial_ledger')
-        .select('id').eq('operator_id', operatorId).eq('transaction_type', 'operator_config')).data
-      if (existing?.length) {
-        await supabase.from('mes_financial_ledger').update({ notes }).eq('id', existing[0].id)
-      } else {
-        await supabase.from('mes_financial_ledger').insert({
-          operator_id: operatorId, target_name: '', transaction_type: 'operator_config',
-          amount: 0, transaction_date: new Date().toISOString().split('T')[0], notes
-        })
-      }
       const op = operators.value.find(o => o.id === operatorId)
       if (op) op.work_types = workTypes
+
+      // Fetch all existing operator_config rows for this operator
+      const { data: existing } = await supabase
+        .from('mes_financial_ledger')
+        .select('id, notes')
+        .eq('operator_id', operatorId)
+        .eq('transaction_type', 'operator_config')
+        .order('id', { ascending: true })
+
+      let existingPayrollConfig = op?.payroll_config || null
+      let targetId = null
+      const duplicateIds = []
+
+      if (existing && existing.length > 0) {
+        const latest = existing[existing.length - 1]
+        targetId = latest.id
+        for (let i = 0; i < existing.length - 1; i++) {
+          duplicateIds.push(existing[i].id)
+        }
+        try {
+          const parsed = JSON.parse(latest.notes)
+          if (parsed.payroll_config) existingPayrollConfig = parsed.payroll_config
+        } catch {}
+      }
+
+      const notesPayload = {
+        work_types: workTypes,
+        ...(existingPayrollConfig ? { payroll_config: existingPayrollConfig } : {})
+      }
+      const notes = JSON.stringify(notesPayload)
+
+      if (targetId) {
+        const { error: updateErr } = await supabase.from('mes_financial_ledger').update({ notes }).eq('id', targetId)
+        if (updateErr) throw updateErr
+      } else {
+        const { error: insertErr } = await supabase.from('mes_financial_ledger').insert([{
+          operator_id: operatorId,
+          target_name: 'Config',
+          transaction_type: 'operator_config',
+          amount: 0,
+          transaction_date: new Date().toISOString().split('T')[0],
+          notes
+        }])
+        if (insertErr) throw insertErr
+      }
+
+      // Purge any stale duplicate config rows so they can never overwrite on reload
+      if (duplicateIds.length > 0) {
+        await supabase.from('mes_financial_ledger').delete().in('id', duplicateIds)
+      }
+
       return true
     } catch (err) {
       console.error('[Store] setOperatorWorkTypes failed:', err)
@@ -1227,6 +1266,38 @@ export const useMesStore = defineStore('mes', () => {
               s.transaction_type = row.transaction_type
               try { s.details = JSON.parse(row.notes) } catch {}
             }
+          } else if (row.transaction_type === 'operator_config') {
+            try {
+              const parsed = JSON.parse(row.notes)
+              const op = operators.value.find(o => o.id === row.operator_id)
+              if (op) {
+                if (parsed.work_types) op.work_types = parsed.work_types
+                if (parsed.payroll_config) op.payroll_config = parsed.payroll_config
+              }
+            } catch {}
+          } else if (row.transaction_type === 'system_config' && row.target_name === 'global') {
+            try {
+              const parsed = JSON.parse(row.notes)
+              if (parsed.pieceRates) pieceRates.value = normalizePieceRates(parsed.pieceRates)
+              if (parsed.wasteThresholds) wasteThresholds.value = parsed.wasteThresholds
+              if (parsed.systemConfig) {
+                systemConfig.value = {
+                  ...defaultSystemConfig,
+                  ...parsed.systemConfig,
+                  otherDividerType: {
+                    ...defaultSystemConfig.otherDividerType,
+                    ...(parsed.systemConfig.otherDividerType || {})
+                  },
+                  otherPlacement: {
+                    ...defaultSystemConfig.otherPlacement,
+                    ...(parsed.systemConfig.otherPlacement || {})
+                  }
+                }
+              }
+              if (parsed.clockingWindows) {
+                useAttendanceStore().clockingWindows = parsed.clockingWindows
+              }
+            } catch {}
           } else {
             const entry = cashEntries.value.find(c => c.id === row.id)
             if (entry) {

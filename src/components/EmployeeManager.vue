@@ -165,21 +165,51 @@ async function saveEmployee() {
       empId = data.id
     }
 
-    // Save Payroll Config
+    // Save Payroll Config & preserve Work Types
     const existingOp = mesStore.operators.find(o => o.id === empId)
+    const { data: existingConfigs } = await supabase.from('mes_financial_ledger')
+      .select('id, notes')
+      .eq('operator_id', empId)
+      .eq('transaction_type', 'operator_config')
+      .order('id', { ascending: true })
+    
+    let existingWorkTypes = existingOp?.work_types || null
+    let targetConfigId = null
+    const duplicateConfigIds = []
+    if (existingConfigs && existingConfigs.length > 0) {
+      const latest = existingConfigs[existingConfigs.length - 1]
+      targetConfigId = latest.id
+      for (let i = 0; i < existingConfigs.length - 1; i++) {
+        duplicateConfigIds.push(existingConfigs[i].id)
+      }
+      try {
+        const parsed = JSON.parse(latest.notes)
+        if (parsed.work_types) existingWorkTypes = parsed.work_types
+      } catch {}
+    }
+
     const notesPayload = {
       payroll_config: formData.value.payroll_config,
-      ...(existingOp?.work_types ? { work_types: existingOp.work_types } : {})
+      ...(existingWorkTypes ? { work_types: existingWorkTypes } : {})
     }
-    
-    await supabase.from('mes_financial_ledger').insert([{
-      operator_id: empId,
-      target_name: 'Config',
-      transaction_type: 'operator_config',
-      amount: 0,
-      transaction_date: new Date().toISOString().split('T')[0],
-      notes: JSON.stringify(notesPayload)
-    }])
+    const notes = JSON.stringify(notesPayload)
+
+    if (targetConfigId) {
+      await supabase.from('mes_financial_ledger').update({ notes }).eq('id', targetConfigId)
+    } else {
+      await supabase.from('mes_financial_ledger').insert([{
+        operator_id: empId,
+        target_name: 'Config',
+        transaction_type: 'operator_config',
+        amount: 0,
+        transaction_date: new Date().toISOString().split('T')[0],
+        notes
+      }])
+    }
+
+    if (duplicateConfigIds.length > 0) {
+      await supabase.from('mes_financial_ledger').delete().in('id', duplicateConfigIds)
+    }
 
     await mesStore.fetchInitialData() // refresh operators
     showModal.value = false

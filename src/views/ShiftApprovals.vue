@@ -321,14 +321,15 @@
 
             <!-- Save Button -->
             <button
-              class="cfg-save-btn cursor-pointer"
+              class="cfg-save-btn cursor-pointer transition-all"
+              :class="{ '!bg-emerald-600 !border-emerald-500 text-white': savedWtSuccess === op.id }"
               :disabled="savingWt === op.id"
               @click="saveWorkConfig(op)"
             >
               <span class="material-symbols-rounded" style="font-size:1rem">
-                {{ savingWt === op.id ? 'hourglass_top' : 'save' }}
+                {{ savedWtSuccess === op.id ? 'check_circle' : savingWt === op.id ? 'hourglass_top' : 'save' }}
               </span>
-              {{ savingWt === op.id ? 'Saving...' : 'Save Work Config' }}
+              {{ savedWtSuccess === op.id ? 'Saved Successfully!' : savingWt === op.id ? 'Saving...' : 'Save Work Config' }}
             </button>
           </div>
         </div>
@@ -448,15 +449,21 @@ const SIZES         = ['9cm', '7cm']
 
 // ─── Per-operator config helpers ────────────────────────────────────────────
 function getOpConfig(op) {
-  const wt = op.work_types
-  if (wt && !Array.isArray(wt) && typeof wt === 'object') return wt
-  return {
-    categories:   ['MFG'],
-    divider_types:[],
-    placements:   [],
-    sizes:        [],
-    hourly_rate:  null,
+  if (!op.work_types || Array.isArray(op.work_types) || typeof op.work_types !== 'object') {
+    op.work_types = {
+      categories:   ['MFG'],
+      divider_types:[],
+      placements:   [],
+      sizes:        [],
+      hourly_rate:  null,
+    }
+  } else {
+    if (!Array.isArray(op.work_types.categories)) op.work_types.categories = ['MFG']
+    if (!Array.isArray(op.work_types.divider_types)) op.work_types.divider_types = []
+    if (!Array.isArray(op.work_types.placements)) op.work_types.placements = []
+    if (!Array.isArray(op.work_types.sizes)) op.work_types.sizes = []
   }
+  return op.work_types
 }
 
 function isTimeOnly(op) {
@@ -470,45 +477,40 @@ function hasMfgOrC(op) {
 }
 
 function toggleCategory(op, catId) {
-  const cfg = ensureStructuredConfig(op)
+  const cfg = getOpConfig(op)
   const idx = cfg.categories.indexOf(catId)
   if (idx === -1) cfg.categories.push(catId)
   else cfg.categories.splice(idx, 1)
 }
 
 function toggleField(op, field, value) {
-  const cfg = ensureStructuredConfig(op)
+  const cfg = getOpConfig(op)
+  if (!Array.isArray(cfg[field])) cfg[field] = []
   const idx = cfg[field].indexOf(value)
   if (idx === -1) cfg[field].push(value)
   else cfg[field].splice(idx, 1)
 }
 
 function setHourlyRate(op, val) {
-  const cfg = ensureStructuredConfig(op)
+  const cfg = getOpConfig(op)
   cfg.hourly_rate = val ? Number(val) : null
-}
-
-function ensureStructuredConfig(op) {
-  if (!op.work_types || Array.isArray(op.work_types) || typeof op.work_types !== 'object') {
-    op.work_types = {
-      categories:   [],
-      divider_types:[],
-      placements:   [],
-      sizes:        [],
-      hourly_rate:  null,
-    }
-  }
-  return op.work_types
 }
 
 // ─── Save work config ────────────────────────────────────────────────────────
 const savingWt = ref(null)
+const savedWtSuccess = ref(null)
 
 async function saveWorkConfig(op) {
   savingWt.value = op.id
-  const cfg = getOpConfig(op)
-  await store.setOperatorWorkTypes(op.id, cfg)
+  const cfg = JSON.parse(JSON.stringify(getOpConfig(op)))
+  const ok = await store.setOperatorWorkTypes(op.id, cfg)
   savingWt.value = null
+  if (ok) {
+    savedWtSuccess.value = op.id
+    setTimeout(() => {
+      if (savedWtSuccess.value === op.id) savedWtSuccess.value = null
+    }, 2500)
+  }
 }
 
 // ─── Shift submissions ───────────────────────────────────────────────────────
