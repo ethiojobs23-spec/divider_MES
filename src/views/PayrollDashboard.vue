@@ -474,22 +474,22 @@
 
     <!-- Payment History View -->
     <div class="history-view w-full flex-1 min-h-0 overflow-y-auto p-4 md:p-8 bg-slate-900" v-show="activeTab === 'history'">
-      <div class="max-w-5xl mx-auto space-y-6">
-        <!-- Header Bar with Filters -->
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="max-w-6xl mx-auto space-y-6">
+        <!-- Header Bar with Multi-Filters -->
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h2 class="text-2xl font-black text-slate-100 tracking-tight">Past Payroll Settlements</h2>
-            <p class="text-xs text-slate-400 mt-1">Audit log of all finalized and logged payments from the financial ledger</p>
+            <p class="text-xs text-slate-400 mt-1">Audit log of all payouts: who was paid, amount, purpose breakdown, and payment method (Cash / Telebirr / CBE)</p>
           </div>
           
           <div class="flex flex-wrap items-center gap-2.5">
-            <!-- Search Worker -->
-            <div class="relative min-w-[180px]">
+            <!-- Search Worker / Purpose -->
+            <div class="relative min-w-[170px]">
               <span class="material-symbols-rounded absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
               <input
                 v-model="historySearchQuery"
                 type="text"
-                placeholder="Search worker..."
+                placeholder="Search name, account..."
                 class="w-full bg-slate-800 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 placeholder-slate-500"
               />
             </div>
@@ -501,6 +501,17 @@
             >
               <option value="all">All Weeks</option>
               <option v-for="w in availableHistoryWeeks" :key="w" :value="w">{{ w }}</option>
+            </select>
+
+            <!-- Payment Method Filter -->
+            <select
+              v-model="historyMethodFilter"
+              class="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-xs font-bold text-slate-200 focus:outline-none focus:border-indigo-500"
+            >
+              <option value="all">All Payment Methods</option>
+              <option value="Cash">💵 Cash</option>
+              <option value="Telebirr">📱 Telebirr</option>
+              <option value="CBE">🏦 CBE Bank</option>
             </select>
 
             <!-- Export CSV -->
@@ -517,75 +528,139 @@
         </div>
 
         <!-- KPI Summary Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div class="bg-slate-800/80 border border-white/10 rounded-xl p-4 flex items-center gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div class="bg-slate-800/80 border border-white/10 rounded-xl p-3.5 flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
               <span class="material-symbols-rounded text-xl">payments</span>
             </div>
             <div>
-              <p class="text-[0.7rem] uppercase font-bold text-slate-400">Total Settled</p>
-              <p class="text-lg font-black text-emerald-400 font-mono">{{ totalHistoryPaid.toFixed(2) }} ETB</p>
+              <p class="text-[0.65rem] uppercase font-bold text-slate-400">Total Settled</p>
+              <p class="text-base font-black text-emerald-400 font-mono">{{ totalHistoryPaid.toFixed(2) }} ETB</p>
             </div>
           </div>
-          <div class="bg-slate-800/80 border border-white/10 rounded-xl p-4 flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center">
-              <span class="material-symbols-rounded text-xl">receipt_long</span>
+          <div class="bg-slate-800/80 border border-white/10 rounded-xl p-3.5 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center">
+              <span class="material-symbols-rounded text-xl">payments</span>
             </div>
             <div>
-              <p class="text-[0.7rem] uppercase font-bold text-slate-400">Settlements</p>
-              <p class="text-lg font-black text-slate-100 font-mono">{{ filteredPaymentHistory.length }}</p>
+              <p class="text-[0.65rem] uppercase font-bold text-slate-400">Cash Payouts</p>
+              <p class="text-base font-black text-amber-300 font-mono">{{ totalCashHistoryPaid.toFixed(2) }} ETB</p>
             </div>
           </div>
-          <div class="bg-slate-800/80 border border-white/10 rounded-xl p-4 flex items-center gap-3">
+          <div class="bg-slate-800/80 border border-white/10 rounded-xl p-3.5 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center">
+              <span class="material-symbols-rounded text-xl">smartphone</span>
+            </div>
+            <div>
+              <p class="text-[0.65rem] uppercase font-bold text-slate-400">Digital (Telebirr/CBE)</p>
+              <p class="text-base font-black text-cyan-300 font-mono">{{ totalDigitalHistoryPaid.toFixed(2) }} ETB</p>
+            </div>
+          </div>
+          <div class="bg-slate-800/80 border border-white/10 rounded-xl p-3.5 flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center">
               <span class="material-symbols-rounded text-xl">group</span>
             </div>
             <div>
-              <p class="text-[0.7rem] uppercase font-bold text-slate-400">Unique Payees</p>
-              <p class="text-lg font-black text-purple-300 font-mono">{{ uniqueHistoryPayeesCount }}</p>
+              <p class="text-[0.65rem] uppercase font-bold text-slate-400">Unique Payees</p>
+              <p class="text-base font-black text-purple-300 font-mono">{{ uniqueHistoryPayeesCount }}</p>
             </div>
           </div>
         </div>
 
-        <!-- History Table -->
+        <!-- Enhanced History Table -->
         <div class="bg-slate-800 border border-white/10 rounded-xl overflow-hidden shadow-xl">
           <div class="overflow-x-auto w-full">
             <table class="w-full text-left border-collapse min-w-full">
               <thead class="bg-slate-900/90 border-b border-white/10">
                 <tr>
-                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase">Date</th>
-                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase">Worker</th>
-                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase">Week</th>
-                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase">Note</th>
-                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase text-right">Amount (ETB)</th>
-                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase text-center">Receipt</th>
+                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase">Date &amp; Period</th>
+                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase">Employee Name</th>
+                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase">How We Paid</th>
+                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase">What We Paid For</th>
+                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase text-right">How Much Paid</th>
+                  <th class="p-3.5 text-xs font-bold tracking-wider text-slate-400 uppercase text-center">Slip / Receipt</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-white/5 text-slate-200">
                 <tr v-for="entry in filteredPaymentHistory" :key="entry.id" class="hover:bg-white/5 transition-colors">
-                  <td class="p-3.5 text-xs text-slate-300 font-mono">
-                    {{ (entry.timestamp || entry.transaction_date || '').split('T')[0] || '—' }}
-                  </td>
-                  <td class="p-3.5 text-sm font-bold text-slate-100 flex items-center gap-2.5">
-                    <OperatorAvatar 
-                      :name="entry.operator" 
-                      :avatar="getOperatorObj(entry)?.avatar" 
-                      :color="getOperatorObj(entry)?.color" 
-                      size="sm" 
-                    />
-                    <span>{{ entry.operator }}</span>
-                  </td>
-                  <td class="p-3.5 text-xs">
-                    <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2.5 py-0.5 rounded-full font-mono font-bold">
+                  <!-- Date & Period -->
+                  <td class="p-3.5 text-xs text-slate-300">
+                    <p class="font-mono font-bold">{{ (entry.timestamp || entry.transaction_date || '').split('T')[0] || '—' }}</p>
+                    <span class="inline-block mt-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.2 rounded text-[0.65rem] font-mono font-bold">
                       {{ entry.week || 'W--' }}
                     </span>
                   </td>
-                  <td class="p-3.5 text-xs text-slate-400 max-w-xs truncate" :title="entry.note">
-                    {{ entry.note || `Weekly Payroll Settlement for ${entry.week}` }}
+
+                  <!-- Employee Name -->
+                  <td class="p-3.5 text-sm font-bold text-slate-100">
+                    <div class="flex items-center gap-2.5">
+                      <OperatorAvatar 
+                        :name="entry.workerName" 
+                        :avatar="entry.operatorObj?.avatar" 
+                        :color="entry.operatorObj?.color" 
+                        size="sm" 
+                      />
+                      <div>
+                        <p class="font-bold text-white">{{ entry.workerName }}</p>
+                        <p class="text-[0.68rem] text-slate-400 font-normal">{{ entry.operatorObj?.role || 'Operator' }} &bull; #{{ entry.operator_id || '—' }}</p>
+                      </div>
+                    </div>
                   </td>
-                  <td class="p-3.5 text-sm font-bold text-emerald-400 text-right font-mono">
-                    {{ Number(entry.amount || 0).toFixed(2) }}
+
+                  <!-- How We Paid (Method / Channel) -->
+                  <td class="p-3.5 text-xs">
+                    <!-- Cash Badge -->
+                    <div v-if="entry.paymentMethod === 'Cash'" class="inline-flex items-center gap-1.5 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg font-bold">
+                      <span class="material-symbols-rounded text-sm text-emerald-400">payments</span>
+                      <span>Cash In-Hand</span>
+                    </div>
+                    <!-- Telebirr Badge -->
+                    <div v-else-if="entry.paymentMethod === 'Telebirr'" class="inline-flex flex-col bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 px-2.5 py-1 rounded-lg">
+                      <div class="flex items-center gap-1.5 font-bold">
+                        <span class="material-symbols-rounded text-sm text-cyan-400">smartphone</span>
+                        <span>Telebirr</span>
+                      </div>
+                      <span v-if="entry.accountInfo" class="text-[0.65rem] font-mono text-cyan-200/80 mt-0.5">{{ entry.accountInfo }}</span>
+                    </div>
+                    <!-- CBE Bank Badge -->
+                    <div v-else-if="entry.paymentMethod === 'CBE'" class="inline-flex flex-col bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded-lg">
+                      <div class="flex items-center gap-1.5 font-bold">
+                        <span class="material-symbols-rounded text-sm text-indigo-400">account_balance</span>
+                        <span>CBE Bank</span>
+                      </div>
+                      <span v-if="entry.accountInfo" class="text-[0.65rem] font-mono text-indigo-200/80 mt-0.5">{{ entry.accountInfo }}</span>
+                    </div>
+                    <!-- Other / Fallback -->
+                    <div v-else class="inline-flex items-center gap-1.5 bg-slate-700/50 text-slate-300 border border-white/10 px-2.5 py-1 rounded-lg font-bold">
+                      <span class="material-symbols-rounded text-sm">wallet</span>
+                      <span>{{ entry.paymentMethod || 'Cash' }}</span>
+                    </div>
                   </td>
+
+                  <!-- What We Paid For (Breakdown / Purpose) -->
+                  <td class="p-3.5 text-xs">
+                    <p class="font-bold text-slate-200">{{ entry.purpose }}</p>
+                    <!-- Financial pills if available -->
+                    <div class="flex flex-wrap items-center gap-1.5 mt-1 font-mono text-[0.68rem]">
+                      <span v-if="entry.gross > 0 && entry.gross !== entry.netAmount" class="bg-slate-700/60 text-slate-300 px-2 py-0.5 rounded">
+                        Gross: {{ entry.gross.toFixed(2) }} ETB
+                      </span>
+                      <span v-if="entry.deductions > 0" class="bg-red-500/15 text-red-300 border border-red-500/20 px-2 py-0.5 rounded">
+                        Deductions: -{{ entry.deductions.toFixed(2) }} ETB
+                      </span>
+                      <span v-if="entry.bonus > 0" class="bg-amber-500/15 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded">
+                        Bonus: +{{ entry.bonus.toFixed(2) }} ETB {{ entry.bonusReason ? `(${entry.bonusReason})` : '' }}
+                      </span>
+                    </div>
+                  </td>
+
+                  <!-- How Much Paid (Net Amount) -->
+                  <td class="p-3.5 text-right font-mono">
+                    <p class="text-sm font-black text-emerald-400">{{ entry.netAmount.toFixed(2) }} ETB</p>
+                    <span class="text-[0.65rem] text-slate-400">Net Disbursed</span>
+                  </td>
+
+                  <!-- Slip / Receipt -->
                   <td class="p-3.5 text-center">
                     <button
                       @click="viewHistoricalReceipt(entry)"
@@ -593,7 +668,7 @@
                       title="View & Print Official Receipt"
                     >
                       <span class="material-symbols-rounded text-sm text-indigo-400">receipt</span>
-                      Receipt
+                      Slip
                     </button>
                   </td>
                 </tr>
@@ -797,6 +872,7 @@ function onBonusReasonInput(event) {
 // ── Payment History ────────────────────────────────────────────────────────
 const historySearchQuery = ref('')
 const historyWeekFilter = ref('all')
+const historyMethodFilter = ref('all')
 
 const paymentHistory = computed(() => {
   return mesStore.cashEntries
@@ -807,35 +883,13 @@ const paymentHistory = computed(() => {
 const availableHistoryWeeks = computed(() => {
   const weeks = new Set()
   paymentHistory.value.forEach(e => {
-    if (e.week) weeks.add(e.week)
+    let week = e.week
+    if (e.note && typeof e.note === 'string' && e.note.trim().startsWith('{')) {
+      try { week = JSON.parse(e.note).week || week } catch {}
+    }
+    if (week) weeks.add(week)
   })
   return Array.from(weeks).sort().reverse()
-})
-
-const filteredPaymentHistory = computed(() => {
-  return paymentHistory.value.filter(entry => {
-    // Week filter
-    if (historyWeekFilter.value !== 'all' && entry.week !== historyWeekFilter.value) {
-      return false
-    }
-    // Search query
-    if (historySearchQuery.value.trim()) {
-      const q = historySearchQuery.value.toLowerCase()
-      const opMatch = (entry.operator || '').toLowerCase().includes(q)
-      const noteMatch = (entry.note || '').toLowerCase().includes(q)
-      if (!opMatch && !noteMatch) return false
-    }
-    return true
-  })
-})
-
-const totalHistoryPaid = computed(() => {
-  return filteredPaymentHistory.value.reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
-})
-
-const uniqueHistoryPayeesCount = computed(() => {
-  const payees = new Set(filteredPaymentHistory.value.map(e => e.operator_id || e.operator))
-  return payees.size
 })
 
 function getOperatorObj(entry) {
@@ -844,6 +898,93 @@ function getOperatorObj(entry) {
     (entry.operator && o.name === entry.operator)
   )
 }
+
+function formatPaymentDetails(entry) {
+  const op = getOperatorObj(entry)
+  const profile = op ? payrollStore.getWorkerProfile(op.id) : null
+  
+  let parsed = null
+  if (entry.note && typeof entry.note === 'string' && entry.note.trim().startsWith('{')) {
+    try { parsed = JSON.parse(entry.note) } catch {}
+  }
+
+  const method = parsed?.paymentMethod || profile?.paymentMethod || 'Cash'
+  const account = parsed?.accountInfo || profile?.accountInfo || ''
+  const week = parsed?.week || entry.week || 'W--'
+  const purpose = parsed?.purpose || (entry.note && !entry.note.startsWith('{') ? entry.note : `Weekly Settlement for ${week}`)
+  const gross = parsed?.grossEarnings != null ? Number(parsed.grossEarnings) : (parsed?.grossPieceRate != null ? Number(parsed.grossPieceRate) : Number(entry.amount || 0))
+  const grossPieceRate = parsed?.grossPieceRate != null ? Number(parsed.grossPieceRate) : gross
+  const grossHourly = parsed?.grossHourly != null ? Number(parsed.grossHourly) : 0
+  const deductions = parsed?.totalDeduction != null ? Number(parsed.totalDeduction) : 0
+  const bonus = parsed?.bonus != null ? Number(parsed.bonus) : 0
+  const bonusReason = parsed?.bonusReason || ''
+
+  return {
+    ...entry,
+    workerName: entry.operator || op?.name || 'Unknown',
+    operatorObj: op,
+    paymentMethod: method,
+    accountInfo: account,
+    week,
+    purpose,
+    gross,
+    grossPieceRate,
+    grossHourly,
+    deductions,
+    bonus,
+    bonusReason,
+    netAmount: Number(entry.amount) || 0,
+    rawParsed: parsed
+  }
+}
+
+const enrichedPaymentHistory = computed(() => {
+  return paymentHistory.value.map(formatPaymentDetails)
+})
+
+const filteredPaymentHistory = computed(() => {
+  return enrichedPaymentHistory.value.filter(entry => {
+    // Week filter
+    if (historyWeekFilter.value !== 'all' && entry.week !== historyWeekFilter.value) {
+      return false
+    }
+    // Payment Method filter
+    if (historyMethodFilter.value !== 'all' && entry.paymentMethod !== historyMethodFilter.value) {
+      return false
+    }
+    // Search query
+    if (historySearchQuery.value.trim()) {
+      const q = historySearchQuery.value.toLowerCase()
+      const opMatch = (entry.workerName || '').toLowerCase().includes(q)
+      const purposeMatch = (entry.purpose || '').toLowerCase().includes(q)
+      const methodMatch = (entry.paymentMethod || '').toLowerCase().includes(q)
+      const accountMatch = (entry.accountInfo || '').toLowerCase().includes(q)
+      if (!opMatch && !purposeMatch && !methodMatch && !accountMatch) return false
+    }
+    return true
+  })
+})
+
+const totalHistoryPaid = computed(() => {
+  return filteredPaymentHistory.value.reduce((sum, e) => sum + e.netAmount, 0)
+})
+
+const totalCashHistoryPaid = computed(() => {
+  return filteredPaymentHistory.value
+    .filter(e => e.paymentMethod === 'Cash')
+    .reduce((sum, e) => sum + e.netAmount, 0)
+})
+
+const totalDigitalHistoryPaid = computed(() => {
+  return filteredPaymentHistory.value
+    .filter(e => e.paymentMethod !== 'Cash')
+    .reduce((sum, e) => sum + e.netAmount, 0)
+})
+
+const uniqueHistoryPayeesCount = computed(() => {
+  const payees = new Set(filteredPaymentHistory.value.map(e => e.operator_id || e.workerName))
+  return payees.size
+})
 
 function viewHistoricalReceipt(entry) {
   const op = getOperatorObj(entry)
@@ -854,24 +995,24 @@ function viewHistoricalReceipt(entry) {
 
   currentReceiptData.value = {
     receiptNo: `REC-${weekLabel}-${opId}-${receiptId}`,
-    employeeName: entry.operator || op?.name || 'Unknown',
+    employeeName: entry.workerName || entry.operator || op?.name || 'Unknown',
     employeeId: entry.operator_id || op?.id || '—',
     role: op?.role || 'Operator',
     productionWeek: entry.week || 'Historical',
-    paymentMethod: profile?.paymentMethod || 'Cash',
-    accountInfo: profile?.accountInfo || 'N/A',
+    paymentMethod: entry.paymentMethod || profile?.paymentMethod || 'Cash',
+    accountInfo: entry.accountInfo || profile?.accountInfo || 'N/A',
     date: entry.timestamp || entry.transaction_date || new Date().toISOString(),
-    grossPay: Number(entry.amount) || 0,
-    grossPieceRate: Number(entry.amount) || 0,
-    grossHourly: 0,
+    grossPay: entry.gross || Number(entry.amount) || 0,
+    grossPieceRate: entry.grossPieceRate || entry.gross || Number(entry.amount) || 0,
+    grossHourly: entry.grossHourly || 0,
     advanceDeductions: 0,
-    loanDeductions: 0,
-    deductions: 0,
-    totalDeductions: 0,
-    bonus: 0,
-    bonusReason: '',
-    netPayout: Number(entry.amount) || 0,
-    note: entry.note || '',
+    loanDeductions: entry.deductions || 0,
+    deductions: entry.deductions || 0,
+    totalDeductions: entry.deductions || 0,
+    bonus: entry.bonus || 0,
+    bonusReason: entry.bonusReason || '',
+    netPayout: entry.netAmount || Number(entry.amount) || 0,
+    note: entry.purpose || entry.note || '',
     authorizedBy: 'Divider MES Admin'
   }
   isReceiptModalOpen.value = true
@@ -880,21 +1021,28 @@ function viewHistoricalReceipt(entry) {
 function exportHistoryCSV() {
   if (filteredPaymentHistory.value.length === 0) return
 
-  let csvContent = "Date,Operator,Week,Note,Amount_ETB\n"
+  let csvContent = "Date,Employee_Name,Role,Payment_Method,Account_Info,Week,What_We_Paid_For,Gross_ETB,Deductions_ETB,Bonus_ETB,Net_Paid_ETB\n"
   filteredPaymentHistory.value.forEach(entry => {
     const date = (entry.timestamp || entry.transaction_date || '').split('T')[0]
-    const op = entry.operator || 'Unknown'
-    const week = entry.week || ''
-    const note = (entry.note || '').replace(/"/g, '""')
-    const amount = Number(entry.amount || 0).toFixed(2)
-    csvContent += `"${date}","${op}","${week}","${note}","${amount}"\n`
+    const name = `"${(entry.workerName || 'Unknown').replace(/"/g, '""')}"`
+    const role = `"${(entry.operatorObj?.role || 'Operator').replace(/"/g, '""')}"`
+    const method = `"${entry.paymentMethod || 'Cash'}"`
+    const account = `"${(entry.accountInfo || 'N/A').replace(/"/g, '""')}"`
+    const week = `"${entry.week || ''}"`
+    const purpose = `"${(entry.purpose || '').replace(/"/g, '""')}"`
+    const gross = (entry.gross || 0).toFixed(2)
+    const deductions = (entry.deductions || 0).toFixed(2)
+    const bonus = (entry.bonus || 0).toFixed(2)
+    const net = (entry.netAmount || 0).toFixed(2)
+    
+    csvContent += `${date},${name},${role},${method},${account},${week},${purpose},${gross},${deductions},${bonus},${net}\n`
   })
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement("a")
   link.setAttribute("href", url)
-  link.setAttribute("download", `payroll_payment_history_${historyWeekFilter.value}_${Date.now()}.csv`)
+  link.setAttribute("download", `payroll_payment_history_${historyWeekFilter.value}_${historyMethodFilter.value}_${Date.now()}.csv`)
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)

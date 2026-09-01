@@ -537,16 +537,29 @@ export const usePayrollStore = defineStore('payroll', () => {
     const payoutDetails = calculateFinalPayout(workerId, week)
     if (payoutDetails.netPayout > 0) {
       const worker    = mesStore.operators.find(o => o.id === workerId)
+      const profile   = getWorkerProfile(workerId)
       const bonusInfo = getBonus(workerId, week)
-      const bonusNote = bonusInfo.amount > 0
-        ? ` + Bonus: ${bonusInfo.amount} ETB (${bonusInfo.reason || 'Performance'})`
-        : ''
+
+      const payloadNote = JSON.stringify({
+        week,
+        paymentMethod: profile.paymentMethod || 'Cash',
+        accountInfo: profile.accountInfo || '',
+        grossPieceRate: payoutDetails.grossPieceRate || 0,
+        grossHourly: payoutDetails.grossHourly || 0,
+        grossEarnings: payoutDetails.grossEarnings || 0,
+        totalDeduction: payoutDetails.totalDeduction || 0,
+        bonus: bonusInfo.amount || 0,
+        bonusReason: bonusInfo.reason || '',
+        netPayout: payoutDetails.netPayout,
+        purpose: `Weekly Production Settlement (${week})`
+      })
+
       await mesStore.addCashEntry({
         operator_id: workerId,
         operator: worker?.name || 'Unknown',
         type:     'payout',
         amount:   payoutDetails.netPayout,
-        note:     `Weekly Payroll Settlement for ${week}${bonusNote}`
+        note:     payloadNote
       })
     }
   }
