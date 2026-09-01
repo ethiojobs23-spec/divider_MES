@@ -636,9 +636,12 @@ const allPlacementsForRates = computed(() => {
 
   function getRate(category, type, size, placement) {
     let rate = 0
-    if (category === 'MFG') rate = store.pieceRates?.['MFG']?.[type]
-    else if (category === 'C') rate = store.pieceRates?.['C']?.['null']?.[size]?.[placement]
-    else if (category === 'PP' || category === 'PL') {
+    if (category === 'MFG') {
+      const val = store.pieceRates?.['MFG']?.[type]
+      rate = typeof val === 'number' ? val : (val?.['9cm']?.['ብተና'] || 0)
+    } else if (category === 'C') {
+      rate = store.pieceRates?.['C']?.['null']?.[size]?.[placement] ?? store.pieceRates?.['C']?.['50']?.[size]?.[placement]
+    } else if (category === 'PP' || category === 'PL') {
       rate = store.pieceRates?.[category]?.[type]?.[size]
     } else {
       rate = store.pieceRates?.[category]?.[type]?.[size]?.[placement]

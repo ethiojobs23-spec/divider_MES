@@ -31,6 +31,98 @@ const defaultSystemConfig = {
   }
 }
 
+export const defaultPieceRates = {
+  MFG: {
+    '50': 2.50,
+    '40': 2.25,
+    '30': 2.00,
+    '16': 1.75,
+    '12': 1.50,
+    '45': 2.40,
+    'Other': 2.00
+  },
+  PP: {
+    '50': { '9cm': 0.75, '7cm': 0.60 },
+    '40': { '9cm': 0.70, '7cm': 0.55 },
+    '30': { '9cm': 0.65, '7cm': 0.50 },
+    '16': { '9cm': 0.60, '7cm': 0.45 },
+    '12': { '9cm': 0.55, '7cm': 0.40 },
+    '45': { '9cm': 0.70, '7cm': 0.55 },
+    'Other': { '9cm': 0.60, '7cm': 0.45 }
+  },
+  PL: {
+    '50': { '9cm': 0.85, '7cm': 0.70 },
+    '40': { '9cm': 0.80, '7cm': 0.65 },
+    '30': { '9cm': 0.75, '7cm': 0.60 },
+    '16': { '9cm': 0.70, '7cm': 0.55 },
+    '12': { '9cm': 0.65, '7cm': 0.50 },
+    '45': { '9cm': 0.80, '7cm': 0.65 },
+    'Other': { '9cm': 0.70, '7cm': 0.55 }
+  },
+  C: {
+    'null': {
+      '9cm': { 'ብተና': 1.50, 'ውስጥ': 2.00, 'የተለየ': 2.50, 'Other': 1.50 },
+      '7cm': { 'ብተና': 1.00, 'ውስጥ': 1.50, 'የተለየ': 2.00, 'Other': 1.00 }
+    }
+  }
+}
+
+export function normalizePieceRates(raw) {
+  if (!raw || typeof raw !== 'object') return JSON.parse(JSON.stringify(defaultPieceRates))
+  
+  const result = JSON.parse(JSON.stringify(defaultPieceRates))
+  
+  // 1. MFG
+  if (raw.MFG && typeof raw.MFG === 'object') {
+    for (const [type, val] of Object.entries(raw.MFG)) {
+      if (typeof val === 'number' && !isNaN(val)) {
+        result.MFG[type] = val
+      } else if (val && typeof val === 'object') {
+        const num = val?.['9cm']?.['ብተና'] ?? val?.['9cm']?.['ውስጥ'] ?? Object.values(val?.['9cm'] || {})[0]
+        if (typeof num === 'number' && !isNaN(num)) result.MFG[type] = num
+      }
+    }
+  }
+
+  // 2. PP
+  if (raw.PP && typeof raw.PP === 'object') {
+    for (const [type, sizeObj] of Object.entries(raw.PP)) {
+      if (sizeObj && typeof sizeObj === 'object') {
+        if (!result.PP[type]) result.PP[type] = { '9cm': 0, '7cm': 0 }
+        for (const [size, val] of Object.entries(sizeObj)) {
+          if (typeof val === 'number' && !isNaN(val)) result.PP[type][size] = val
+        }
+      }
+    }
+  }
+
+  // 3. PL
+  if (raw.PL && typeof raw.PL === 'object') {
+    for (const [type, sizeObj] of Object.entries(raw.PL)) {
+      if (sizeObj && typeof sizeObj === 'object') {
+        if (!result.PL[type]) result.PL[type] = { '9cm': 0, '7cm': 0 }
+        for (const [size, val] of Object.entries(sizeObj)) {
+          if (typeof val === 'number' && !isNaN(val)) result.PL[type][size] = val
+        }
+      }
+    }
+  }
+
+  // 4. C
+  if (raw.C && typeof raw.C === 'object') {
+    if (raw.C['null'] && typeof raw.C['null'] === 'object') {
+      result.C['null'] = raw.C['null']
+    } else {
+      const firstTypeObj = Object.values(raw.C)[0]
+      if (firstTypeObj && typeof firstTypeObj === 'object') {
+        result.C['null'] = firstTypeObj
+      }
+    }
+  }
+
+  return result
+}
+
 export const useMesStore = defineStore('mes', () => {
   // ─── Initializing Data ─────────────────────────────────────────────────────
   const isLoading = ref(false)
@@ -113,7 +205,9 @@ export const useMesStore = defineStore('mes', () => {
         sysConfigs.sort((a,b) => a.id - b.id).forEach(c => {
           try {
             const parsed = JSON.parse(c.notes)
-            if (parsed.pieceRates) pieceRates.value = parsed.pieceRates
+            if (parsed.pieceRates) {
+              pieceRates.value = normalizePieceRates(parsed.pieceRates)
+            }
             if (parsed.wasteThresholds) wasteThresholds.value = parsed.wasteThresholds
             if (parsed.systemConfig) {
               systemConfig.value = {
@@ -547,64 +641,36 @@ export const useMesStore = defineStore('mes', () => {
   }
 
   // ─── Admin Config — Piece Rates & Thresholds ───────────────────────────────
-  const pieceRates = ref({
-    MFG: {
-      '50': { '9cm': { 'ብተና': 2.50, 'ውስጥ': 3.00, 'የተለየ': 3.50, 'other': 0 }, '7cm': { 'ብተና': 2.00, 'ውስጥ': 2.50, 'የተለየ': 3.00, 'other': 0 } },
-      '40': { '9cm': { 'ብተና': 2.25, 'ውስጥ': 2.75, 'የተለየ': 3.25, 'other': 0 }, '7cm': { 'ብተና': 1.75, 'ውስጥ': 2.25, 'የተለየ': 2.75, 'other': 0 } },
-      '30': { '9cm': { 'ብተና': 2.00, 'ውስጥ': 2.50, 'የተለየ': 3.00, 'other': 0 }, '7cm': { 'ብተና': 1.50, 'ውስጥ': 2.00, 'የተለየ': 2.50, 'other': 0 } },
-      '16': { '9cm': { 'ብተና': 1.75, 'ውስጥ': 2.25, 'የተለየ': 2.75, 'other': 0 }, '7cm': { 'ብተና': 1.25, 'ውስጥ': 1.75, 'የተለየ': 2.25, 'other': 0 } },
-      '12': { '9cm': { 'ብተና': 1.50, 'ውስጥ': 2.00, 'የተለየ': 2.50, 'other': 0 }, '7cm': { 'ብተና': 1.00, 'ውስጥ': 1.50, 'የተለየ': 2.00, 'other': 0 } },
-      '45': { '9cm': { 'ብተና': 2.40, 'ውስጥ': 2.90, 'የተለየ': 3.40, 'other': 0 }, '7cm': { 'ብተና': 1.90, 'ውስጥ': 2.40, 'የተለየ': 2.90, 'other': 0 } },
-      'other': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } }
-    },
-    PP: {
-      '50': { '9cm': 0, '7cm': 0 }, '40': { '9cm': 0, '7cm': 0 }, '30': { '9cm': 0, '7cm': 0 },
-      '16': { '9cm': 0, '7cm': 0 }, '12': { '9cm': 0, '7cm': 0 }, '45': { '9cm': 0, '7cm': 0 },
-      'other': { '9cm': 0, '7cm': 0 }
-    },
-    PL: {
-      '50': { '9cm': 0, '7cm': 0 }, '40': { '9cm': 0, '7cm': 0 }, '30': { '9cm': 0, '7cm': 0 },
-      '16': { '9cm': 0, '7cm': 0 }, '12': { '9cm': 0, '7cm': 0 }, '45': { '9cm': 0, '7cm': 0 },
-      'other': { '9cm': 0, '7cm': 0 }
-    },
-    C: {
-      '50': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } },
-      '40': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } },
-      '30': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } },
-      '16': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } },
-      '12': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } },
-      '45': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } },
-      'other': { '9cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 }, '7cm': { 'ብተና': 0, 'ውስጥ': 0, 'other': 0 } }
-    }
-  })
+  const pieceRates = ref(normalizePieceRates(defaultPieceRates))
 
   function setPieceRate(category, type, size, placement, value) {
+    const numVal = (typeof value === 'number' && !isNaN(value)) ? value : (Number(value) || 0)
+    
+    if (!pieceRates.value) pieceRates.value = JSON.parse(JSON.stringify(defaultPieceRates))
     if (!pieceRates.value[category]) pieceRates.value[category] = {}
     
     if (category === 'MFG') {
-      pieceRates.value[category][type] = value
+      pieceRates.value.MFG[type] = numVal
       return
     }
     
     if (category === 'C') {
-      if (!pieceRates.value[category]['null']) pieceRates.value[category]['null'] = {}
-      if (!pieceRates.value[category]['null'][size]) pieceRates.value[category]['null'][size] = {}
-      pieceRates.value[category]['null'][size][placement] = value
+      if (!pieceRates.value.C['null']) pieceRates.value.C['null'] = {}
+      if (!pieceRates.value.C['null'][size]) pieceRates.value.C['null'][size] = {}
+      pieceRates.value.C['null'][size][placement] = numVal
       return
     }
 
-    // PP or PL
-    if (!pieceRates.value[category][type]) pieceRates.value[category][type] = {}
-    
     if (category === 'PP' || category === 'PL') {
-      pieceRates.value[category][type][size] = value
-    } else {
-      // Fallback for any other future categories with placement
-      if (!pieceRates.value[category][type][size]) pieceRates.value[category][type][size] = {}
-      pieceRates.value[category][type][size][placement] = value
+      if (!pieceRates.value[category][type]) pieceRates.value[category][type] = {}
+      pieceRates.value[category][type][size] = numVal
+      return
     }
-  }
 
+    if (!pieceRates.value[category][type]) pieceRates.value[category][type] = {}
+    if (!pieceRates.value[category][type][size]) pieceRates.value[category][type][size] = {}
+    pieceRates.value[category][type][size][placement] = numVal
+  }
 
   // Waste alert thresholds (used by QualityControl + AdminSettings)
   const wasteThresholds = ref({ warn: 8, critical: 15 })
@@ -637,15 +703,46 @@ export const useMesStore = defineStore('mes', () => {
 
   async function saveSystemConfig(configData) {
     try {
-      const payload = {
-        operator_id: activeOperator.value?.id || null,
-        target_name: 'global',
-        transaction_type: 'system_config',
-        amount: 0,
-        transaction_date: new Date().toISOString().split('T')[0],
-        notes: JSON.stringify(configData)
+      const cleanRates = normalizePieceRates(configData?.pieceRates ?? pieceRates.value)
+      pieceRates.value = cleanRates
+
+      const cleanThresholds = JSON.parse(JSON.stringify(configData?.wasteThresholds ?? wasteThresholds.value))
+      const cleanSystemConfig = JSON.parse(JSON.stringify(configData?.systemConfig ?? systemConfig.value))
+      const cleanClockingWindows = JSON.parse(JSON.stringify(configData?.clockingWindows ?? useAttendanceStore().clockingWindows ?? {}))
+
+      const fullPayload = {
+        pieceRates: cleanRates,
+        wasteThresholds: cleanThresholds,
+        systemConfig: cleanSystemConfig,
+        clockingWindows: cleanClockingWindows
       }
-      await supabase.from('mes_financial_ledger').insert(payload)
+
+      const notes = JSON.stringify(fullPayload)
+
+      const { data: existing } = await supabase
+        .from('mes_financial_ledger')
+        .select('id')
+        .eq('transaction_type', 'system_config')
+        .eq('target_name', 'global')
+
+      if (existing && existing.length > 0) {
+        const targetId = existing[existing.length - 1].id
+        const { error } = await supabase
+          .from('mes_financial_ledger')
+          .update({ notes, transaction_date: new Date().toISOString().split('T')[0] })
+          .eq('id', targetId)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('mes_financial_ledger').insert({
+          operator_id: activeOperator.value?.id || null,
+          target_name: 'global',
+          transaction_type: 'system_config',
+          amount: 0,
+          transaction_date: new Date().toISOString().split('T')[0],
+          notes
+        })
+        if (error) throw error
+      }
       return true
     } catch (e) {
       console.error('[Store] saveSystemConfig failed:', e)
@@ -960,16 +1057,7 @@ export const useMesStore = defineStore('mes', () => {
       return 0
     }
     
-    let rate = 0
-    if (cat === 'MFG') {
-      rate = pieceRates.value?.['MFG']?.[entry.dividerType]
-    } else if (cat === 'C') {
-      rate = pieceRates.value?.['C']?.['null']?.[entry.size]?.[entry.placement]
-    } else if (cat === 'PP' || cat === 'PL') {
-      rate = pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size]
-    }
-    
-    rate = (typeof rate === 'number' && !isNaN(rate)) ? rate : 0
+    const rate = getEntryRate(entry)
     const qty = Number(entry.goodProduction || entry.good || 0)
     return rate * qty
   }
@@ -979,12 +1067,14 @@ export const useMesStore = defineStore('mes', () => {
     if (cat === 'TIME') return 0
     
     let rate = 0
+    const rates = pieceRates.value || {}
     if (cat === 'MFG') {
-      rate = pieceRates.value?.['MFG']?.[entry.dividerType]
+      const val = rates?.MFG?.[entry.dividerType]
+      rate = typeof val === 'number' ? val : (val?.['9cm']?.['ብተና'] || 0)
     } else if (cat === 'C') {
-      rate = pieceRates.value?.['C']?.['null']?.[entry.size]?.[entry.placement]
+      rate = rates?.C?.['null']?.[entry.size]?.[entry.placement] ?? rates?.C?.['50']?.[entry.size]?.[entry.placement] ?? 0
     } else if (cat === 'PP' || cat === 'PL') {
-      rate = pieceRates.value?.[cat]?.[entry.dividerType]?.[entry.size]
+      rate = rates?.[cat]?.[entry.dividerType]?.[entry.size] ?? 0
     }
     
     return (typeof rate === 'number' && !isNaN(rate)) ? rate : 0
@@ -1098,7 +1188,7 @@ export const useMesStore = defineStore('mes', () => {
           } else if (row.transaction_type === 'system_config' && row.target_name === 'global') {
             try {
               const parsed = JSON.parse(row.notes)
-              if (parsed.pieceRates) pieceRates.value = parsed.pieceRates
+              if (parsed.pieceRates) pieceRates.value = normalizePieceRates(parsed.pieceRates)
               if (parsed.wasteThresholds) wasteThresholds.value = parsed.wasteThresholds
               if (parsed.systemConfig) {
                 systemConfig.value = {
