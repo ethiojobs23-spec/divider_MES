@@ -295,25 +295,33 @@ function fmtTime(iso) {
   return !isNaN(d.getTime()) ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '—'
 }
 
-function parseEntryDate(e) {
+function getEntryDateTime(e) {
+  if (e.timestamp) {
+    const d = new Date(e.timestamp)
+    if (!isNaN(d.getTime())) return d
+  }
+  if (e.created_at) {
+    const d = new Date(e.created_at)
+    if (!isNaN(d.getTime())) return d
+  }
   if (e.productionDate) {
     if (typeof e.productionDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.productionDate)) {
       const [y, m, d] = e.productionDate.split('-').map(Number)
-      return new Date(y, m - 1, d)
+      return new Date(y, m - 1, d, 12, 0, 0)
     }
     const d = new Date(e.productionDate)
-    if (!isNaN(d.getTime())) return d
-  }
-  if (e.timestamp) {
-    const d = new Date(e.timestamp)
     if (!isNaN(d.getTime())) return d
   }
   return new Date()
 }
 
 function isToday(e) {
-  const d = parseEntryDate(e)
   const now = new Date()
+  if (e.productionDate && typeof e.productionDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.productionDate)) {
+    const [y, m, day] = e.productionDate.split('-').map(Number)
+    return y === now.getFullYear() && (m - 1) === now.getMonth() && day === now.getDate()
+  }
+  const d = getEntryDateTime(e)
   return d.getFullYear() === now.getFullYear() &&
          d.getMonth() === now.getMonth() &&
          d.getDate() === now.getDate()
@@ -367,10 +375,10 @@ const windowedEntries = computed(() => {
   const cutoff = cutoffMs(activeRange.value)
   return [...store.ledgerEntries]
     .filter(e => {
-      const t = parseEntryDate(e).getTime()
+      const t = getEntryDateTime(e).getTime()
       return t >= cutoff
     })
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    .sort((a, b) => getEntryDateTime(b).getTime() - getEntryDateTime(a).getTime())
     .slice(0, 40)
 })
 
@@ -386,7 +394,7 @@ const chartBars = computed(() => {
     const todayDow = (now.getDay() + 6) % 7 // 0=Mon
     bars = days.map((label, i) => {
       const entries = store.ledgerEntries.filter(e => {
-        const d = parseEntryDate(e)
+        const d = getEntryDateTime(e)
         return ((d.getDay() + 6) % 7) === i
       })
       return {
@@ -399,17 +407,23 @@ const chartBars = computed(() => {
   } else {
     const hoursBack = r === '6h' ? 6 : r === '12h' ? 12 : 24
     bars = Array.from({ length: hoursBack }, (_, i) => {
-      const slotHour = (now.getHours() - (hoursBack - 1 - i) + 24) % 24
+      const hoursAgo = hoursBack - 1 - i
+      const bucketDate = new Date(now.getTime() - hoursAgo * 3600_000)
+      const slotHour = bucketDate.getHours()
+      
+      const bucketStart = new Date(bucketDate)
+      bucketStart.setMinutes(0, 0, 0)
+      const bucketEnd = new Date(bucketDate)
+      bucketEnd.setMinutes(59, 59, 999)
+
       const entries = store.ledgerEntries.filter(e => {
-        const d = new Date(e.timestamp)
-        const msDiff = now.getTime() - d.getTime()
-        const hoursAgo = msDiff / 3600_000
-        const entryHour = d.getHours()
-        return entryHour === slotHour && hoursAgo >= 0 && hoursAgo <= hoursBack
+        const d = getEntryDateTime(e)
+        return d.getTime() >= bucketStart.getTime() && d.getTime() <= bucketEnd.getTime()
       })
+
       const label = String(slotHour).padStart(2,'0') + ':00'
       return {
-        label: i % 2 === 0 ? label : '',
+        label: hoursBack <= 6 ? label : (i % 2 === 0 || i === hoursBack - 1 ? label : ''),
         good:  entries.reduce((s, e) => s + (Number(e.goodProduction) || 0), 0),
         waste: entries.reduce((s, e) => s + (Number(e.wasteMaterial)  || 0), 0),
         isCurrent: slotHour === now.getHours()
@@ -428,7 +442,7 @@ function barHeight(val) {
 // ── Type breakdown for selected range ───────────────────────────
 const typeBreakdown = computed(() => {
   const cutoff = cutoffMs(activeRange.value)
-  const entries = store.ledgerEntries.filter(e => parseEntryDate(e).getTime() >= cutoff)
+  const entries = store.ledgerEntries.filter(e => getEntryDateTime(e).getTime() >= cutoff)
   const map = {}
   entries.forEach(e => {
     const lbl = getEntryTypeLabel(e)
