@@ -6,7 +6,7 @@
         <div class="flex items-center gap-2 flex-wrap">
           <button class="snav-item" :class="{'snav-item--active': activeTab === 'new'}" @click="activeTab = 'new'">
             <span class="material-symbols-rounded snav-icon">add_circle</span>
-            <span class="snav-label">Log Advance / Expense</span>
+            <span class="snav-label">Log Advance</span>
           </button>
           <button class="snav-item" :class="{'snav-item--active': activeTab === 'advances'}" @click="activeTab = 'advances'">
             <span class="material-symbols-rounded snav-icon">payments</span>
@@ -31,43 +31,20 @@
         </button>
       </nav>
 
-      <!-- ─── TAB 1: LOG ADVANCE / EXPENSE + LIVE ADVANCES LOGGER ─── -->
+      <!-- ─── TAB 1: LOG ADVANCE + LIVE ADVANCES LOGGER ─── -->
       <div v-if="activeTab === 'new'" class="grid grid-cols-1 lg:grid-cols-12 gap-5 w-full max-w-7xl mx-auto">
         <!-- Input Form -->
         <div class="tab-panel lg:col-span-6 flex flex-col justify-between">
           <div>
-            <!-- Entry Type Switcher -->
-            <div class="entry-type-row mb-4">
-              <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">1. Select Entry Type</label>
-              <div class="flex gap-2">
-                <button
-                  class="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all border cursor-pointer flex items-center justify-center gap-2"
-                  :class="entryType === 'advance' ? 'bg-amber-500/20 text-amber-400 border-amber-500/40 shadow-lg shadow-amber-500/10' : 'bg-slate-900 border-white/5 text-slate-400'"
-                  @click="entryType = 'advance'"
-                >
-                  <span class="material-symbols-rounded text-base">payments</span>
-                  Operator Advance
-                </button>
-                <button
-                  class="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all border cursor-pointer flex items-center justify-center gap-2"
-                  :class="entryType === 'expense' ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 shadow-lg shadow-rose-500/10' : 'bg-slate-900 border-white/5 text-slate-400'"
-                  @click="entryType = 'expense'"
-                >
-                  <span class="material-symbols-rounded text-base">receipt</span>
-                  Company Expense
-                </button>
-              </div>
-            </div>
-
-            <!-- Operator Selection (if Advance) -->
-            <div v-if="entryType === 'advance'" class="operator-select-row mb-4">
-              <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">2. Select Operator / Beneficiary</label>
-              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-44 overflow-y-auto p-1 bg-slate-900/50 rounded-xl border border-white/5">
+            <!-- Operator Selection -->
+            <div class="operator-select-row mb-4">
+              <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">1. Select Operator / Beneficiary</label>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1 bg-slate-900/50 rounded-xl border border-white/5">
                 <button
                   v-for="op in store.operators.filter(o => o.role !== 'customer')"
                   :key="op.id"
                   class="flex items-center gap-2 p-2 rounded-lg border text-left cursor-pointer transition-all"
-                  :class="selectedOp?.id === op.id ? 'bg-indigo-600/30 border-indigo-500 text-white' : 'bg-slate-900 border-white/5 text-slate-400 hover:text-white'"
+                  :class="selectedOp?.id === op.id ? 'bg-indigo-600/30 border-indigo-500 text-white shadow-lg shadow-indigo-500/10' : 'bg-slate-900 border-white/5 text-slate-400 hover:text-white'"
                   @click="selectedOp = op"
                 >
                   <OperatorAvatar :avatar="op.avatar" :name="op.name" :color="op.color" size="sm" />
@@ -81,7 +58,7 @@
 
             <!-- Quick Presets -->
             <div class="presets-row">
-              <p class="presets-label">{{ entryType === 'advance' ? '3. Quick Amount' : '2. Quick Amount' }}</p>
+              <p class="presets-label">2. Quick Amount</p>
               <div class="presets">
                 <button
                   v-for="preset in presets"
@@ -103,10 +80,10 @@
 
             <!-- Note input -->
             <div class="note-row">
-              <p class="note-label">{{ entryType === 'advance' ? '4. Reason / Note' : '3. Expense Description' }}</p>
+              <p class="note-label">3. Advance Purpose / Reason</p>
               <div class="note-chips">
                 <button
-                  v-for="n in (entryType === 'advance' ? advanceNoteOptions : expenseNoteOptions)"
+                  v-for="n in advanceNoteOptions"
                   :key="n"
                   class="note-chip cursor-pointer"
                   :class="{ 'note-chip--active': note === n }"
@@ -116,7 +93,7 @@
               <input
                 v-model="customNote"
                 type="text"
-                placeholder="Or type custom description..."
+                placeholder="Or type specific reason (e.g. medical, urgent family)..."
                 class="w-full mt-2 bg-slate-900 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-amber-400"
               />
             </div>
@@ -129,7 +106,7 @@
             @click="submitEntry"
           >
             <span class="material-symbols-rounded">payments</span>
-            {{ isSaving ? 'SAVING...' : `LOG ${entryType === 'advance' ? 'ADVANCE' : 'EXPENSE'}` }}
+            {{ isSaving ? 'SAVING...' : 'LOG OPERATOR ADVANCE' }}
             {{ inputAmount ? `– ${Number(inputAmount).toFixed(2)} ETB` : '' }}
           </button>
         </div>
@@ -500,7 +477,6 @@ const activeTab = ref('new')
 const isSyncing = ref(false)
 let refreshTimer = null
 
-const entryType   = ref('advance')
 const selectedOp  = ref(null)
 const inputAmount = ref('')
 const note        = ref('Weekly Advance')
@@ -508,7 +484,6 @@ const customNote  = ref('')
 
 const presets = [50, 100, 200, 500, 1000]
 const advanceNoteOptions = ['Weekly Advance', 'Emergency / Medical', 'Transport', 'Bonus', 'Other']
-const expenseNoteOptions = ['Petty Cash', 'Station Materials', 'Equipment Maintenance', 'Transport / Fuel', 'Other']
 
 async function manualSync() {
   isSyncing.value = true
@@ -543,7 +518,7 @@ onUnmounted(() => {
 const canSubmit = computed(() =>
   inputAmount.value !== '' &&
   Number(inputAmount.value) > 0 &&
-  (entryType.value === 'expense' || selectedOp.value !== null)
+  selectedOp.value !== null
 )
 
 const toast = reactive({ visible: false, message: '' })
@@ -562,11 +537,11 @@ async function submitEntry() {
   if (!canSubmit.value || isSaving.value) return
   isSaving.value = true
   const finalNote = customNote.value.trim() || note.value
-  const opId = entryType.value === 'advance' ? (selectedOp.value?.id ? Number(selectedOp.value.id) : null) : null
-  const opName = entryType.value === 'advance' ? (selectedOp.value?.name ?? 'Unknown') : 'Company'
+  const opId = selectedOp.value?.id ? Number(selectedOp.value.id) : null
+  const opName = selectedOp.value?.name ?? 'Unknown'
 
   const ok = await store.addCashEntry({
-    type:        entryType.value,
+    type:        'advance',
     amount:      Number(inputAmount.value),
     operator:    opName,
     operator_id: opId,
@@ -574,7 +549,7 @@ async function submitEntry() {
   })
   isSaving.value = false
   if (ok !== false) {
-    showToast(`✓ ${entryType.value === 'advance' ? 'Advance' : 'Expense'} of ${inputAmount.value} ETB logged`)
+    showToast(`✓ Advance of ${inputAmount.value} ETB logged for ${opName}`)
     inputAmount.value = ''
     customNote.value = ''
   } else {
