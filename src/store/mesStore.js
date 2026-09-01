@@ -338,15 +338,21 @@ export const useMesStore = defineStore('mes', () => {
   const cashEntries = ref([])
 
   function mapSupabaseCashToLocal(dbRow) {
-    const op = operators.value.find(o => o.id === dbRow.operator_id)
+    const op = operators.value.find(o => Number(o.id) === Number(dbRow.operator_id))
+    let week = currentProductionWeek.value
+    if (dbRow.transaction_date) {
+      try { week = getISOWeekLabel(new Date(dbRow.transaction_date)) } catch {}
+    } else if (dbRow.created_at) {
+      try { week = getISOWeekLabel(new Date(dbRow.created_at)) } catch {}
+    }
     return {
       id: dbRow.id,
-      timestamp: dbRow.created_at,
-      week: currentProductionWeek.value,
+      timestamp: dbRow.created_at || (dbRow.transaction_date ? new Date(dbRow.transaction_date).toISOString() : new Date().toISOString()),
+      week,
       operator: op ? op.name : dbRow.target_name,
-      operator_id: dbRow.operator_id,
+      operator_id: dbRow.operator_id != null ? Number(dbRow.operator_id) : null,
       type: dbRow.transaction_type,
-      amount: dbRow.amount,
+      amount: Number(dbRow.amount) || 0,
       note: dbRow.notes
     }
   }

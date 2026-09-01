@@ -329,9 +329,11 @@ export const usePayrollStore = defineStore('payroll', () => {
     const worker = mesStore.operators.find(o => o.id === workerId)
     if (!worker) return { totalDeduction: 0 }
     const workerAdvances = mesStore.cashEntries.filter(e =>
-      e.operator === worker.name && e.week === week && e.type === 'advance'
+      ((e.operator_id != null && Number(e.operator_id) === Number(workerId)) || (e.operator && e.operator === worker.name)) &&
+      e.week === week &&
+      e.type === 'advance'
     )
-    const total = workerAdvances.reduce((sum, adv) => sum + Number(adv.amount), 0)
+    const total = workerAdvances.reduce((sum, adv) => sum + (Number(adv.amount) || 0), 0)
     return { totalDeduction: toDecimal2(total) }
   }
 
@@ -501,7 +503,21 @@ export const usePayrollStore = defineStore('payroll', () => {
   const payoutStatuses = ref({})
 
   function getPayoutStatus(workerId, week) {
-    return payoutStatuses.value[week]?.[workerId] || { status: 'pending', reason: '' }
+    if (payoutStatuses.value[week]?.[workerId]) {
+      return payoutStatuses.value[week][workerId]
+    }
+    // Check persistent financial ledger for existing approved payout
+    const mesStore = useMesStore()
+    const worker = mesStore.operators.find(o => o.id === workerId)
+    const existingPayout = mesStore.cashEntries.find(e =>
+      e.type === 'payout' &&
+      ((e.operator_id != null && Number(e.operator_id) === Number(workerId)) || (e.operator && worker && e.operator === worker.name)) &&
+      (e.week === week || (e.note && e.note.includes(week)))
+    )
+    if (existingPayout) {
+      return { status: 'approved', reason: 'Paid on ' + (existingPayout.timestamp ? existingPayout.timestamp.split('T')[0] : 'Ledger') }
+    }
+    return { status: 'pending', reason: '' }
   }
 
   async function approvePayout(workerId, week) {
@@ -548,11 +564,18 @@ export const usePayrollStore = defineStore('payroll', () => {
   const weeklyPayrollSummary = computed(() => {
     const mesStore = useMesStore()
     const week = mesStore.currentProductionWeek
-    return mesStore.operators.map(op => ({
-      ...op,
-      ...calculateFinalPayout(op.id, week),
-      payoutStatus: getPayoutStatus(op.id, week),
-    }))
+    return mesStore.operators.map(op => {
+      const profile = getWorkerProfile(op.id)
+      return {
+        ...op,
+        paymentMethod: profile.paymentMethod || op.payment_preference || 'Cash',
+        payment_preference: profile.paymentMethod || op.payment_preference || 'Cash',
+        accountInfo: profile.accountInfo || op.account_number || '',
+        account_number: profile.accountInfo || op.account_number || '',
+        ...calculateFinalPayout(op.id, week),
+        payoutStatus: getPayoutStatus(op.id, week),
+      }
+    })
   })
 
   return {
@@ -566,4 +589,9 @@ export const usePayrollStore = defineStore('payroll', () => {
     bonuses, getBonus, fetchBonuses, setBonusForWorker,
     PLACEMENT_KEYS, HOURLY_MIN, HOURLY_MAX, toDecimal2,
   }
+}, {
+  persist: {
+    key: 'divider-payroll-store',
+    pick: ['workerProfiles', 'bonuses', 'loans', 'payoutStatuses'],
+  },
 })

@@ -721,7 +721,7 @@ function denominateAmount(amountEtb) {
 
 const cashDenominations = computed(() => {
   const approvedWorkers = payrollStore.weeklyPayrollSummary.filter(
-    w => w.payoutStatus.status === 'approved' && w.netPayout > 0
+    w => w.payoutStatus.status === 'approved' && w.netPayout > 0 && (!w.paymentMethod || w.paymentMethod === 'Cash')
   )
 
   if (approvedWorkers.length === 0) {
@@ -792,14 +792,16 @@ function printBankSlip() {
 
 // ── Digital CSV Export ─────────────────────────────────────────────────────
 const digitalWorkers = computed(() => {
-  return payrollStore.weeklyPayrollSummary.filter(w => w.payoutStatus.status === 'approved' && w.payment_preference && w.payment_preference !== 'Cash')
+  return payrollStore.weeklyPayrollSummary.filter(
+    w => w.payoutStatus.status === 'approved' && w.netPayout > 0 && w.paymentMethod && w.paymentMethod !== 'Cash'
+  )
 })
 
 const digitalDisbursementsCount = computed(() => digitalWorkers.value.length)
 
 const digitalSummaryText = computed(() => {
-  const cbe = digitalWorkers.value.filter(w => w.payment_preference === 'CBE').length
-  const telebirr = digitalWorkers.value.filter(w => w.payment_preference === 'Telebirr').length
+  const cbe = digitalWorkers.value.filter(w => (w.paymentMethod === 'CBE' || w.payment_preference === 'CBE')).length
+  const telebirr = digitalWorkers.value.filter(w => (w.paymentMethod === 'Telebirr' || w.payment_preference === 'Telebirr')).length
   return `${cbe} Workers via CBE  |  ${telebirr} Workers via Telebirr`
 })
 
