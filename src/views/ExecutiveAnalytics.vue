@@ -96,7 +96,7 @@
           <div class="kpi-grid">
             <AnalyticsDataCard
               title="Total Dividers Produced"
-              :value="store.totalGoodAllTime.toLocaleString()"
+              :value="(store.totalGoodAllTime || 0).toLocaleString()"
               icon="factory"
               icon-bg="rgba(99,102,241,.15)"
               icon-color="#a5b4fc"
@@ -104,7 +104,7 @@
             />
             <AnalyticsDataCard
               title="Total Waste Units"
-              :value="store.totalWasteAllTime.toLocaleString()"
+              :value="(store.totalWasteAllTime || 0).toLocaleString()"
               icon="delete_sweep"
               icon-bg="rgba(239,68,68,.12)"
               icon-color="#f87171"
@@ -113,7 +113,7 @@
             />
             <AnalyticsDataCard
               title="Overall Waste Rate"
-              :value="store.overallWastePct + '%'"
+              :value="(store.overallWastePct || 0) + '%'"
               icon="percent"
               icon-bg="rgba(245,158,11,.12)"
               icon-color="#fbbf24"
@@ -122,7 +122,7 @@
             />
             <AnalyticsDataCard
               title="Total Dispatched"
-              :value="store.totalDispatched.toLocaleString() + ' units'"
+              :value="(store.totalDispatched || 0).toLocaleString() + ' units'"
               icon="local_shipping"
               icon-bg="rgba(16,185,129,.12)"
               icon-color="#34d399"
@@ -130,7 +130,7 @@
             />
             <AnalyticsDataCard
               title="Downtime Sessions"
-              :value="store.downtimeSessions.length + ' sessions'"
+              :value="(store.downtimeSessions?.length || 0) + ' sessions'"
               icon="timer_off"
               icon-bg="rgba(239,68,68,.12)"
               icon-color="#f87171"
@@ -139,7 +139,7 @@
             />
             <AnalyticsDataCard
               title="Total Advances Issued"
-              :value="'ETB ' + store.totalAdvances.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })"
+              :value="'ETB ' + (store.totalAdvances || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })"
               icon="payments"
               icon-bg="rgba(139,92,246,.15)"
               icon-color="#c084fc"
@@ -147,7 +147,7 @@
             />
             <AnalyticsDataCard
               title="Total Payroll Liability"
-              :value="'ETB ' + totalPayrollLiability.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })"
+              :value="'ETB ' + (totalPayrollLiability || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })"
               icon="account_balance_wallet"
               icon-bg="rgba(245,158,11,.12)"
               icon-color="#fbbf24"
@@ -155,7 +155,7 @@
             />
             <AnalyticsDataCard
               title="Active Operators"
-              :value="store.operators.filter(o => o.role !== 'customer').length + ' people'"
+              :value="(store.operators || []).filter(o => o.role !== 'customer').length + ' people'"
               icon="groups"
               icon-bg="rgba(99,102,241,.15)"
               icon-color="#a5b4fc"
@@ -752,26 +752,36 @@ async function manualSync() {
     await Promise.all([
       store.fetchInitialData(),
       attStore.loadAttendanceLogs(),
-      inventoryStore.fetchInventory()
+      inventoryStore.fetchMaterials()
     ])
+  } catch (err) {
+    console.error('[Analytics] Sync error:', err)
   } finally {
     setTimeout(() => { isSyncing.value = false }, 400)
   }
 }
 
 onMounted(async () => {
-  await Promise.all([
-    store.fetchInitialData(),
-    attStore.loadAttendanceLogs(),
-    inventoryStore.fetchInventory()
-  ])
-
-  refreshTimer = setInterval(async () => {
+  try {
     await Promise.all([
       store.fetchInitialData(),
       attStore.loadAttendanceLogs(),
-      inventoryStore.fetchInventory()
+      inventoryStore.fetchMaterials()
     ])
+  } catch (err) {
+    console.error('[Analytics] Initial load error:', err)
+  }
+
+  refreshTimer = setInterval(async () => {
+    try {
+      await Promise.all([
+        store.fetchInitialData(),
+        attStore.loadAttendanceLogs(),
+        inventoryStore.fetchMaterials()
+      ])
+    } catch (err) {
+      console.error('[Analytics] Polling error:', err)
+    }
   }, 30000)
 })
 
@@ -799,10 +809,11 @@ const sevenDayTrend = computed(() => {
     d.setDate(d.getDate() - i)
     const label = d.toLocaleDateString('en-US', { weekday: 'short' })
     const dateStr = d.toISOString().split('T')[0]
-    const entries = store.ledgerEntries?.filter(e => {
-      const eDate = new Date(e.timestamp).toISOString().split('T')[0]
-      return eDate === dateStr
-    }) ?? []
+    const entries = (store.ledgerEntries || []).filter(e => {
+      if (!e) return false
+      const rawDate = e.productionDate || e.timestamp || ''
+      return String(rawDate).startsWith(dateStr)
+    })
     days.push({
       label,
       good:  entries.reduce((s, e) => s + (Number(e.goodProduction) || 0), 0),
@@ -812,45 +823,53 @@ const sevenDayTrend = computed(() => {
   return days
 })
 
-const maxTrend = computed(() => Math.max(...sevenDayTrend.value.map(d => d.good + d.waste), 1))
-const barH = (val) => maxTrend.value > 0 ? Math.max(2, (val / maxTrend.value) * 100) : 2
+const maxTrend = computed(() => {
+  const totals = (sevenDayTrend.value || []).map(d => (Number(d.good) || 0) + (Number(d.waste) || 0))
+  return totals.length > 0 ? Math.max(...totals, 1) : 1
+})
+const barH = (val) => maxTrend.value > 0 ? Math.max(2, ((Number(val) || 0) / maxTrend.value) * 100) : 2
 
 // ── Attendance helpers ───────────────────────────────────────────────────────
 const expectedDays = 6
 
 function parseTimeToMins(timeStr) {
   if (!timeStr) return 0
-  const [h, m] = timeStr.split(':')
-  return parseInt(h) * 60 + parseInt(m)
+  const parts = String(timeStr).split(':')
+  if (parts.length < 2) return 0
+  return (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0)
 }
 
 const morningEndMin = computed(() => {
-  const w = attStore.clockingWindows?.find(w => w.id === 'morning_in')
+  const w = (attStore.clockingWindows || []).find(w => w.id === 'morning_in')
   return w ? parseTimeToMins(w.end) : 480 // default 08:00
 })
 
 const currentWeekLogs = computed(() =>
-  attStore.clockInLog.filter(log => log.week === store.currentProductionWeek)
+  (attStore.clockInLog || []).filter(log => log && log.week === store.currentProductionWeek)
 )
 
 function attDays(opId) {
-  const logs = currentWeekLogs.value.filter(l => l.operatorId === opId)
+  const logs = currentWeekLogs.value.filter(l => Number(l.operatorId) === Number(opId) || l.operatorId === opId)
   return new Set(logs.map(l => l.shiftDate)).size
 }
 
 function attScore(opId) {
   let score = 100
-  const logs = currentWeekLogs.value.filter(l => l.operatorId === opId)
+  const logs = currentWeekLogs.value.filter(l => Number(l.operatorId) === Number(opId) || l.operatorId === opId)
   // Penalise absences
   const daysPresent = new Set(logs.map(l => l.shiftDate)).size
   score -= Math.max(0, (expectedDays - daysPresent)) * 10
   // Penalise lateness
   logs.forEach(log => {
-    const t = new Date(log.timestamp)
-    const mins = t.getHours() * 60 + t.getMinutes()
-    if (mins > morningEndMin.value) {
-      score -= Math.min(15, Math.ceil((mins - morningEndMin.value) / 10) * 2)
-    }
+    if (!log.timestamp) return
+    try {
+      const t = new Date(log.timestamp)
+      if (isNaN(t.getTime())) return
+      const mins = t.getHours() * 60 + t.getMinutes()
+      if (mins > morningEndMin.value) {
+        score -= Math.min(15, Math.ceil((mins - morningEndMin.value) / 10) * 2)
+      }
+    } catch {}
   })
   let stars = 5
   if (score < 90) stars = 4
@@ -867,18 +886,22 @@ function attLabel(stars) {
 
 function totalLateMins(opId) {
   let total = 0
-  currentWeekLogs.value.filter(l => l.operatorId === opId).forEach(log => {
-    const t = new Date(log.timestamp)
-    const mins = t.getHours() * 60 + t.getMinutes()
-    if (mins > morningEndMin.value) total += mins - morningEndMin.value
+  currentWeekLogs.value.filter(l => Number(l.operatorId) === Number(opId) || l.operatorId === opId).forEach(log => {
+    if (!log.timestamp) return
+    try {
+      const t = new Date(log.timestamp)
+      if (isNaN(t.getTime())) return
+      const mins = t.getHours() * 60 + t.getMinutes()
+      if (mins > morningEndMin.value) total += mins - morningEndMin.value
+    } catch {}
   })
   return total
 }
 
 // ── Leaderboard ──────────────────────────────────────────────────────────────
 const attendanceLeaderboard = computed(() => {
-  return store.operators
-    .filter(op => op.role !== 'customer')
+  return (store.operators || [])
+    .filter(op => op && op.role !== 'customer')
     .map(op => ({
       ...op,
       days: attDays(op.id),
@@ -893,12 +916,12 @@ const empSearch    = ref('')
 const selectedOpId = ref(null)
 
 const enrichedOperators = computed(() =>
-  store.operatorEfficiency.map(op => ({ ...op }))
+  (store.operatorEfficiency || []).map(op => ({ ...op }))
 )
 
 const filteredOperators = computed(() => {
   const q = empSearch.value.trim().toLowerCase()
-  return q ? enrichedOperators.value.filter(o => o.name.toLowerCase().includes(q)) : enrichedOperators.value
+  return q ? enrichedOperators.value.filter(o => (o.name || '').toLowerCase().includes(q)) : enrichedOperators.value
 })
 
 const selectedProfile = computed(() =>
@@ -906,24 +929,35 @@ const selectedProfile = computed(() =>
 )
 
 function opEarnings(opId) {
-  return store.cashEntries
-    ?.filter(e => e.operatorId === opId && e.type === 'shift_submission')
-    .reduce((s, e) => s + Number(e.amount || 0), 0) ?? 0
+  return (store.cashEntries || [])
+    .filter(e => (Number(e.operator_id) === Number(opId) || Number(e.operatorId) === Number(opId) || String(e.operator?.id) === String(opId)) && (e.type === 'shift_submission' || e.type === 'payout'))
+    .reduce((s, e) => s + Number(e.amount || 0), 0)
 }
 
 function opAdvances(opId) {
-  return store.cashEntries
-    ?.filter(e => (String(e.operatorId) === String(opId) || String(e.operator?.id) === String(opId)) && e.type === 'advance')
-    .reduce((s, e) => s + Number(e.amount || 0), 0) ?? 0
+  return (store.cashEntries || [])
+    .filter(e => (Number(e.operator_id) === Number(opId) || Number(e.operatorId) === Number(opId) || String(e.operator?.id) === String(opId)) && e.type === 'advance')
+    .reduce((s, e) => s + Number(e.amount || 0), 0)
 }
 
 function opVariantBreakdown(op) {
   if (!op) return []
-  const entries = store.ledgerEntries?.filter(e => e.operator === op.name) ?? []
+  const entries = (store.ledgerEntries || []).filter(e => 
+    (e.operator_id != null && Number(e.operator_id) === Number(op.id)) ||
+    (e.operator && e.operator === op.name)
+  )
   const groups = {}
   entries.forEach(e => {
-    const key = `${e.dividerType}-${e.size || ''}-${e.placement || ''}`
-    if (!groups[key]) groups[key] = { key, dividerType: e.dividerType, size: e.size || '—', placement: e.placement || '—', good: 0, waste: 0, rate: store.getEntryRate?.(e) ?? 0 }
+    const key = `${e.dividerType || '50'}-${e.size || ''}-${e.placement || ''}`
+    if (!groups[key]) groups[key] = { 
+      key, 
+      dividerType: e.dividerType || '—', 
+      size: e.size || '—', 
+      placement: e.placement || '—', 
+      good: 0, 
+      waste: 0, 
+      rate: store.getEntryRate ? store.getEntryRate(e) : 0 
+    }
     groups[key].good  += Number(e.goodProduction) || 0
     groups[key].waste += Number(e.wasteMaterial)  || 0
   })
@@ -932,31 +966,35 @@ function opVariantBreakdown(op) {
 
 // ── Total payroll liability (from actual earnings) ───────────────────────────
 const totalPayrollLiability = computed(() =>
-  store.operatorEfficiency.reduce((sum, op) => sum + opEarnings(op.id), 0)
+  (store.operatorEfficiency || []).reduce((sum, op) => sum + opEarnings(op.id), 0)
 )
 
 // ── Cost analysis rows ───────────────────────────────────────────────────────
 const costAnalysisRows = computed(() =>
-  store.operatorEfficiency.map(op => {
+  (store.operatorEfficiency || []).map(op => {
     const gross = opEarnings(op.id)
     const advances = opAdvances(op.id)
+    const good = Number(op.good) || 0
     return {
       ...op,
+      good,
       gross,
       advances,
       net: Math.max(0, gross - advances),
-      costPerUnit: op.good > 0 ? gross / op.good : 0,
+      costPerUnit: good > 0 ? gross / good : 0,
     }
   })
 )
 
-const maxCostPerUnit = computed(() =>
-  Math.max(...costAnalysisRows.value.map(r => r.costPerUnit), 0.01)
-)
+const maxCostPerUnit = computed(() => {
+  const values = costAnalysisRows.value.map(r => r.costPerUnit).filter(v => typeof v === 'number' && !isNaN(v))
+  return values.length > 0 ? Math.max(...values, 0.01) : 0.01
+})
 
-const weekAggMax = computed(() =>
-  Math.max(...Object.values(store.weeklyAggregation ?? {}), 1)
-)
+const weekAggMax = computed(() => {
+  const vals = Object.values(store.weeklyAggregation ?? {}).map(Number).filter(v => !isNaN(v))
+  return vals.length > 0 ? Math.max(...vals, 1) : 1
+})
 
 // ── Inventory helpers ────────────────────────────────────────────────────────
 function isLowStock(mat) {
@@ -967,16 +1005,19 @@ function isLowStock(mat) {
 // ── Dispatch by customer ─────────────────────────────────────────────────────
 const dispatchByCustomer = computed(() => {
   const map = {}
-  store.dispatchLogs.forEach(d => {
-    const key = d.customerId || d.customerName || 'Unknown'
-    const name = d.customerName || store.clients?.find(c => c.id === d.customerId)?.name || 'Unknown'
+  ;(store.dispatchLogs || []).forEach(d => {
+    const key = d.customerId || d.client || d.customerName || 'Unknown'
+    const name = d.client || d.customerName || (store.clients || []).find(c => c.id === d.customerId)?.name || 'Unknown'
     if (!map[key]) map[key] = { id: key, name, total: 0 }
     map[key].total += Number(d.quantity) || 0
   })
   return Object.values(map).sort((a, b) => b.total - a.total)
 })
 
-const maxDispatch = computed(() => Math.max(...dispatchByCustomer.value.map(c => c.total), 1))
+const maxDispatch = computed(() => {
+  const totals = dispatchByCustomer.value.map(c => c.total).filter(t => typeof t === 'number' && !isNaN(t))
+  return totals.length > 0 ? Math.max(...totals, 1) : 1
+})
 
 // ── Export ───────────────────────────────────────────────────────────────────
 const exportToast = ref(false)

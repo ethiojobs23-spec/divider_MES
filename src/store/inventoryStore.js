@@ -212,6 +212,7 @@ export const useInventoryStore = defineStore('inventoryStore', () => {
     materials,
     transactions,
     fetchMaterials,
+    fetchInventory: fetchMaterials,
     addMaterial,
     receiveStock,
     withdrawStock,
