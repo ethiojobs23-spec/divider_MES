@@ -140,7 +140,13 @@ export const useAttendanceStore = defineStore('attendance', () => {
 
   return {
     clockingWindows,
-    clockInLog, fetchAttendance, validateClockTime, recordClockIn, updateWindow, getDaysAttended
+    clockInLog,
+    fetchAttendance,
+    loadAttendanceLogs: fetchAttendance,
+    validateClockTime,
+    recordClockIn,
+    updateWindow,
+    getDaysAttended
   }
 }, {
   persist: {

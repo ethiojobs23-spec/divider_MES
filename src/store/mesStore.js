@@ -13,6 +13,24 @@ import {
   getWeekDateRange 
 } from '@/utils/dateUtils'
 
+const defaultSystemConfig = {
+  autoPauseOnDowntime: false,
+  requireOperatorForEntry: false,
+  telegramBotEnabled: false,
+  exportRecipient: 'Frezer',
+  botToken: '',
+  chatId: '',
+  payoutDay: 'Friday',
+  otherDividerType: {
+    enabled: false,
+    label: 'Other'
+  },
+  otherPlacement: {
+    enabled: false,
+    label: 'Other'
+  }
+}
+
 export const useMesStore = defineStore('mes', () => {
   // ─── Initializing Data ─────────────────────────────────────────────────────
   const isLoading = ref(false)
@@ -97,7 +115,20 @@ export const useMesStore = defineStore('mes', () => {
             const parsed = JSON.parse(c.notes)
             if (parsed.pieceRates) pieceRates.value = parsed.pieceRates
             if (parsed.wasteThresholds) wasteThresholds.value = parsed.wasteThresholds
-            if (parsed.systemConfig) systemConfig.value = parsed.systemConfig
+            if (parsed.systemConfig) {
+              systemConfig.value = {
+                ...defaultSystemConfig,
+                ...parsed.systemConfig,
+                otherDividerType: {
+                  ...defaultSystemConfig.otherDividerType,
+                  ...(parsed.systemConfig.otherDividerType || {})
+                },
+                otherPlacement: {
+                  ...defaultSystemConfig.otherPlacement,
+                  ...(parsed.systemConfig.otherPlacement || {})
+                }
+              }
+            }
             if (parsed.clockingWindows) {
               useAttendanceStore().clockingWindows = parsed.clockingWindows
             }

@@ -1,0 +1,1 @@
+ALTER TABLE mes_production_logs ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT NULL;

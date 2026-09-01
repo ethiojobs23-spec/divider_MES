@@ -26,10 +26,21 @@
           </button>
         </div>
 
-        <button class="sync-btn cursor-pointer" :disabled="isSyncing" @click="manualSync" title="Sync settings now">
-          <span class="material-symbols-rounded" :class="{ 'spin-icon': isSyncing }">sync</span>
-          <span>{{ isSyncing ? 'Syncing...' : 'Sync Now' }}</span>
-        </button>
+        <div class="flex items-center gap-2">
+          <button 
+            v-if="['rates', 'thresholds', 'system'].includes(activeTab)"
+            class="px-4 py-2 rounded-lg text-sm font-bold bg-emerald-600/90 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+            @click="applyChanges"
+            title="Save configuration changes to database"
+          >
+            <span class="material-symbols-rounded text-base">save</span>
+            <span>{{ saved ? 'Saved!' : 'Save Settings' }}</span>
+          </button>
+          <button class="sync-btn cursor-pointer" :disabled="isSyncing" @click="manualSync" title="Sync settings now">
+            <span class="material-symbols-rounded" :class="{ 'spin-icon': isSyncing }">sync</span>
+            <span>{{ isSyncing ? 'Syncing...' : 'Sync Now' }}</span>
+          </button>
+        </div>
       </nav>
 
 
@@ -53,7 +64,7 @@
         </div>
 
         <!-- Custom 'Other' Label Settings -->
-        <div class="other-config-panel">
+        <div class="other-config-panel" v-if="store.systemConfig?.otherDividerType && store.systemConfig?.otherPlacement">
           <p class="config-panel-title"><span class="material-symbols-rounded">settings</span> Custom Labels</p>
           <div class="other-config-row">
             <div class="other-config-item">
@@ -82,7 +93,7 @@
             class="type-tab"
             :class="{ 'type-tab--active': selectedType === t }"
             @click="selectedType = t"
-          >{{ t === 'Other' ? (store.systemConfig.otherDividerType.label || 'Other') : t }}</button>
+          >{{ t === 'Other' ? (store.systemConfig?.otherDividerType?.label || 'Other') : t }}</button>
         </div>
 
         <!-- Rate Matrix for selected type -->
@@ -93,7 +104,7 @@
             <div class="rate-row" style="background: rgba(255,255,255,0.02); padding: 1.5rem; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 1rem;">
               <div class="rate-meta">
                 <span class="placement-badge" style="background: rgba(99,102,241,.15); color: #818cf8;">Flat Rate</span>
-                <span class="rate-key">Type {{ selectedType === 'Other' ? (store.systemConfig.otherDividerType.label || 'Custom') : selectedType }}</span>
+                <span class="rate-key">Type {{ selectedType === 'Other' ? (store.systemConfig?.otherDividerType?.label || 'Custom') : selectedType }}</span>
               </div>
               <div class="stepper">
                 <button class="step-btn step-btn--minus" @click="adjustRate(activeRateCat, selectedType, null, null, -0.25)">
@@ -130,7 +141,7 @@
                     class="rate-row"
                   >
                     <div class="rate-meta">
-                      <span class="placement-badge">{{ placement === 'Other' ? (store.systemConfig.otherPlacement.label || 'Other') : placement }}</span>
+                      <span class="placement-badge">{{ placement === 'Other' ? (store.systemConfig?.otherPlacement?.label || 'Other') : placement }}</span>
                       <span class="rate-key">{{ size }}</span>
                     </div>
 
@@ -155,7 +166,7 @@
                   <div class="rate-row">
                     <div class="rate-meta">
                       <span class="placement-badge" style="background: rgba(16,185,129,.15); color: #10b981;">No Placement Used</span>
-                      <span class="rate-key">Type {{ selectedType === 'Other' ? (store.systemConfig.otherDividerType.label || 'Custom') : selectedType }} &bull; {{ size }}</span>
+                      <span class="rate-key">Type {{ selectedType === 'Other' ? (store.systemConfig?.otherDividerType?.label || 'Custom') : selectedType }} &bull; {{ size }}</span>
                     </div>
 
                     <!-- Stepper -->
@@ -440,6 +451,17 @@
               </button>
             </div>
           </div>
+
+          <!-- Save System Config Button -->
+          <div class="flex justify-end pt-4 border-t border-white/5 mt-4">
+            <button 
+              @click="applyChanges" 
+              class="px-6 py-3 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-emerald-900/20"
+            >
+              <span class="material-symbols-rounded">save</span>
+              {{ saved ? '✓ Saved!' : 'Save System Settings' }}
+            </button>
+          </div>
         </div>
       </div>
       
@@ -518,6 +540,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useMesStore } from '@/store/mesStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import EmployeeManager from '@/components/EmployeeManager.vue'
 import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 
@@ -537,13 +560,36 @@ function showToast(msg) {
   toastTimer = setTimeout(() => { toast.visible = false }, 2500)
 }
 
+function ensureSystemConfigIntegrity() {
+  if (!store.systemConfig) {
+    store.systemConfig = {}
+  }
+  if (!store.systemConfig.otherDividerType) {
+    store.systemConfig.otherDividerType = { enabled: false, label: 'Other' }
+  }
+  if (!store.systemConfig.otherPlacement) {
+    store.systemConfig.otherPlacement = { enabled: false, label: 'Other' }
+  }
+  if (!store.systemConfig.payoutDay) {
+    store.systemConfig.payoutDay = 'Friday'
+  }
+  if (!store.systemConfig.exportRecipient) {
+    store.systemConfig.exportRecipient = 'Frezer'
+  }
+  if (!store.wasteThresholds) {
+    store.wasteThresholds = { warn: 8, critical: 15 }
+  }
+}
+
 async function manualSync() {
   isSyncing.value = true
   try {
+    ensureSystemConfigIntegrity()
     await Promise.all([
       store.fetchInitialData(),
       attStore.loadAttendanceLogs()
     ])
+    ensureSystemConfigIntegrity()
     loadProfileData()
     showToast('✓ Settings & profiles synced')
   } finally {
@@ -552,14 +598,17 @@ async function manualSync() {
 }
 
 onMounted(async () => {
+  ensureSystemConfigIntegrity()
   await Promise.all([
     store.fetchInitialData(),
     attStore.loadAttendanceLogs()
   ])
+  ensureSystemConfigIntegrity()
   loadProfileData()
 
   refreshTimer = setInterval(async () => {
     await store.fetchInitialData()
+    ensureSystemConfigIntegrity()
   }, 30000)
 })
 
@@ -578,11 +627,11 @@ const sizes        = ['9cm', '7cm']
 const placements   = ['ብተና', 'ውስጥ', 'የተለየ']
 
 const allDividerTypesForRates = computed(() => {
-  return store.systemConfig.otherDividerType.enabled ? [...dividerTypes, 'Other'] : dividerTypes
+  return store.systemConfig?.otherDividerType?.enabled ? [...dividerTypes, 'Other'] : dividerTypes
 })
 
 const allPlacementsForRates = computed(() => {
-  return store.systemConfig.otherPlacement.enabled ? [...placements, 'Other'] : placements
+  return store.systemConfig?.otherPlacement?.enabled ? [...placements, 'Other'] : placements
 })
 
   function getRate(category, type, size, placement) {
