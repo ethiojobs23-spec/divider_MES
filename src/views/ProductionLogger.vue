@@ -7,10 +7,10 @@
         <div class="sidebar-section">
           <p class="section-title">Select Operator</p>
           <select v-model="selectedOperatorId" class="operator-select">
-            <option v-for="op in clockedInList" :key="op.id" :value="op.id">
-              {{ op.name }} — [{{ store.getOperatorWorkConfig(op.id).categories.map(c => getCatLabel(c)).join(', ') }}]
+            <option v-for="op in operatorDropdownOptions" :key="op.id" :value="op.id">
+              {{ op.label }}
             </option>
-            <option v-if="clockedInList.length === 0" value="" disabled>No one is clocked in</option>
+            <option v-if="operatorDropdownOptions.length === 0" value="" disabled>No one is clocked in</option>
           </select>
 
           <!-- No one clocked in alert with quick jump -->
@@ -252,25 +252,51 @@ const selectedOperatorId = ref(
 )
 
 watch(selectedOperatorId, (val) => {
-  if (val) localStorage.setItem('mes_pl_op', val)
-  else localStorage.removeItem('mes_pl_op')
+  if (val) {
+    localStorage.setItem('mes_pl_op', val)
+    const op = store.operators.find(o => Number(o.id) === Number(val))
+    if (op && store.activeOperator?.id !== op.id) {
+      store.setOperator(op)
+    }
+  } else {
+    localStorage.removeItem('mes_pl_op')
+  }
 })
 
 const selectedOperatorName = computed(() => {
-  const op = clockedInList.value.find(o => Number(o.id) === Number(selectedOperatorId.value))
+  const op = store.operators.find(o => Number(o.id) === Number(selectedOperatorId.value))
   return op ? op.name : null
 })
 
-// Auto-select operator if invalid or null
-watchEffect(() => {
-  if (store.activeOperator && store.activeOperator.id && clockedInList.value.some(o => Number(o.id) === Number(store.activeOperator.id))) {
-    selectedOperatorId.value = store.activeOperator.id
-  } else if (!selectedOperatorId.value && clockedInList.value.length > 0) {
-    selectedOperatorId.value = clockedInList.value[0].id
-  } else if (selectedOperatorId.value && !clockedInList.value.find(o => Number(o.id) === Number(selectedOperatorId.value))) {
-    selectedOperatorId.value = clockedInList.value.length ? clockedInList.value[0].id : null
-  }
+const operatorDropdownOptions = computed(() => {
+  return clockedInList.value.map(op => {
+    const config = store.getOperatorWorkConfig(op.id)
+    const catLabels = (config.categories || ['MFG']).map(c => getCatLabel(c)).join(', ')
+    return {
+      id: op.id,
+      name: op.name,
+      label: `${op.name} — [${catLabels}]`
+    }
+  })
 })
+
+// Auto-select operator only if none is selected or current selection is no longer clocked in
+watch(clockedInList, (list) => {
+  if (!list || list.length === 0) {
+    selectedOperatorId.value = null
+    return
+  }
+  // If current selection is still in the clocked-in list, keep it
+  if (selectedOperatorId.value && list.some(o => Number(o.id) === Number(selectedOperatorId.value))) {
+    return
+  }
+  // Otherwise, default to store.activeOperator if clocked in, or first operator in list
+  if (store.activeOperator?.id && list.some(o => Number(o.id) === Number(store.activeOperator.id))) {
+    selectedOperatorId.value = store.activeOperator.id
+  } else {
+    selectedOperatorId.value = list[0].id
+  }
+}, { immediate: true })
 
 // ─── Work Categories ────────────────────────────────────────────────────────
 const CAT_INFO = {
@@ -289,43 +315,14 @@ const selections = reactive({ dividerType: '50', placement: 'ብተና', size: '
 // Per-operator state persistence
 const opStates = JSON.parse(localStorage.getItem('mes_pl_states') || '{}')
 
-watch(selectedOperatorId, (id) => {
-  if (id) {
-    const state = opStates[id] || {}
-    if (state.cat) activeCategory.value = state.cat
-    if (state.type) selections.dividerType = state.type
-    if (state.place) selections.placement = state.place
-    if (state.size) selections.size = state.size
-  }
-}, { immediate: true })
-
-function saveOpState() {
-  if (selectedOperatorId.value) {
-    opStates[selectedOperatorId.value] = {
-      cat: activeCategory.value,
-      type: selections.dividerType,
-      place: selections.placement,
-      size: selections.size
-    }
-    localStorage.setItem('mes_pl_states', JSON.stringify(opStates))
-  }
-}
-
-watch(activeCategory, saveOpState)
-watch(selections, saveOpState, { deep: true })
-
 const opConfig = computed(() => {
   if (!selectedOperatorId.value) return { categories: ['MFG'], divider_types: [], placements: [], sizes: [], hourly_rate: null }
   return store.getOperatorWorkConfig(selectedOperatorId.value)
 })
-const opCategories = computed(() => opConfig.value.categories && opConfig.value.categories.length > 0 ? opConfig.value.categories : ['MFG'])
 
-// Switch category if operator config changes and makes current category invalid
-watchEffect(() => {
-  const cats = opCategories.value
-  if (cats && cats.length > 0 && !cats.includes(activeCategory.value)) {
-    activeCategory.value = cats[0]
-  }
+const opCategories = computed(() => {
+  const cats = opConfig.value.categories
+  return Array.isArray(cats) && cats.length > 0 ? cats : ['MFG']
 })
 
 // ─── Form Options (filtered by admin assignment) ───────────────────────────
@@ -342,13 +339,54 @@ const hasTypes = computed(() => activeCategory.value !== 'TIME' && activeCategor
 const hasSizes = computed(() => activeCategory.value !== 'TIME' && activeCategory.value !== 'MFG')
 const needsPlacement = computed(() => activeCategory.value === 'C')
 
-// ─── Input State ────────────────────────────────────────────────────────────
-const values     = reactive({ good: '', waste: '', hours: '', notes: '' })
-const activeField = ref('good')
-const isSaving   = ref(false)
+// Restore / update state when operator changes
+watch(selectedOperatorId, (id) => {
+  if (!id) return
+  const state = opStates[id] || {}
+  const validCats = opCategories.value
 
-// Auto-sync selections if lists update
-watchEffect(() => {
+  if (state.cat && validCats.includes(state.cat)) {
+    activeCategory.value = state.cat
+  } else {
+    activeCategory.value = validCats[0] || 'MFG'
+  }
+
+  const validTypes = availableTypes.value
+  if (state.type && validTypes.includes(state.type)) {
+    selections.dividerType = state.type
+  } else if (validTypes.length > 0) {
+    selections.dividerType = validTypes[0]
+  }
+
+  const validPlaces = availablePlacements.value
+  if (state.place && validPlaces.includes(state.place)) {
+    selections.placement = state.place
+  } else if (validPlaces.length > 0) {
+    selections.placement = validPlaces[0]
+  }
+
+  const validSizes = availableSizes.value
+  if (state.size && validSizes.includes(state.size)) {
+    selections.size = state.size
+  } else if (validSizes.length > 0) {
+    selections.size = validSizes[0]
+  }
+}, { immediate: true })
+
+function saveOpState() {
+  if (selectedOperatorId.value) {
+    opStates[selectedOperatorId.value] = {
+      cat: activeCategory.value,
+      type: selections.dividerType,
+      place: selections.placement,
+      size: selections.size
+    }
+    localStorage.setItem('mes_pl_states', JSON.stringify(opStates))
+  }
+}
+
+watch(activeCategory, () => {
+  saveOpState()
   if (availableTypes.value.length > 0 && !availableTypes.value.includes(selections.dividerType)) {
     selections.dividerType = availableTypes.value[0]
   }
@@ -359,6 +397,13 @@ watchEffect(() => {
     selections.size = availableSizes.value[0]
   }
 })
+
+watch(selections, saveOpState, { deep: true })
+
+// ─── Input State ────────────────────────────────────────────────────────────
+const values     = reactive({ good: '', waste: '', hours: '', notes: '' })
+const activeField = ref('good')
+const isSaving   = ref(false)
 
 const canSave = computed(() => {
   if (!selectedOperatorId.value) return false

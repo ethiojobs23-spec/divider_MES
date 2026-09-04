@@ -15,6 +15,7 @@ export default defineConfig({
         enabled: true, // Enable for testing in dev
       },
       workbox: {
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}'],
         // Exclude the API base URL from service worker interception
         navigateFallbackDenylist: [/^\/wp-json/],

@@ -196,16 +196,8 @@ import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 const store = useMesStore()
 const sysAuth = useSystemAuthStore()
 
-let refreshTimer = null
 onMounted(() => {
   store.fetchInitialData()
-  refreshTimer = setInterval(() => {
-    store.fetchInitialData()
-  }, 30000) // refresh every 30s
-})
-
-onUnmounted(() => {
-  if (refreshTimer) clearInterval(refreshTimer)
 })
 
 const isAdmin = computed(() => {

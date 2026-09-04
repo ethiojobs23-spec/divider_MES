@@ -322,14 +322,14 @@
             <!-- Save Button -->
             <button
               class="cfg-save-btn cursor-pointer transition-all"
-              :class="{ '!bg-emerald-600 !border-emerald-500 text-white': savedWtSuccess === op.id }"
+              :class="{ 'cfg-save-btn--saved': savedSuccess[op.id] }"
               :disabled="savingWt === op.id"
               @click="saveWorkConfig(op)"
             >
               <span class="material-symbols-rounded" style="font-size:1rem">
-                {{ savedWtSuccess === op.id ? 'check_circle' : savingWt === op.id ? 'hourglass_top' : 'save' }}
+                {{ savingWt === op.id ? 'hourglass_top' : (savedSuccess[op.id] ? 'check_circle' : 'save') }}
               </span>
-              {{ savedWtSuccess === op.id ? 'Saved Successfully!' : savingWt === op.id ? 'Saving...' : 'Save Work Config' }}
+              {{ savingWt === op.id ? 'Saving...' : (savedSuccess[op.id] ? 'Saved Successfully!' : 'Save Work Config') }}
             </button>
           </div>
         </div>
@@ -404,7 +404,6 @@ import { useMesStore } from '@/store/mesStore.js'
 const store = useMesStore()
 
 const isSyncing = ref(false)
-let refreshTimer = null
 
 async function manualSync() {
   isSyncing.value = true
@@ -416,14 +415,8 @@ async function manualSync() {
 }
 
 onMounted(async () => {
+  // Read once from database on mount — Realtime and manual sync handle updates without flickering
   await store.fetchInitialData()
-  refreshTimer = setInterval(async () => {
-    await store.fetchInitialData()
-  }, 30000)
-})
-
-onUnmounted(() => {
-  if (refreshTimer) clearInterval(refreshTimer)
 })
 
 // ─── Work Assignment Constants ──────────────────────────────────────────────
@@ -448,7 +441,7 @@ const PLACEMENTS    = ['ብተና', 'ውስጥ', 'other']
 const SIZES         = ['9cm', '7cm']
 
 // ─── Per-operator config helpers ────────────────────────────────────────────
-function getOpConfig(op) {
+function ensureStructuredConfig(op) {
   if (!op.work_types || Array.isArray(op.work_types) || typeof op.work_types !== 'object') {
     op.work_types = {
       categories:   ['MFG'],
@@ -457,13 +450,24 @@ function getOpConfig(op) {
       sizes:        [],
       hourly_rate:  null,
     }
-  } else {
-    if (!Array.isArray(op.work_types.categories)) op.work_types.categories = ['MFG']
-    if (!Array.isArray(op.work_types.divider_types)) op.work_types.divider_types = []
-    if (!Array.isArray(op.work_types.placements)) op.work_types.placements = []
-    if (!Array.isArray(op.work_types.sizes)) op.work_types.sizes = []
+  }
+  if (!Array.isArray(op.work_types.categories)) {
+    op.work_types.categories = ['MFG']
+  }
+  if (!Array.isArray(op.work_types.divider_types)) {
+    op.work_types.divider_types = []
+  }
+  if (!Array.isArray(op.work_types.placements)) {
+    op.work_types.placements = []
+  }
+  if (!Array.isArray(op.work_types.sizes)) {
+    op.work_types.sizes = []
   }
   return op.work_types
+}
+
+function getOpConfig(op) {
+  return ensureStructuredConfig(op)
 }
 
 function isTimeOnly(op) {
@@ -479,8 +483,11 @@ function hasMfgOrC(op) {
 function toggleCategory(op, catId) {
   const cfg = getOpConfig(op)
   const idx = cfg.categories.indexOf(catId)
-  if (idx === -1) cfg.categories.push(catId)
-  else cfg.categories.splice(idx, 1)
+  if (idx === -1) {
+    cfg.categories.push(catId)
+  } else {
+    cfg.categories.splice(idx, 1)
+  }
 }
 
 function toggleField(op, field, value) {
@@ -498,17 +505,17 @@ function setHourlyRate(op, val) {
 
 // ─── Save work config ────────────────────────────────────────────────────────
 const savingWt = ref(null)
-const savedWtSuccess = ref(null)
+const savedSuccess = ref({})
 
 async function saveWorkConfig(op) {
   savingWt.value = op.id
-  const cfg = JSON.parse(JSON.stringify(getOpConfig(op)))
+  const cfg = getOpConfig(op)
   const ok = await store.setOperatorWorkTypes(op.id, cfg)
   savingWt.value = null
   if (ok) {
-    savedWtSuccess.value = op.id
+    savedSuccess.value[op.id] = true
     setTimeout(() => {
-      if (savedWtSuccess.value === op.id) savedWtSuccess.value = null
+      delete savedSuccess.value[op.id]
     }, 2500)
   }
 }
@@ -727,6 +734,7 @@ async function executeAction() {
 }
 .cfg-save-btn:hover { filter: brightness(1.1); }
 .cfg-save-btn:disabled { opacity: 0.4; }
+.cfg-save-btn--saved { background: #10b981 !important; }
 
 /* ── Modal ───────────────────────────────────────────────────────── */
 .modal-overlay {

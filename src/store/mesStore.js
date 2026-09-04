@@ -130,31 +130,71 @@ export const useMesStore = defineStore('mes', () => {
   async function fetchInitialData() {
     isLoading.value = true
     try {
-      // 1. Fetch active operators and customers
-      const { data: ops, error: opsErr } = await supabase.from('mes_operators').select('*').neq('role', 'customer')
-      if (opsErr) throw opsErr
+      // Run queries in parallel via Promise.all
+      const [
+        { data: ops, error: opsErr },
+        { data: clientsData, error: clientsErr },
+        { data: allProd },
+        { data: allDisp },
+        { data: ledger },
+        { data: cash },
+        { data: dispatches }
+      ] = await Promise.all([
+        supabase.from('mes_operators').select('*').neq('role', 'customer'),
+        supabase.from('mes_customers').select('*'),
+        supabase.from('mes_production_logs').select('divider_type, qty_produced'),
+        supabase.from('mes_dispatch_logs').select('divider_type, quantity'),
+        supabase.from('mes_production_logs').select('*').eq('production_week', currentProductionWeek.value),
+        supabase.from('mes_financial_ledger').select('*'),
+        supabase.from('mes_dispatch_logs').select('*').eq('production_week', currentProductionWeek.value).order('created_at', { ascending: false })
+      ])
 
-      // Fetch Customers
-      const { data: clientsData, error: clientsErr } = await supabase.from('mes_customers').select('*')
+      if (opsErr) throw opsErr
       if (clientsErr) throw clientsErr
 
-      operators.value = ops.map((o, idx) => {
-        return {
-          ...o,
-          color: o.color || `bg-${['blue','emerald','indigo','purple','rose','amber','teal'][idx % 7]}-500`
-        }
-      })
-      clients.value = (clientsData || []).map(c => ({
-        ...c,
-        name: c.company_name,
-        full_name: c.contact_person,
-        avatar: c.company_name.charAt(0).toUpperCase(),
-        color: 'bg-emerald-500'
-      }))
+      // 1. Parse operator configs and system configs from financial ledger FIRST
+      const operatorWorkTypesMap = new Map()
+      const operatorPayrollMap = new Map()
 
-      // 2. Fetch all-time production and dispatch to compute inventory
-      const { data: allProd } = await supabase.from('mes_production_logs').select('divider_type, qty_produced')
-      const { data: allDisp } = await supabase.from('mes_dispatch_logs').select('divider_type, quantity')
+      if (cash) {
+        const configs = cash.filter(r => r.transaction_type === 'operator_config')
+        configs.sort((a, b) => a.id - b.id).forEach(c => {
+          try {
+            const parsed = JSON.parse(c.notes)
+            if (parsed.work_types) operatorWorkTypesMap.set(c.operator_id, parsed.work_types)
+            if (parsed.payroll_config) operatorPayrollMap.set(c.operator_id, parsed.payroll_config)
+          } catch {}
+        })
+      }
+
+      // 2. Hydrate operators with work_types and payroll_config ATOMICALLY (no intermediate undefined state)
+      if (ops) {
+        operators.value = ops.map((o, idx) => {
+          const existing = operators.value.find(prev => prev.id === o.id)
+          const workTypes = operatorWorkTypesMap.get(o.id) || existing?.work_types || { categories: ['MFG'], divider_types: [], placements: [], sizes: [], hourly_rate: null }
+          const payrollConfig = operatorPayrollMap.get(o.id) || existing?.payroll_config || null
+
+          return {
+            ...o,
+            color: o.color || `bg-${['blue','emerald','indigo','purple','rose','amber','teal'][idx % 7]}-500`,
+            work_types: workTypes,
+            payroll_config: payrollConfig
+          }
+        })
+      }
+
+      // 3. Hydrate clients
+      if (clientsData) {
+        clients.value = clientsData.map(c => ({
+          ...c,
+          name: c.company_name,
+          full_name: c.contact_person,
+          avatar: c.company_name?.charAt(0).toUpperCase() || 'C',
+          color: 'bg-emerald-500'
+        }))
+      }
+
+      // 4. Compute inventory
       const invMap = {}
       if (allProd) {
         allProd.forEach(p => {
@@ -173,12 +213,10 @@ export const useMesStore = defineStore('mes', () => {
         available: invMap[type]
       }))
 
-      // 3. Fetch this week's ledger
-      const { data: ledger } = await supabase.from('mes_production_logs').select('*').eq('production_week', currentProductionWeek.value)
+      // 5. Ledger entries
       if (ledger) ledgerEntries.value = ledger.map(mapSupabaseLedgerToLocal)
 
-      // 4. Fetch this week's cash entries + shift submissions
-      const { data: cash } = await supabase.from('mes_financial_ledger').select('*')
+      // 6. Cash entries, shift submissions, system configs
       if (cash) {
         cashEntries.value = cash
           .filter(r => r.transaction_type !== 'shift_submission' && r.transaction_type !== 'operator_config' && r.transaction_type !== 'system_config')
@@ -186,21 +224,7 @@ export const useMesStore = defineStore('mes', () => {
         shiftSubmissions.value = cash
           .filter(r => r.transaction_type === 'shift_submission')
           .map(r => ({ ...r, details: (() => { try { return JSON.parse(r.notes) } catch { return {} } })() }))
-        // Load operator configs (work_types, payroll_config)
-        const configs = cash.filter(r => r.transaction_type === 'operator_config')
-        // Sort by id so later configs override earlier ones properly
-        configs.sort((a,b) => a.id - b.id).forEach(c => {
-          try {
-            const parsed = JSON.parse(c.notes)
-            const op = operators.value.find(o => o.id === c.operator_id)
-            if (op) {
-              if (parsed.work_types) op.work_types = parsed.work_types
-              if (parsed.payroll_config) op.payroll_config = parsed.payroll_config
-            }
-          } catch {}
-        })
 
-        // Load system configs (pieceRates, thresholds, etc)
         const sysConfigs = cash.filter(r => r.transaction_type === 'system_config' && r.target_name === 'global')
         sysConfigs.sort((a,b) => a.id - b.id).forEach(c => {
           try {
@@ -230,12 +254,7 @@ export const useMesStore = defineStore('mes', () => {
         })
       }
 
-      // 5. Fetch dispatch logs for this week
-      const { data: dispatches } = await supabase
-        .from('mes_dispatch_logs')
-        .select('*')
-        .eq('production_week', currentProductionWeek.value)
-        .order('created_at', { ascending: false })
+      // 7. Dispatch logs
       if (dispatches) dispatchLogs.value = dispatches.map(mapSupabaseDispatchToLocal)
 
       // 6. Fetch live attendance for cross-device clock-in tracking
@@ -1007,58 +1026,50 @@ export const useMesStore = defineStore('mes', () => {
   async function setOperatorWorkTypes(operatorId, workTypes) {
     try {
       const op = operators.value.find(o => o.id === operatorId)
-      if (op) op.work_types = workTypes
+      const existingPayroll = op?.payroll_config || null
 
-      // Fetch all existing operator_config rows for this operator
-      const { data: existing } = await supabase
-        .from('mes_financial_ledger')
+      const { data: existing } = await supabase.from('mes_financial_ledger')
         .select('id, notes')
         .eq('operator_id', operatorId)
         .eq('transaction_type', 'operator_config')
-        .order('id', { ascending: true })
+        .order('id', { ascending: false })
 
-      let existingPayrollConfig = op?.payroll_config || null
-      let targetId = null
-      const duplicateIds = []
+      let mergedNotes = {
+        work_types: workTypes,
+        ...(existingPayroll ? { payroll_config: existingPayroll } : {})
+      }
 
       if (existing && existing.length > 0) {
-        const latest = existing[existing.length - 1]
-        targetId = latest.id
-        for (let i = 0; i < existing.length - 1; i++) {
-          duplicateIds.push(existing[i].id)
-        }
         try {
-          const parsed = JSON.parse(latest.notes)
-          if (parsed.payroll_config) existingPayrollConfig = parsed.payroll_config
+          const prev = JSON.parse(existing[0].notes || '{}')
+          mergedNotes = {
+            ...prev,
+            work_types: workTypes
+          }
         } catch {}
-      }
 
-      const notesPayload = {
-        work_types: workTypes,
-        ...(existingPayrollConfig ? { payroll_config: existingPayrollConfig } : {})
-      }
-      const notes = JSON.stringify(notesPayload)
+        await supabase.from('mes_financial_ledger')
+          .update({ notes: JSON.stringify(mergedNotes), transaction_date: new Date().toISOString().split('T')[0] })
+          .eq('id', existing[0].id)
 
-      if (targetId) {
-        const { error: updateErr } = await supabase.from('mes_financial_ledger').update({ notes }).eq('id', targetId)
-        if (updateErr) throw updateErr
+        if (existing.length > 1) {
+          const extraIds = existing.slice(1).map(r => r.id)
+          await supabase.from('mes_financial_ledger').delete().in('id', extraIds)
+        }
       } else {
-        const { error: insertErr } = await supabase.from('mes_financial_ledger').insert([{
+        await supabase.from('mes_financial_ledger').insert({
           operator_id: operatorId,
           target_name: 'Config',
           transaction_type: 'operator_config',
           amount: 0,
           transaction_date: new Date().toISOString().split('T')[0],
-          notes
-        }])
-        if (insertErr) throw insertErr
+          notes: JSON.stringify(mergedNotes)
+        })
       }
 
-      // Purge any stale duplicate config rows so they can never overwrite on reload
-      if (duplicateIds.length > 0) {
-        await supabase.from('mes_financial_ledger').delete().in('id', duplicateIds)
+      if (op) {
+        op.work_types = JSON.parse(JSON.stringify(workTypes))
       }
-
       return true
     } catch (err) {
       console.error('[Store] setOperatorWorkTypes failed:', err)
@@ -1088,10 +1099,10 @@ export const useMesStore = defineStore('mes', () => {
     // New structured format
     if (!Array.isArray(wt) && typeof wt === 'object') {
       return {
-        categories:    wt.categories    || ['MFG'],
-        divider_types: wt.divider_types  || [],
-        placements:    wt.placements     || [],
-        sizes:         wt.sizes          || [],
+        categories:    Array.isArray(wt.categories) ? wt.categories : ['MFG'],
+        divider_types: Array.isArray(wt.divider_types) ? wt.divider_types : [],
+        placements:    Array.isArray(wt.placements) ? wt.placements : [],
+        sizes:         Array.isArray(wt.sizes) ? wt.sizes : [],
         hourly_rate:   wt.hourly_rate    || null,
       }
     }
@@ -1342,13 +1353,20 @@ export const useMesStore = defineStore('mes', () => {
             if (newRow.role !== 'customer' && !operators.value.some(o => o.id === newRow.id)) {
               operators.value.push({
                 ...newRow,
-                color: newRow.color || 'bg-blue-500'
+                color: newRow.color || 'bg-blue-500',
+                work_types: { categories: ['MFG'], divider_types: [], placements: [], sizes: [], hourly_rate: null }
               })
             }
           } else if (eventType === 'UPDATE') {
             const idx = operators.value.findIndex(o => o.id === newRow.id)
             if (idx !== -1) {
-              operators.value[idx] = { ...operators.value[idx], ...newRow }
+              const prev = operators.value[idx]
+              operators.value[idx] = {
+                ...prev,
+                ...newRow,
+                work_types: prev.work_types || (newRow.work_types ?? null),
+                payroll_config: prev.payroll_config || (newRow.payroll_config ?? null)
+              }
             }
           } else if (eventType === 'DELETE') {
             operators.value = operators.value.filter(o => o.id !== oldRow.id)

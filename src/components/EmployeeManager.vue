@@ -165,37 +165,38 @@ async function saveEmployee() {
       empId = data.id
     }
 
-    // Save Payroll Config & preserve Work Types
+    // Save Payroll Config while preserving work_types
     const existingOp = mesStore.operators.find(o => o.id === empId)
     const { data: existingConfigs } = await supabase.from('mes_financial_ledger')
       .select('id, notes')
       .eq('operator_id', empId)
       .eq('transaction_type', 'operator_config')
-      .order('id', { ascending: true })
-    
-    let existingWorkTypes = existingOp?.work_types || null
-    let targetConfigId = null
-    const duplicateConfigIds = []
-    if (existingConfigs && existingConfigs.length > 0) {
-      const latest = existingConfigs[existingConfigs.length - 1]
-      targetConfigId = latest.id
-      for (let i = 0; i < existingConfigs.length - 1; i++) {
-        duplicateConfigIds.push(existingConfigs[i].id)
-      }
-      try {
-        const parsed = JSON.parse(latest.notes)
-        if (parsed.work_types) existingWorkTypes = parsed.work_types
-      } catch {}
-    }
+      .order('id', { ascending: false })
 
-    const notesPayload = {
+    let mergedNotes = {
       payroll_config: formData.value.payroll_config,
-      ...(existingWorkTypes ? { work_types: existingWorkTypes } : {})
+      ...(existingOp?.work_types ? { work_types: existingOp.work_types } : {})
     }
-    const notes = JSON.stringify(notesPayload)
 
-    if (targetConfigId) {
-      await supabase.from('mes_financial_ledger').update({ notes }).eq('id', targetConfigId)
+    if (existingConfigs && existingConfigs.length > 0) {
+      try {
+        const prev = JSON.parse(existingConfigs[0].notes || '{}')
+        mergedNotes = {
+          ...prev,
+          payroll_config: formData.value.payroll_config,
+          work_types: existingOp?.work_types || prev.work_types || { categories: ['MFG'], divider_types: [], placements: [], sizes: [], hourly_rate: null }
+        }
+      } catch {}
+
+      await supabase.from('mes_financial_ledger').update({
+        notes: JSON.stringify(mergedNotes),
+        transaction_date: new Date().toISOString().split('T')[0]
+      }).eq('id', existingConfigs[0].id)
+
+      if (existingConfigs.length > 1) {
+        const extraIds = existingConfigs.slice(1).map(r => r.id)
+        await supabase.from('mes_financial_ledger').delete().in('id', extraIds)
+      }
     } else {
       await supabase.from('mes_financial_ledger').insert([{
         operator_id: empId,
@@ -203,12 +204,8 @@ async function saveEmployee() {
         transaction_type: 'operator_config',
         amount: 0,
         transaction_date: new Date().toISOString().split('T')[0],
-        notes
+        notes: JSON.stringify(mergedNotes)
       }])
-    }
-
-    if (duplicateConfigIds.length > 0) {
-      await supabase.from('mes_financial_ledger').delete().in('id', duplicateConfigIds)
     }
 
     await mesStore.fetchInitialData() // refresh operators
