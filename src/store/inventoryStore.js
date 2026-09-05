@@ -14,9 +14,9 @@ export const useInventoryStore = defineStore('inventoryStore', () => {
         .select('*')
         .order('id', { ascending: true })
 
-      if (error) throw error
-      
-      if (data && data.length > 0) {
+      if (error) {
+        console.warn('[InventoryStore] Error fetching mes_inventory:', error.message)
+      } else if (data && data.length > 0) {
         materials.value = data.map(row => ({
           id:                String(row.id),
           name:              row.material_name,
@@ -25,7 +25,7 @@ export const useInventoryStore = defineStore('inventoryStore', () => {
           unit:              row.unit || 'units',
           max_capacity:      Number(row.max_capacity) || 100,
         }))
-      } else {
+      } else if (materials.value.length === 0) {
         const seed = [
           { material_name: 'Wire', stock_level: 0, reorder_threshold: 15, unit: 'kg', max_capacity: 100 },
           { material_name: 'Chaf', stock_level: 0, reorder_threshold: 15, unit: 'kg', max_capacity: 100 },
@@ -43,14 +43,25 @@ export const useInventoryStore = defineStore('inventoryStore', () => {
           
         if (inserted && !insertError) {
            materials.value = inserted.map(row => ({
-              id: String(row.id), name: row.material_name, current_stock: row.stock_level,
-              reorder_threshold: row.reorder_threshold, unit: row.unit, max_capacity: row.max_capacity
+              id: String(row.id), name: row.material_name, current_stock: Number(row.stock_level) || 0,
+              reorder_threshold: Number(row.reorder_threshold) || 15, unit: row.unit, max_capacity: Number(row.max_capacity) || 100
            }))
         }
       }
       
-      const { data: txData } = await supabase.from('mes_inventory_logs').select('*').order('transaction_date', { ascending: false }).limit(200)
-      if (txData) transactions.value = txData
+      const { data: txData, error: txError } = await supabase
+        .from('mes_inventory_logs')
+        .select('*')
+        .order('transaction_date', { ascending: false })
+        .limit(200)
+
+      if (txError) {
+        console.warn('[InventoryStore] Error fetching mes_inventory_logs:', txError.message)
+      } else if (txData) {
+        if (txData.length > 0) {
+          transactions.value = txData
+        }
+      }
       
     } catch (err) {
       console.error('[InventoryStore] fetchMaterials failed:', err)
@@ -60,42 +71,124 @@ export const useInventoryStore = defineStore('inventoryStore', () => {
   async function addMaterial(payload) {
      const dbPayload = {
         material_name: payload.name,
-        stock_level: payload.current_stock || 0,
-        reorder_threshold: payload.reorder_threshold || 15,
+        stock_level: Number(payload.current_stock) || 0,
+        reorder_threshold: Number(payload.reorder_threshold) || 15,
         unit: payload.unit || 'units',
-        max_capacity: payload.max_capacity || 100
+        max_capacity: Number(payload.max_capacity) || 100
      }
-     const { data, error } = await supabase.from('mes_inventory').insert(dbPayload).select().single()
-     if (data && !error) {
-        materials.value.push({
-          id: String(data.id), name: data.material_name, current_stock: data.stock_level,
-          reorder_threshold: data.reorder_threshold, unit: data.unit, max_capacity: data.max_capacity
-        })
-        return true
+     try {
+       const { data, error } = await supabase.from('mes_inventory').insert(dbPayload).select().single()
+       if (data && !error) {
+          materials.value.push({
+            id: String(data.id), name: data.material_name, current_stock: Number(data.stock_level) || 0,
+            reorder_threshold: Number(data.reorder_threshold) || 15, unit: data.unit, max_capacity: Number(data.max_capacity) || 100
+          })
+          return true
+       } else {
+          const localMat = {
+            id: String(Date.now()),
+            name: dbPayload.material_name,
+            current_stock: dbPayload.stock_level,
+            reorder_threshold: dbPayload.reorder_threshold,
+            unit: dbPayload.unit,
+            max_capacity: dbPayload.max_capacity
+          }
+          materials.value.push(localMat)
+          syncManager.enqueue({ action: 'insert', table: 'mes_inventory', payload: dbPayload })
+          return true
+       }
+     } catch (err) {
+       console.warn('[InventoryStore] addMaterial fallback:', err)
+       const localMat = {
+         id: String(Date.now()),
+         name: dbPayload.material_name,
+         current_stock: dbPayload.stock_level,
+         reorder_threshold: dbPayload.reorder_threshold,
+         unit: dbPayload.unit,
+         max_capacity: dbPayload.max_capacity
+       }
+       materials.value.push(localMat)
+       syncManager.enqueue({ action: 'insert', table: 'mes_inventory', payload: dbPayload })
+       return true
      }
-     return false
+  }
+
+  async function updateMaterial(materialId, payload) {
+    const mat = materials.value.find(m => String(m.id) === String(materialId))
+    if (!mat) return false
+
+    if (payload.name !== undefined) mat.name = payload.name
+    if (payload.unit !== undefined) mat.unit = payload.unit
+    if (payload.max_capacity !== undefined) mat.max_capacity = Number(payload.max_capacity) || 100
+    if (payload.reorder_threshold !== undefined) mat.reorder_threshold = Number(payload.reorder_threshold) || 15
+    if (payload.current_stock !== undefined) mat.current_stock = Number(payload.current_stock) || 0
+
+    const dbPayload = {
+      material_name: mat.name,
+      unit: mat.unit,
+      max_capacity: mat.max_capacity,
+      reorder_threshold: mat.reorder_threshold,
+      stock_level: mat.current_stock,
+      last_updated: new Date().toISOString()
+    }
+
+    if (isNaN(Number(materialId))) return true
+
+    try {
+      const { error } = await supabase
+        .from('mes_inventory')
+        .update(dbPayload)
+        .eq('id', Number(materialId))
+
+      if (error) {
+        console.warn('[InventoryStore] Supabase updateMaterial error:', error.message)
+        syncManager.enqueue({ action: 'update', table: 'mes_inventory', payload: dbPayload, match: { id: Number(materialId) } })
+      }
+      return true
+    } catch (err) {
+      console.warn('[InventoryStore] Exception updating material:', err)
+      syncManager.enqueue({ action: 'update', table: 'mes_inventory', payload: dbPayload, match: { id: Number(materialId) } })
+      return true
+    }
   }
 
   async function logTransaction(materialId, type, qty, notes = '') {
       const dbPayload = {
          material_id: Number(materialId),
          transaction_type: type,
-         quantity: qty,
+         quantity: Number(qty),
          transaction_date: new Date().toISOString(),
-         notes: notes
+         notes: notes || (type === 'IN' ? 'Stock Received' : 'Manual Withdrawal')
       }
-      transactions.value.unshift({ id: Date.now(), ...dbPayload })
-      await supabase.from('mes_inventory_logs').insert(dbPayload).catch(console.error)
+      const localId = Date.now()
+      const localTx = { id: localId, ...dbPayload }
+      transactions.value.unshift(localTx)
+
+      try {
+        const { data, error } = await supabase.from('mes_inventory_logs').insert(dbPayload).select()
+        if (error) {
+          console.warn('[InventoryStore] Log insert failed, enqueuing sync:', error.message)
+          syncManager.enqueue({ action: 'insert', table: 'mes_inventory_logs', payload: dbPayload })
+        } else if (data && data.length > 0) {
+          const idx = transactions.value.findIndex(t => t.id === localId)
+          if (idx !== -1) {
+            transactions.value[idx] = { ...data[0] }
+          }
+        }
+      } catch (err) {
+        console.warn('[InventoryStore] Exception logging transaction:', err)
+        syncManager.enqueue({ action: 'insert', table: 'mes_inventory_logs', payload: dbPayload })
+      }
   }
 
   async function receiveStock(materialId, amount, notes = 'Stock Received') {
     const qty = Number(amount)
-    if (isNaN(qty) || qty <= 0) return
+    if (isNaN(qty) || qty <= 0) return { ok: false }
 
     const mat = materials.value.find(m => String(m.id) === String(materialId))
-    if (!mat) return
+    if (!mat) return { ok: false }
 
-    const newLevel = mat.current_stock + qty
+    const newLevel = Number((Number(mat.current_stock || 0) + qty).toFixed(2))
     mat.current_stock = newLevel // optimistic
 
     await logTransaction(mat.id, 'IN', qty, notes)
@@ -105,21 +198,30 @@ export const useInventoryStore = defineStore('inventoryStore', () => {
       last_updated: new Date().toISOString(),
     }
     
-    if (isNaN(Number(materialId))) return
+    if (isNaN(Number(materialId))) return { ok: true, newStock: newLevel }
 
-    supabase.from('mes_inventory').update(updatePayload).eq('id', Number(materialId)).catch(err => {
+    try {
+      const { error } = await supabase.from('mes_inventory').update(updatePayload).eq('id', Number(materialId))
+      if (error) {
+        console.warn('[InventoryStore] Supabase receiveStock update error:', error.message)
         syncManager.enqueue({ action: 'update', table: 'mes_inventory', payload: updatePayload, match: { id: Number(materialId) } })
-    })
+      }
+    } catch (err) {
+      console.warn('[InventoryStore] Exception updating receiveStock:', err)
+      syncManager.enqueue({ action: 'update', table: 'mes_inventory', payload: updatePayload, match: { id: Number(materialId) } })
+    }
+
+    return { ok: true, newStock: newLevel }
   }
 
   async function withdrawStock(materialId, amount, notes = 'Manual Withdrawal') {
     const qty = Number(amount)
-    if (isNaN(qty) || qty <= 0) return
+    if (isNaN(qty) || qty <= 0) return { ok: false }
 
     const mat = materials.value.find(m => String(m.id) === String(materialId))
-    if (!mat) return
+    if (!mat) return { ok: false }
 
-    const newLevel = Math.max(0, mat.current_stock - qty)
+    const newLevel = Math.max(0, Number((Number(mat.current_stock || 0) - qty).toFixed(2)))
     mat.current_stock = newLevel
 
     await logTransaction(mat.id, 'OUT', qty, notes)
@@ -129,11 +231,20 @@ export const useInventoryStore = defineStore('inventoryStore', () => {
       last_updated: new Date().toISOString(),
     }
     
-    if (isNaN(Number(materialId))) return
+    if (isNaN(Number(materialId))) return { ok: true, newStock: newLevel }
 
-    supabase.from('mes_inventory').update(updatePayload).eq('id', Number(materialId)).catch(err => {
+    try {
+      const { error } = await supabase.from('mes_inventory').update(updatePayload).eq('id', Number(materialId))
+      if (error) {
+        console.warn('[InventoryStore] Supabase withdrawStock update error:', error.message)
         syncManager.enqueue({ action: 'update', table: 'mes_inventory', payload: updatePayload, match: { id: Number(materialId) } })
-    })
+      }
+    } catch (err) {
+      console.warn('[InventoryStore] Exception updating withdrawStock:', err)
+      syncManager.enqueue({ action: 'update', table: 'mes_inventory', payload: updatePayload, match: { id: Number(materialId) } })
+    }
+
+    return { ok: true, newStock: newLevel }
   }
 
   async function deductForProduction(dividerType, qtyProduced) {
@@ -141,8 +252,8 @@ export const useInventoryStore = defineStore('inventoryStore', () => {
 
   const lowStockAlerts = computed(() =>
     materials.value.filter(m => {
-       const thresholdValue = (m.max_capacity * 0.15)
-       return m.current_stock <= thresholdValue
+       const thresholdValue = Number(m.reorder_threshold) > 0 ? Number(m.reorder_threshold) : (Number(m.max_capacity || 100) * 0.15)
+       return Number(m.current_stock || 0) <= thresholdValue
     })
   )
 
@@ -214,6 +325,7 @@ export const useInventoryStore = defineStore('inventoryStore', () => {
     fetchMaterials,
     fetchInventory: fetchMaterials,
     addMaterial,
+    updateMaterial,
     receiveStock,
     withdrawStock,
     deductForProduction,
@@ -223,6 +335,6 @@ export const useInventoryStore = defineStore('inventoryStore', () => {
 }, {
   persist: {
     key:  'divider-inventory',
-    pick: ['materials'],
+    pick: ['materials', 'transactions'],
   },
 })

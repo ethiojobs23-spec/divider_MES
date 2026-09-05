@@ -998,8 +998,9 @@ const weekAggMax = computed(() => {
 
 // ── Inventory helpers ────────────────────────────────────────────────────────
 function isLowStock(mat) {
-  if (!mat?.max_capacity) return false
-  return Number(mat.current_stock) <= mat.max_capacity * 0.15
+  if (!mat) return false
+  const threshold = Number(mat.reorder_threshold) > 0 ? Number(mat.reorder_threshold) : (Number(mat.max_capacity || 100) * 0.15)
+  return Number(mat.current_stock || 0) <= threshold
 }
 
 // ── Dispatch by customer ─────────────────────────────────────────────────────

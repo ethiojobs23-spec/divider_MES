@@ -52,18 +52,27 @@
               <!-- Low Stock Badge -->
               <div v-if="isLowStock(mat)" class="absolute -top-2.5 right-4 badge-danger shadow-lg shadow-rose-900/20 px-2.5 py-0.5 text-[0.65rem]">
                 <span class="material-symbols-rounded text-xs">warning</span>
-                Low Stock (&lt; 15%)
+                Low Stock (&lt; {{ getAlertPercent(mat) }}%)
               </div>
 
               <!-- Card Header -->
               <div class="flex items-start justify-between mb-3 mt-1">
-                <div>
-                  <h4 class="text-base font-bold text-white m-0">
-                    {{ mat.name }}
-                  </h4>
+                <div class="flex-1 pr-2 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <h4 class="text-base font-bold text-white m-0 truncate">
+                      {{ mat.name }}
+                    </h4>
+                    <button 
+                      @click.stop="openEditMaterial(mat)"
+                      title="Edit material name, capacity, or alert percentage"
+                      class="p-1 rounded-lg bg-slate-800 hover:bg-indigo-600/30 text-slate-400 hover:text-indigo-300 border border-white/10 hover:border-indigo-500/40 transition-all cursor-pointer flex items-center justify-center shrink-0"
+                    >
+                      <span class="material-symbols-rounded text-sm">edit</span>
+                    </button>
+                  </div>
                   <p class="text-[0.65rem] text-slate-400 uppercase tracking-widest font-semibold mt-0.5">ID: {{ mat.id }}</p>
                 </div>
-                <div class="h-10 w-10 rounded-xl flex items-center justify-center bg-slate-900 border" :class="isLowStock(mat) ? 'border-rose-500/30 text-rose-400' : 'border-white/10 text-indigo-400'">
+                <div class="h-10 w-10 rounded-xl flex items-center justify-center bg-slate-900 border shrink-0" :class="isLowStock(mat) ? 'border-rose-500/30 text-rose-400' : 'border-white/10 text-indigo-400'">
                   <span class="material-symbols-rounded text-xl">category</span>
                 </div>
               </div>
@@ -90,7 +99,7 @@
                   ></div>
                 </div>
                 <p class="text-[0.65rem] text-slate-500 font-semibold mt-2 flex justify-between">
-                  <span>Alert: &lt; 15%</span>
+                  <span>Alert: &lt; {{ getAlertPercent(mat) }}% ({{ mat.reorder_threshold }} {{ mat.unit }})</span>
                   <span>(Max {{ mat.max_capacity }} {{ mat.unit }})</span>
                 </p>
               </div>
@@ -184,8 +193,10 @@
         <!-- Panel Header -->
         <div class="p-5 border-b border-white/5 flex items-center justify-between bg-slate-900/50">
           <h3 class="text-base font-black flex items-center gap-2 m-0 text-white">
-            <span class="material-symbols-rounded text-indigo-400">{{ actionType === 'add_material' ? 'library_add' : 'manage_history' }}</span>
-            {{ actionType === 'add_material' ? 'Add New Raw Material' : 'Log Stock Adjustment' }}
+            <span class="material-symbols-rounded text-indigo-400">
+              {{ actionType === 'add_material' ? 'library_add' : (actionType === 'edit_material' ? 'edit_note' : 'manage_history') }}
+            </span>
+            {{ actionType === 'add_material' ? 'Add New Raw Material' : (actionType === 'edit_material' ? 'Edit Raw Material' : 'Log Stock Adjustment') }}
           </h3>
           <button @click="showActionPanel = false" class="p-1.5 text-slate-400 hover:text-white bg-slate-700/50 rounded-lg cursor-pointer border-none flex items-center justify-center">
             <span class="material-symbols-rounded text-base">close</span>
@@ -194,6 +205,43 @@
 
         <div class="flex-1 overflow-y-auto p-5 flex flex-col gap-5 custom-scrollbar">
           
+          <!-- Edit Material Form -->
+          <div v-if="actionType === 'edit_material'" class="flex flex-col gap-4">
+            <div class="form-group">
+              <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Material Name</label>
+              <input v-model="editingMat.name" type="text" class="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="e.g. Copper Wire">
+            </div>
+            <div class="form-group">
+              <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Unit of Measurement</label>
+              <input v-model="editingMat.unit" type="text" class="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="e.g. kg, rolls, buckets, bags">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="form-group">
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Max Capacity</label>
+                <input v-model.number="editingMat.max_capacity" type="number" class="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="e.g. 500">
+              </div>
+              <div class="form-group">
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Low Stock Alert (%)</label>
+                <div class="relative">
+                  <input v-model.number="editingMat.alert_percent" type="number" min="1" max="100" class="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-indigo-500 pr-8" placeholder="15">
+                  <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">%</span>
+                </div>
+              </div>
+            </div>
+            <div class="p-3 bg-slate-900/60 rounded-xl border border-white/5 text-xs text-slate-400 flex flex-col gap-1.5">
+              <div class="flex justify-between font-semibold">
+                <span>Alert Triggers Below:</span>
+                <span class="text-rose-400 font-bold font-mono">
+                  &le; {{ ((Number(editingMat.alert_percent || 15) / 100) * Number(editingMat.max_capacity || 100)).toFixed(1) }} {{ editingMat.unit }}
+                </span>
+              </div>
+              <div class="flex justify-between font-semibold">
+                <span>Current Stock Level:</span>
+                <span class="text-white font-bold font-mono">{{ editingMat.current_stock }} {{ editingMat.unit }}</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Add Material Form -->
           <div v-if="actionType === 'add_material'" class="flex flex-col gap-4">
             <div class="form-group">
@@ -204,9 +252,18 @@
               <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Unit of Measurement</label>
               <input v-model="newMat.unit" type="text" class="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="e.g. kg, rolls, buckets, bags">
             </div>
-            <div class="form-group">
-              <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Max Capacity</label>
-              <input v-model="newMat.max_capacity" type="number" class="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="e.g. 500">
+            <div class="grid grid-cols-2 gap-3">
+              <div class="form-group">
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Max Capacity</label>
+                <input v-model.number="newMat.max_capacity" type="number" class="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="e.g. 500">
+              </div>
+              <div class="form-group">
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Low Stock Alert (%)</label>
+                <div class="relative">
+                  <input v-model.number="newMat.alert_percent" type="number" min="1" max="100" class="w-full bg-slate-900 border border-white/10 rounded-xl p-2.5 text-xs text-white outline-none focus:border-indigo-500 pr-8" placeholder="15">
+                  <span class="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">%</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -266,7 +323,17 @@
         <!-- Action Footer -->
         <div class="p-4 bg-slate-900/80 border-t border-white/5 backdrop-blur-md">
           <button 
-            v-if="actionType === 'add_material'"
+            v-if="actionType === 'edit_material'"
+            @click="submitEditMaterial"
+            :disabled="!editingMat.name || !editingMat.unit || !editingMat.max_capacity"
+            class="btn-action w-full btn-action-primary cursor-pointer"
+            :class="(!editingMat.name || !editingMat.unit || !editingMat.max_capacity) ? 'opacity-50 cursor-not-allowed' : ''"
+          >
+            <span class="material-symbols-rounded">save</span>
+            SAVE CHANGES
+          </button>
+          <button 
+            v-else-if="actionType === 'add_material'"
             @click="submitNewMaterial"
             :disabled="!newMat.name || !newMat.unit || !newMat.max_capacity"
             class="btn-action w-full btn-action-primary cursor-pointer"
@@ -309,7 +376,7 @@ import { useInventoryStore } from '@/store/inventoryStore'
 const inventoryStore = useInventoryStore()
 
 const showActionPanel = ref(false)
-const actionType = ref('add_stock') // 'add_stock', 'sub_stock', 'add_material'
+const actionType = ref('add_stock') // 'add_stock', 'sub_stock', 'add_material', 'edit_material'
 const selectedLogFilter = ref('all')
 const isSyncing = ref(false)
 let refreshTimer = null
@@ -318,7 +385,8 @@ let refreshTimer = null
 const selectedMaterialId = ref('')
 const numpadValue = ref('') 
 const transactionNotes = ref('')
-const newMat = ref({ name: '', unit: '', max_capacity: '' })
+const newMat = ref({ name: '', unit: '', max_capacity: 100, alert_percent: 15 })
+const editingMat = ref({ id: '', name: '', unit: '', max_capacity: 100, alert_percent: 15, current_stock: 0 })
 
 async function manualSync() {
   isSyncing.value = true
@@ -345,7 +413,21 @@ function openActionPanel(type) {
   showActionPanel.value = true
   numpadValue.value = ''
   transactionNotes.value = ''
-  newMat.value = { name: '', unit: '', max_capacity: '' }
+  newMat.value = { name: '', unit: '', max_capacity: 100, alert_percent: 15 }
+}
+
+function openEditMaterial(mat) {
+  const percent = getAlertPercent(mat)
+  editingMat.value = {
+    id: mat.id,
+    name: mat.name,
+    unit: mat.unit,
+    max_capacity: Number(mat.max_capacity) || 100,
+    alert_percent: percent,
+    current_stock: Number(mat.current_stock) || 0
+  }
+  actionType.value = 'edit_material'
+  showActionPanel.value = true
 }
 
 const selectedMaterial = computed(() => {
@@ -357,11 +439,19 @@ const filteredTransactions = computed(() => {
   return inventoryStore.transactions.filter(t => String(t.material_id) === String(selectedLogFilter.value))
 })
 
-// Alert if current stock is <= 15% of max capacity
+function getAlertPercent(mat) {
+  if (!mat || !mat.max_capacity || mat.max_capacity <= 0) return 15
+  if (mat.reorder_threshold != null && Number(mat.reorder_threshold) > 0) {
+    return Math.round((Number(mat.reorder_threshold) / Number(mat.max_capacity)) * 100)
+  }
+  return 15
+}
+
+// Alert if current stock is <= threshold (reorder threshold or 15% capacity)
 function isLowStock(mat) {
-  if (!mat || !mat.max_capacity) return false
-  const threshold = mat.max_capacity * 0.15
-  return Number(mat.current_stock) <= threshold
+  if (!mat) return false
+  const threshold = Number(mat.reorder_threshold) > 0 ? Number(mat.reorder_threshold) : (Number(mat.max_capacity || 100) * 0.15)
+  return Number(mat.current_stock || 0) <= threshold
 }
 
 const isValidTransaction = computed(() => {
@@ -376,22 +466,22 @@ function showToast(msg, type = 'success') {
   toastTimer = setTimeout(() => { toast.value.visible = false }, 3000)
 }
 
-function submitTransaction() {
+async function submitTransaction() {
   if (!isValidTransaction.value) return
   
   const qty = Number(numpadValue.value)
   const notes = transactionNotes.value || (actionType.value === 'add_stock' ? 'Stock Received' : 'Manual Withdrawal')
 
   if (actionType.value === 'add_stock') {
-    inventoryStore.receiveStock(selectedMaterialId.value, qty, notes)
+    await inventoryStore.receiveStock(selectedMaterialId.value, qty, notes)
     showToast(`Successfully added +${qty} ${selectedMaterial.value.unit} to ${selectedMaterial.value.name}`)
   } else {
     // Check if enough stock
-    if (qty > selectedMaterial.value.current_stock) {
-        showToast(`Cannot withdraw ${qty}. Only ${selectedMaterial.value.current_stock} remaining!`, 'error')
+    if (qty > (selectedMaterial.value?.current_stock || 0)) {
+        showToast(`Cannot withdraw ${qty}. Only ${selectedMaterial.value?.current_stock || 0} remaining!`, 'error')
         return
     }
-    inventoryStore.withdrawStock(selectedMaterialId.value, qty, notes)
+    await inventoryStore.withdrawStock(selectedMaterialId.value, qty, notes)
     showToast(`Successfully withdrew -${qty} ${selectedMaterial.value.unit} from ${selectedMaterial.value.name}`)
   }
   
@@ -402,13 +492,42 @@ function submitTransaction() {
   showActionPanel.value = false
 }
 
+async function submitEditMaterial() {
+  if (!editingMat.value.name || !editingMat.value.unit || !editingMat.value.max_capacity) return
+
+  const maxCap = Number(editingMat.value.max_capacity) || 100
+  const alertPct = Number(editingMat.value.alert_percent) || 15
+  const reorderThreshold = Number(((alertPct / 100) * maxCap).toFixed(2))
+
+  const success = await inventoryStore.updateMaterial(editingMat.value.id, {
+    name: editingMat.value.name,
+    unit: editingMat.value.unit,
+    max_capacity: maxCap,
+    reorder_threshold: reorderThreshold,
+    current_stock: Number(editingMat.value.current_stock) || 0
+  })
+
+  if (success) {
+    showToast(`Updated material: ${editingMat.value.name}`)
+    showActionPanel.value = false
+  } else {
+    showToast('Error updating material', 'error')
+  }
+}
+
 async function submitNewMaterial() {
+   if (!newMat.value.name || !newMat.value.unit || !newMat.value.max_capacity) return
+
+   const maxCap = Number(newMat.value.max_capacity) || 100
+   const alertPct = Number(newMat.value.alert_percent || 15)
+   const reorderThreshold = Number(((alertPct / 100) * maxCap).toFixed(2))
+
    const success = await inventoryStore.addMaterial({
       name: newMat.value.name,
       unit: newMat.value.unit,
-      max_capacity: Number(newMat.value.max_capacity),
+      max_capacity: maxCap,
       current_stock: 0,
-      reorder_threshold: 15
+      reorder_threshold: reorderThreshold
    })
    
    if (success) {
