@@ -31,7 +31,7 @@
           <p class="cluster-label">Work Category</p>
           <div class="toggle-row">
             <button
-              v-for="cat in ['MFG', 'PP', 'PL', 'C', 'TIME']"
+              v-for="cat in ['MFG', 'PP', 'PL', 'C', 'PLUG', 'TIME']"
               :key="cat"
               class="mega-toggle"
               :class="{ 'mega-toggle--active': activeCategory === cat }"
@@ -55,7 +55,7 @@
         </div>
 
         <!-- Size Toggles -->
-        <div class="toggle-cluster" v-if="activeCategory !== 'TIME' && activeCategory !== 'MFG'">
+        <div class="toggle-cluster" v-if="activeCategory !== 'TIME' && activeCategory !== 'MFG' && activeCategory !== 'PLUG' && !(activeCategory === 'C' && (activePlacement === 'Other' || activePlacement === 'የተለየ'))">
           <p class="cluster-label">Size</p>
           <div class="toggle-row">
             <button
@@ -65,6 +65,20 @@
               :class="{ 'mega-toggle--active': activeSize === s }"
               @click="activeSize = s"
             >{{ s }}</button>
+          </div>
+        </div>
+
+        <!-- Custom Size for Wood Other -->
+        <div class="toggle-cluster" v-else-if="activeCategory === 'C' && (activePlacement === 'Other' || activePlacement === 'የተለየ')">
+          <p class="cluster-label">Custom Size</p>
+          <div class="flex items-center gap-1">
+            <input
+              type="text"
+              v-model="customWoodSize"
+              placeholder="e.g. 8cm"
+              class="mega-toggle text-center"
+              style="width: 100px; background: rgba(15,23,42,0.8); border: 1px solid rgba(99,102,241,0.3); color: #fff; font-weight: 700;"
+            />
           </div>
         </div>
       </header>
@@ -220,10 +234,12 @@ const placements = computed(() => {
 const activeCategory  = ref('MFG')
 const activePlacement = ref('ብተና')
 const activeSize      = ref('9cm')
+const customWoodSize  = ref('')
 
 const columns = computed(() => {
   if (activeCategory.value === 'TIME') return ['Hours']
   if (activeCategory.value === 'C') return ['Units']
+  if (activeCategory.value === 'PLUG') return ['Plugs']
   return allDividerTypes
 })
 
@@ -274,12 +290,14 @@ function getCellValue(dayName, col, placement, size) {
          return dayMatch && opMatch && catMatch
        }
        
-       const colMatch = activeCategory.value === 'C' ? true : String(e.dividerType || '').trim() === String(col).trim()
+       const colMatch = (activeCategory.value === 'C' || activeCategory.value === 'PLUG') ? true : String(e.dividerType || '').trim() === String(col).trim()
        const placeMatch = activeCategory.value === 'C'
          ? String(e.placement || '').trim() === String(placement).trim() 
          : true
-       const sizeMatch = (activeCategory.value !== 'MFG') 
-         ? String(e.size || '').trim() === String(size).trim()
+       const sizeMatch = (activeCategory.value !== 'MFG' && activeCategory.value !== 'PLUG') 
+         ? (activeCategory.value === 'C' && (placement === 'Other' || placement === 'የተለየ')
+             ? (customWoodSize.value ? String(e.size || '').trim().toLowerCase() === String(customWoodSize.value).trim().toLowerCase() : true)
+             : String(e.size || '').trim() === String(size).trim())
          : true
        
        return dayMatch && colMatch && placeMatch && sizeMatch && opMatch && catMatch
@@ -352,11 +370,17 @@ async function performSave() {
   const currentOpId = sysAuth.currentEmployeeId || store.activeOperator?.id
   const submitOpId = isAdmin.value && targetOperatorId.value !== 'all' ? targetOperatorId.value : currentOpId
 
+  const finalLogSize = (activeCategory.value === 'MFG' || activeCategory.value === 'TIME' || activeCategory.value === 'PLUG')
+    ? null
+    : (activeCategory.value === 'C' && (activePlacement.value === 'Other' || activePlacement.value === 'የተለየ'))
+      ? (customWoodSize.value ? (customWoodSize.value.endsWith('cm') ? customWoodSize.value : `${customWoodSize.value}cm`) : null)
+      : activeSize.value
+
   const result = await store.submitProductionLog({
     workCategory:   activeCategory.value,
-    dividerType:    (activeCategory.value === 'TIME' || activeCategory.value === 'C') ? null : activeCell.value.col,
+    dividerType:    (activeCategory.value === 'TIME' || activeCategory.value === 'C' || activeCategory.value === 'PLUG') ? null : activeCell.value.col,
     placement:      activeCategory.value === 'C' ? activePlacement.value : null,
-    size:           (activeCategory.value === 'MFG' || activeCategory.value === 'TIME') ? null : activeSize.value,
+    size:           finalLogSize,
     goodProduction: activeCategory.value === 'TIME' ? 0 : qtyDiff,
     hoursWorked:    activeCategory.value === 'TIME' ? qtyDiff : null,
     wasteMaterial:  0,
@@ -367,7 +391,7 @@ async function performSave() {
   })
   
   if (result.ok) {
-    const colLabel = activeCategory.value === 'TIME' || activeCategory.value === 'C' ? activeCell.value.col : `Type ${activeCell.value.col}`
+    const colLabel = (activeCategory.value === 'TIME' || activeCategory.value === 'C' || activeCategory.value === 'PLUG') ? activeCell.value.col : `Type ${activeCell.value.col}`
     showToast(`✓ Updated ${activeCell.value.day} / ${colLabel} to ${newTotal}`)
   } else {
     showToast(`⚠ Saved locally but sync failed`)

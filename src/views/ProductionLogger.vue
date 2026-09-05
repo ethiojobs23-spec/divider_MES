@@ -75,9 +75,21 @@
                 @click="selections.placement = p"
               >{{ p === 'Other' ? (store.systemConfig.otherPlacement?.label || 'Other') : p }}</button>
             </div>
+
+            <!-- Custom Placement Input (Blank input for Admin/Operator to type custom placement name when Other/የተለየ is active) -->
+            <div v-if="isCustomWoodPlacement" class="mt-2 flex flex-col gap-1">
+              <label class="custom-field-label">Custom Placement Name</label>
+              <input
+                type="text"
+                v-model="selections.customPlacement"
+                placeholder="Type custom placement style..."
+                class="custom-sidebar-input"
+              />
+            </div>
           </div>
 
-          <div class="sidebar-section" v-if="hasSizes">
+          <!-- Size Selection: Standard 9cm / 7cm (Hidden when Wood custom placement is active) -->
+          <div class="sidebar-section" v-if="hasSizes && !isCustomWoodPlacement">
             <p class="section-title">Size</p>
             <div class="toggle-group">
               <button
@@ -87,6 +99,22 @@
                 :class="{ 'toggle-btn--active': selections.size === s }"
                 @click="selections.size = s"
               >{{ s }}</button>
+            </div>
+          </div>
+
+          <!-- Custom Size Input for Category C when Other / የተለየ is active -->
+          <div class="sidebar-section" v-if="isCustomWoodPlacement">
+            <p class="section-title">Custom Size</p>
+            <div class="custom-size-wrapper">
+              <input
+                type="number"
+                v-model="selections.customSize"
+                placeholder="e.g. 8, 10, 12"
+                class="custom-sidebar-input custom-size-input"
+                min="1"
+                max="999"
+              />
+              <span class="custom-unit-badge">cm</span>
             </div>
           </div>
         </template>
@@ -104,9 +132,15 @@
             <p class="summary-row"><span>Rate</span><strong class="rate-val">ETB {{ (opConfig.hourly_rate || 0).toFixed(2) }}/hr</strong></p>
           </template>
           <template v-else>
-            <p class="summary-row"><span>Type</span><strong>{{ selections.dividerType || '—' }}</strong></p>
-            <p class="summary-row" v-if="needsPlacement"><span>Place</span><strong>{{ selections.placement || '—' }}</strong></p>
-            <p class="summary-row" v-if="hasSizes"><span>Size</span><strong>{{ selections.size || '—' }}</strong></p>
+            <p class="summary-row"><span>Type</span><strong>{{ activeCategory === 'C' ? 'Wood' : activeCategory === 'PLUG' ? 'Plug Fitting' : (selections.dividerType || '—') }}</strong></p>
+            <p class="summary-row" v-if="needsPlacement">
+              <span>Place</span>
+              <strong>{{ isCustomWoodPlacement ? (selections.customPlacement?.trim() || selections.placement || 'Other') : (selections.placement || '—') }}</strong>
+            </p>
+            <p class="summary-row" v-if="hasSizes || isCustomWoodPlacement">
+              <span>Size</span>
+              <strong>{{ isCustomWoodPlacement ? (selections.customSize ? selections.customSize + 'cm' : 'Custom') : (selections.size || '—') }}</strong>
+            </p>
             <p class="summary-row"><span>Rate</span><strong class="rate-val">ETB {{ currentRate.toFixed(2) }}/pc</strong></p>
           </template>
           
@@ -128,7 +162,7 @@
             >
               <div>
                 <span class="font-bold text-slate-200 block">
-                  {{ entry.workCategory === 'TIME' ? 'Hourly' : `Type ${entry.dividerType || 'MFG'}` }}
+                  {{ entry.workCategory === 'TIME' ? 'Hourly' : entry.workCategory === 'C' ? `Wood · ${entry.placement || 'Other'}` : entry.workCategory === 'PLUG' ? 'Plug Fitting' : `Type ${entry.dividerType || 'MFG'}` }}
                   {{ entry.size ? `· ${entry.size}` : '' }}
                 </span>
                 <span class="text-[0.62rem] text-slate-400">
@@ -169,7 +203,7 @@
               @click="activeField = 'good'"
             >
               <span class="material-symbols-rounded">check_circle</span>
-              {{ activeCategory === 'PP' ? 'Papers Applied' : activeCategory === 'PL' ? 'Plaster Keys' : activeCategory === 'C' ? 'Units Completed' : 'Good Production' }}
+              {{ activeCategory === 'PP' ? 'Papers Applied' : activeCategory === 'PL' ? 'Plaster Keys' : activeCategory === 'C' ? 'Units Completed' : activeCategory === 'PLUG' ? 'Plugs Attached' : 'Good Production' }}
             </button>
             <button
               class="field-tab field-tab--waste"
@@ -202,7 +236,7 @@
           <!-- Numpad -->
           <div class="numpad-container">
             <VirtualNumpad
-              :label="activeField === 'good' ? (activeCategory === 'PP' ? 'Papers Applied (pcs)' : activeCategory === 'PL' ? 'Plaster Keys (pcs)' : activeCategory === 'C' ? 'Units Completed (pcs)' : 'Good Production (pcs)') : 'Waste Material (pcs)'"
+              :label="activeField === 'good' ? (activeCategory === 'PP' ? 'Papers Applied (pcs)' : activeCategory === 'PL' ? 'Plaster Keys (pcs)' : activeCategory === 'C' ? 'Units Completed (pcs)' : activeCategory === 'PLUG' ? 'Plugs Attached (pcs)' : 'Good Production (pcs)') : 'Waste Material (pcs)'"
               v-model="values[activeField]"
             />
           </div>
@@ -300,17 +334,32 @@ watch(clockedInList, (list) => {
 
 // ─── Work Categories ────────────────────────────────────────────────────────
 const CAT_INFO = {
-  MFG:  { label: 'Mfg', icon: 'precision_manufacturing' },
+  MFG:  { label: 'Mfg',   icon: 'precision_manufacturing' },
   PP:   { label: 'Paper', icon: 'description' },
   PL:   { label: 'Plaster', icon: 'build' },
-  C:    { label: 'Wood', icon: 'forest' },
-  TIME: { label: 'Time', icon: 'schedule' }
+  C:    { label: 'Wood',  icon: 'forest' },
+  PLUG: { label: 'Plug',  icon: 'settings_input_component' },
+  TIME: { label: 'Time',  icon: 'schedule' }
 }
 function getCatLabel(id) { return CAT_INFO[id]?.label || id }
 function getCatIcon(id) { return CAT_INFO[id]?.icon || 'work' }
 
 const activeCategory = ref('MFG')
-const selections = reactive({ dividerType: '50', placement: 'ብተና', size: '9cm' })
+const selections = reactive({
+  dividerType: '50',
+  placement: 'ብተና',
+  customPlacement: '',
+  size: '9cm',
+  customSize: ''
+})
+
+const isCustomWoodPlacement = computed(() => {
+  return activeCategory.value === 'C' && (
+    selections.placement === 'Other' ||
+    selections.placement === 'other' ||
+    selections.placement === 'የተለየ'
+  )
+})
 
 // Per-operator state persistence
 const opStates = JSON.parse(localStorage.getItem('mes_pl_states') || '{}')
@@ -335,8 +384,8 @@ const availablePlacements = computed(() => opConfig.value.placements?.length > 0
 const availableSizes = computed(() => opConfig.value.sizes?.length > 0 ? opConfig.value.sizes : standardSizes)
 
 // Visibility
-const hasTypes = computed(() => activeCategory.value !== 'TIME' && activeCategory.value !== 'C')
-const hasSizes = computed(() => activeCategory.value !== 'TIME' && activeCategory.value !== 'MFG')
+const hasTypes = computed(() => activeCategory.value !== 'TIME' && activeCategory.value !== 'C' && activeCategory.value !== 'PLUG')
+const hasSizes = computed(() => activeCategory.value !== 'TIME' && activeCategory.value !== 'MFG' && activeCategory.value !== 'PLUG' && !isCustomWoodPlacement.value)
 const needsPlacement = computed(() => activeCategory.value === 'C')
 
 // Restore / update state when operator changes
@@ -365,11 +414,19 @@ watch(selectedOperatorId, (id) => {
     selections.placement = validPlaces[0]
   }
 
+  if (state.customPlace !== undefined) {
+    selections.customPlacement = state.customPlace
+  }
+
   const validSizes = availableSizes.value
   if (state.size && validSizes.includes(state.size)) {
     selections.size = state.size
   } else if (validSizes.length > 0) {
     selections.size = validSizes[0]
+  }
+
+  if (state.customSize !== undefined) {
+    selections.customSize = state.customSize
   }
 }, { immediate: true })
 
@@ -379,7 +436,9 @@ function saveOpState() {
       cat: activeCategory.value,
       type: selections.dividerType,
       place: selections.placement,
-      size: selections.size
+      customPlace: selections.customPlacement,
+      size: selections.size,
+      customSize: selections.customSize
     }
     localStorage.setItem('mes_pl_states', JSON.stringify(opStates))
   }
@@ -437,8 +496,29 @@ const currentRate = computed(() => {
     
     if (cat === 'MFG') {
       rate = store.pieceRates?.['MFG']?.[type] ?? 0
+    } else if (cat === 'PLUG') {
+      const val = store.pieceRates?.['PLUG']
+      rate = typeof val === 'number' ? val : (val?.rate ?? val?.default ?? 0.50)
     } else if (cat === 'C') {
-      rate = store.pieceRates?.['C']?.['null']?.[size]?.[pl] ?? 0
+      const cRates = store.pieceRates?.['C']?.['null'] || store.pieceRates?.['C']?.['50'] || {}
+      if (isCustomWoodPlacement.value) {
+        const customSizeKey = selections.customSize ? `${selections.customSize}cm` : '9cm'
+        const customPlaceKey = selections.customPlacement?.trim() || selections.placement
+        rate = cRates?.[customSizeKey]?.[customPlaceKey] ??
+               cRates?.[customSizeKey]?.['Other'] ??
+               cRates?.[customSizeKey]?.['other'] ??
+               cRates?.[customSizeKey]?.['የተለየ'] ??
+               cRates?.['9cm']?.[customPlaceKey] ??
+               cRates?.['9cm']?.['Other'] ??
+               cRates?.['9cm']?.['other'] ??
+               cRates?.['9cm']?.['የተለየ'] ??
+               cRates?.['7cm']?.['Other'] ??
+               cRates?.['7cm']?.['other'] ??
+               cRates?.['7cm']?.['የተለየ'] ??
+               2.00
+      } else {
+        rate = cRates?.[size]?.[pl] ?? 0
+      }
     } else if (cat === 'PP' || cat === 'PL') {
       rate = store.pieceRates?.[cat]?.[type]?.[size] ?? 0
     }
@@ -479,13 +559,21 @@ async function saveEntry() {
   isSaving.value = true
   
   const earnedAmount = earningsPreview.value // capture earnings before resetting values
+
+  const finalPlacement = (activeCategory.value === 'C' && isCustomWoodPlacement.value)
+    ? (selections.customPlacement?.trim() || selections.placement || 'Other')
+    : (needsPlacement.value ? selections.placement : null)
+
+  const finalSize = (activeCategory.value === 'C' && isCustomWoodPlacement.value)
+    ? (selections.customSize ? `${selections.customSize}cm` : null)
+    : (hasSizes.value ? selections.size : null)
   
   const payload = {
     operator_id:    selectedOperatorId.value,
     workCategory:   activeCategory.value,
     dividerType:    hasTypes.value ? selections.dividerType : null,
-    placement:      needsPlacement.value ? selections.placement : null,
-    size:           hasSizes.value ? selections.size : null,
+    placement:      finalPlacement,
+    size:           finalSize,
     goodProduction: activeCategory.value !== 'TIME' ? (Number(values.good) || 0) : 0,
     wasteMaterial:  activeCategory.value !== 'TIME' ? (Number(values.waste) || 0) : 0,
     hoursWorked:    activeCategory.value === 'TIME' ? (Number(values.hours) || 0) : null,
@@ -605,6 +693,54 @@ onMounted(async () => {
 .toggle-btn--sm {
   font-size: .75rem;
   padding: .45rem .6rem;
+}
+
+.custom-field-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #a5b4fc;
+}
+
+.custom-sidebar-input {
+  width: 100%;
+  background: #0f172a;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f8fafc;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.custom-sidebar-input:focus {
+  border-color: #818cf8;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.custom-size-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.custom-size-input {
+  flex: 1;
+  font-family: monospace;
+  font-size: 0.95rem;
+}
+
+.custom-unit-badge {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  user-select: none;
 }
 
 .summary-card {

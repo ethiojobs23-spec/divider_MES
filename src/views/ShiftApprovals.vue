@@ -140,18 +140,19 @@
               <thead><tr><th>Cat.</th><th>Type</th><th>Placement</th><th>Size</th><th>Good</th><th>Waste</th><th>Time</th></tr></thead>
               <tbody>
                 <tr v-for="(e, i) in sub.details?.entries" :key="i">
-                  <td><span class="cat-pill" :style="{ background: CAT_COLORS[e.workCategory || 'MFG'] + '22', color: CAT_COLORS[e.workCategory || 'MFG'] }">{{ e.workCategory || 'MFG' }}</span></td>
+                  <td><span class="cat-pill" :style="{ background: (CAT_COLORS[e.workCategory || 'MFG'] || '#6366f1') + '22', color: CAT_COLORS[e.workCategory || 'MFG'] || '#6366f1' }">{{ e.workCategory || 'MFG' }}</span></td>
                   <td>
                     <span v-if="e.workCategory === 'TIME'" class="text-slate-500">—</span>
-                    <span v-else-if="e.workCategory === 'C'" class="text-emerald-400 font-bold">WOOD</span>
+                    <span v-else-if="e.workCategory === 'C'" class="text-purple-400 font-bold">WOOD</span>
+                    <span v-else-if="e.workCategory === 'PLUG'" class="text-cyan-400 font-bold">PLUG</span>
                     <span v-else>{{ e.dividerType === 'Other' ? 'Custom' : (e.dividerType ? `Type ${e.dividerType}` : 'MFG') }}</span>
                   </td>
                   <td>
-                    <span v-if="e.workCategory === 'MFG' || e.workCategory === 'TIME'" class="text-slate-500">—</span>
+                    <span v-if="e.workCategory === 'MFG' || e.workCategory === 'TIME' || e.workCategory === 'PLUG'" class="text-slate-500">—</span>
                     <span v-else>{{ e.placement || '—' }}</span>
                   </td>
                   <td>
-                    <span v-if="e.workCategory === 'MFG' || e.workCategory === 'TIME'" class="text-slate-500">—</span>
+                    <span v-if="e.workCategory === 'MFG' || e.workCategory === 'TIME' || e.workCategory === 'PLUG'" class="text-slate-500">—</span>
                     <span v-else>{{ e.size || '—' }}</span>
                   </td>
                   <td style="color:#34d399"><strong>{{ e.workCategory === 'TIME' ? (e.hoursWorked || 0) + 'h' : e.good }}</strong></td>
@@ -421,11 +422,12 @@ onMounted(async () => {
 
 // ─── Work Assignment Constants ──────────────────────────────────────────────
 const CATEGORIES = [
-  { id: 'MFG',  label: 'Manufacturing',    icon: 'precision_manufacturing' },
-  { id: 'PP',   label: 'Paper Placement',  icon: 'description'             },
-  { id: 'PL',   label: 'Plaster Placement',icon: 'build'                   },
-  { id: 'C',    label: 'Wood Preparation', icon: 'forest'                  },
-  { id: 'TIME', label: 'Hourly Work',      icon: 'schedule'                },
+  { id: 'MFG',  label: 'Manufacturing',     icon: 'precision_manufacturing' },
+  { id: 'PP',   label: 'Paper Placement',   icon: 'description'             },
+  { id: 'PL',   label: 'Plaster Placement', icon: 'build'                   },
+  { id: 'C',    label: 'Wood Preparation',  icon: 'forest'                  },
+  { id: 'PLUG', label: 'Plug Fitting',      icon: 'settings_input_component'},
+  { id: 'TIME', label: 'Hourly Work',       icon: 'schedule'                },
 ]
 
 const CAT_COLORS = {
@@ -433,11 +435,12 @@ const CAT_COLORS = {
   PP:   '#10b981',
   PL:   '#f59e0b',
   C:    '#8b5cf6',
+  PLUG: '#06b6d4',
   TIME: '#3b82f6',
 }
 
 const DIVIDER_TYPES = ['50', '40', '30', '16', '12', '45']
-const PLACEMENTS    = ['ብተና', 'ውስጥ', 'other']
+const PLACEMENTS    = ['ብተና', 'ውስጥ', 'የተለየ', 'Other']
 const SIZES         = ['9cm', '7cm']
 
 // ─── Per-operator config helpers ────────────────────────────────────────────

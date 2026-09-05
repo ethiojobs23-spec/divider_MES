@@ -80,13 +80,13 @@
 
         <!-- Category Sub-tabs -->
         <div class="cat-tabs">
-          <button v-for="cat in ['MFG', 'C', 'PP', 'PL']" :key="cat" class="cat-tab" :class="{'cat-tab--active': activeRateCat === cat}" @click="activeRateCat = cat">
-            {{ cat === 'MFG' ? 'Manufacturing' : cat === 'C' ? 'Wood Prep' : cat === 'PP' ? 'Paper Place' : 'Plaster Place' }}
+          <button v-for="cat in ['MFG', 'C', 'PP', 'PL', 'PLUG']" :key="cat" class="cat-tab" :class="{'cat-tab--active': activeRateCat === cat}" @click="activeRateCat = cat">
+            {{ cat === 'MFG' ? 'Manufacturing' : cat === 'C' ? 'Wood Prep' : cat === 'PP' ? 'Paper Place' : cat === 'PL' ? 'Plaster Place' : 'Plug Fitting' }}
           </button>
         </div>
 
-        <!-- Divider Type tabs (Hidden for C) -->
-        <div class="type-tabs" v-if="activeRateCat !== 'C'">
+        <!-- Divider Type tabs (Hidden for C and PLUG) -->
+        <div class="type-tabs" v-if="activeRateCat !== 'C' && activeRateCat !== 'PLUG'">
           <button
             v-for="t in allDividerTypesForRates"
             :key="t"
@@ -115,6 +115,28 @@
                   <span class="step-val">{{ getRate(activeRateCat, selectedType, null, null).toFixed(2) }}</span>
                 </div>
                 <button class="step-btn step-btn--plus" @click="adjustRate(activeRateCat, selectedType, null, null, +0.25)">
+                  <span class="material-symbols-rounded">add</span>
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <!-- If category is PLUG -->
+          <template v-else-if="activeRateCat === 'PLUG'">
+            <div class="rate-row" style="background: rgba(255,255,255,0.02); padding: 1.5rem; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 1rem;">
+              <div class="rate-meta">
+                <span class="placement-badge" style="background: rgba(6,182,212,.15); color: #06b6d4;">Flat Rate Per Plug</span>
+                <span class="rate-key">Divider End Plug Fitting</span>
+              </div>
+              <div class="stepper">
+                <button class="step-btn step-btn--minus" @click="adjustRate('PLUG', null, null, null, -0.05)">
+                  <span class="material-symbols-rounded">remove</span>
+                </button>
+                <div class="step-display">
+                  <span class="step-currency">ETB</span>
+                  <span class="step-val">{{ getRate('PLUG', null, null, null).toFixed(2) }}</span>
+                </div>
+                <button class="step-btn step-btn--plus" @click="adjustRate('PLUG', null, null, null, +0.05)">
                   <span class="material-symbols-rounded">add</span>
                 </button>
               </div>
@@ -639,6 +661,9 @@ const allPlacementsForRates = computed(() => {
     if (category === 'MFG') {
       const val = store.pieceRates?.['MFG']?.[type]
       rate = typeof val === 'number' ? val : (val?.['9cm']?.['ብተና'] || 0)
+    } else if (category === 'PLUG') {
+      const val = store.pieceRates?.['PLUG']
+      rate = typeof val === 'number' ? val : (val?.rate ?? val?.default ?? 0.50)
     } else if (category === 'C') {
       rate = store.pieceRates?.['C']?.['null']?.[size]?.[placement] ?? store.pieceRates?.['C']?.['50']?.[size]?.[placement]
     } else if (category === 'PP' || category === 'PL') {

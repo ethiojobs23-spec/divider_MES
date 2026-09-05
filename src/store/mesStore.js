@@ -64,7 +64,8 @@ export const defaultPieceRates = {
       '9cm': { 'ብተና': 1.50, 'ውስጥ': 2.00, 'የተለየ': 2.50, 'Other': 1.50 },
       '7cm': { 'ብተና': 1.00, 'ውስጥ': 1.50, 'የተለየ': 2.00, 'Other': 1.00 }
     }
-  }
+  },
+  PLUG: 0.50
 }
 
 export function normalizePieceRates(raw) {
@@ -117,6 +118,15 @@ export function normalizePieceRates(raw) {
       if (firstTypeObj && typeof firstTypeObj === 'object') {
         result.C['null'] = firstTypeObj
       }
+    }
+  }
+
+  // 5. PLUG
+  if (raw.PLUG !== undefined) {
+    if (typeof raw.PLUG === 'number' && !isNaN(raw.PLUG)) {
+      result.PLUG = raw.PLUG
+    } else if (typeof raw.PLUG === 'object' && raw.PLUG !== null) {
+      result.PLUG = Number(raw.PLUG.rate ?? raw.PLUG.default ?? 0.50)
     }
   }
 
@@ -374,6 +384,7 @@ export const useMesStore = defineStore('mes', () => {
       goodProduction: Number(dbRow.qty_produced) || 0,
       wasteMaterial: Number(dbRow.qty_waste) || 0,
       hoursWorked: dbRow.hours_worked != null ? Number(dbRow.hours_worked) : null,
+      notes: dbRow.notes || null,
       loggedByAdmin: dbRow.logged_by_admin || false
     }
   }
@@ -685,8 +696,13 @@ export const useMesStore = defineStore('mes', () => {
     const numVal = (typeof value === 'number' && !isNaN(value)) ? value : (Number(value) || 0)
     
     if (!pieceRates.value) pieceRates.value = JSON.parse(JSON.stringify(defaultPieceRates))
-    if (!pieceRates.value[category]) pieceRates.value[category] = {}
+    if (!pieceRates.value[category] && category !== 'PLUG') pieceRates.value[category] = {}
     
+    if (category === 'PLUG') {
+      pieceRates.value.PLUG = numVal
+      return
+    }
+
     if (category === 'MFG') {
       pieceRates.value.MFG[type] = numVal
       return
@@ -1130,6 +1146,10 @@ export const useMesStore = defineStore('mes', () => {
   function getEntryRate(entry) {
     const cat = entry.workCategory || 'MFG'
     if (cat === 'TIME') return 0
+    if (cat === 'PLUG') {
+      const val = pieceRates.value?.PLUG
+      return typeof val === 'number' ? val : (val?.rate ?? val?.default ?? 0.50)
+    }
     
     let rate = 0
     const rates = pieceRates.value || {}
@@ -1137,7 +1157,21 @@ export const useMesStore = defineStore('mes', () => {
       const val = rates?.MFG?.[entry.dividerType]
       rate = typeof val === 'number' ? val : (val?.['9cm']?.['ብተና'] || 0)
     } else if (cat === 'C') {
-      rate = rates?.C?.['null']?.[entry.size]?.[entry.placement] ?? rates?.C?.['50']?.[entry.size]?.[entry.placement] ?? 0
+      const cRates = rates?.C?.['null'] || rates?.C?.['50'] || {}
+      const sizeKey = entry.size || '9cm'
+      const plKey = entry.placement || 'Other'
+      rate = cRates?.[sizeKey]?.[plKey] ??
+             cRates?.[sizeKey]?.['Other'] ??
+             cRates?.[sizeKey]?.['other'] ??
+             cRates?.[sizeKey]?.['የተለየ'] ??
+             cRates?.['9cm']?.[plKey] ??
+             cRates?.['9cm']?.['Other'] ??
+             cRates?.['9cm']?.['other'] ??
+             cRates?.['9cm']?.['የተለየ'] ??
+             cRates?.['7cm']?.['Other'] ??
+             cRates?.['7cm']?.['other'] ??
+             cRates?.['7cm']?.['የተለየ'] ??
+             0
     } else if (cat === 'PP' || cat === 'PL') {
       rate = rates?.[cat]?.[entry.dividerType]?.[entry.size] ?? 0
     }
