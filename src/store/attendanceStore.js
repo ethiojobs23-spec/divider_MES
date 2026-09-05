@@ -271,7 +271,7 @@ export const useAttendanceStore = defineStore('attendance', () => {
 }, {
   persist: {
     key: 'divider-attendance-store',
-    paths: ['clockingWindows', 'clockInLog']
+    pick: ['clockingWindows', 'clockInLog']
   },
 })
 

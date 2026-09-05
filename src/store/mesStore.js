@@ -902,7 +902,6 @@ export const useMesStore = defineStore('mes', () => {
 
       // ── TIME (hourly) workers: calculate hours from attendance record or logged hours ──
       if (opConfig.categories?.includes('TIME')) {
-        const { useAttendanceStore } = await import('./attendanceStore.js')
         const attStore = useAttendanceStore()
         // Find today's attendance record for this operator
         const todayRecord = attStore.clockInLog.find(log => {
@@ -1427,7 +1426,7 @@ export const useMesStore = defineStore('mes', () => {
 
   return {
     isLoading, fetchInitialData,
-    operators, activeOperator, clockedInOperators,
+    operators, activeOperator,
     isOperatorClockedIn, clockIn, clockOut, setOperator,
     currentProductionWeek, setProductionWeek,
     actualCalendarWeek, weekStatus, shiftProductionWeek, resetToCurrentWeek,
@@ -1444,6 +1443,7 @@ export const useMesStore = defineStore('mes', () => {
     downtimeSessions, activeDowntime, startDowntime, resolveDowntime, logDowntime,
     shiftSubmissions, submitShift, approveShift, rejectShift, setOperatorWorkTypes, getOperatorWorkConfig,
     calculateEntryEarnings, getEntryRate,
+    mapSupabaseLedgerToLocal, mapSupabaseCashToLocal, mapSupabaseDispatchToLocal,
     initRealtime,
   }
 }, {
@@ -1460,7 +1460,6 @@ export const useMesStore = defineStore('mes', () => {
       'systemConfig',
       'inventory',
       'operators',
-      'clockedInOperators',
       'activeOperator'
     ],
   },

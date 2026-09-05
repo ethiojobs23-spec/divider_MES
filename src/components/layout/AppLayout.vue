@@ -262,7 +262,7 @@ const sysAuth  = useSystemAuthStore()
 const { isMobileMenuOpen } = storeToRefs(sysAuth)
 
 const activeOperatorsList = computed(() => {
-  return mesStore.operators.filter(op => mesStore.isOperatorClockedIn(op.id))
+  return (mesStore.operators || []).filter(op => op && mesStore.isOperatorClockedIn(op.id))
 })
 
 // ─── Smart Back Navigation (never wipes Pinia state) ─────────────────────

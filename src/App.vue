@@ -7,27 +7,25 @@
     <!-- Global Network Status Banner -->
     <NetworkBanner />
 
-    <Transition name="crash-fade" mode="out-in">
-      <!-- ── Crash Recovery Screen ──────────────────────────────────── -->
-      <div v-if="hasCrashed" class="crash-screen" role="alert" aria-live="assertive">
-        <div class="crash-card">
-          <div class="crash-icon">⚠</div>
-          <h1 class="crash-title">Module Error</h1>
-          <p class="crash-body">
-            A module crashed unexpectedly. Your work is safe — press the button
-            below to return to the main hub.
-          </p>
-          <p class="crash-detail" v-if="crashMessage">{{ crashMessage }}</p>
-          <button class="crash-btn" @click="resetToHub">
-            <span class="material-symbols-rounded">home</span>
-            RETURN TO HUB
-          </button>
-        </div>
+    <!-- ── Crash Recovery Screen ──────────────────────────────────── -->
+    <div v-if="hasCrashed" class="crash-screen" role="alert" aria-live="assertive">
+      <div class="crash-card">
+        <div class="crash-icon">⚠</div>
+        <h1 class="crash-title">Module Error</h1>
+        <p class="crash-body">
+          A module crashed unexpectedly. Your work is safe — press the button
+          below to return to the main hub.
+        </p>
+        <p class="crash-detail" v-if="crashMessage">{{ crashMessage }}</p>
+        <button class="crash-btn" @click="resetToHub">
+          <span class="material-symbols-rounded">home</span>
+          RETURN TO HUB
+        </button>
       </div>
+    </div>
 
-      <!-- ── Normal App ─────────────────────────────────────────────── -->
-      <router-view v-else />
-    </Transition>
+    <!-- ── Normal App ─────────────────────────────────────────────── -->
+    <router-view v-else />
 
     <!-- ── System Down Global Banner ──────────────────────────────── -->
     <Transition name="banner-slide">

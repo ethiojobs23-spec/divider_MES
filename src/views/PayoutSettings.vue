@@ -115,7 +115,7 @@ const activeOperator = ref(null)
 const formData = ref({
   paymentMethod: 'Cash',
   accountInfo: '',
-  baseInterestRate: 5
+  baseInterestRate: '5'
 })
 
 function selectOperator(op) {
@@ -124,7 +124,7 @@ function selectOperator(op) {
   formData.value = {
     paymentMethod: profile.paymentMethod || 'Cash',
     accountInfo: profile.accountInfo || '',
-    baseInterestRate: profile.baseInterestRate !== undefined ? profile.baseInterestRate : 5
+    baseInterestRate: String(profile.baseInterestRate !== undefined ? profile.baseInterestRate : '5')
   }
 }
 
