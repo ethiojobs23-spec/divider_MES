@@ -284,28 +284,19 @@ export const useMesStore = defineStore('mes', () => {
 
   // ─── Operator State ────────────────────────────────────────────────────────
   const activeOperator = ref(null)
-  const clockedInOperators = ref({}) // We keep clock ins local session-based for UI, or use attendanceStore
   const operators = ref([])
   const clients = ref([])
 
   const isOperatorClockedIn = computed(() => (id) => {
     if (!id) return false
     const numId = Number(id)
-    if (clockedInOperators.value[id] || clockedInOperators.value[numId]) return true
     try {
       const attStore = useAttendanceStore()
-      const now = new Date()
-      const todayIso = now.toISOString().split('T')[0]
-      const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-
-      return (attStore.clockInLog || []).some(log => {
-        const matchesOp = Number(log.operatorId) === numId
-        const matchesDate = log.shiftDate === todayIso || 
-                            log.shiftDate === todayLocal || 
-                            (log.timestamp && (log.timestamp.startsWith(todayIso) || log.timestamp.startsWith(todayLocal)))
-        const isActive = !log.clockOut
-        return matchesOp && matchesDate && isActive
-      })
+      const logs = (attStore.clockInLog || []).filter(l => Number(l.operatorId) === numId)
+      if (logs.length === 0) return false
+      // Most recent log entry for this operator
+      const latest = logs[0]
+      return Boolean(latest && !latest.clockOut)
     } catch {
       return false
     }
@@ -313,19 +304,13 @@ export const useMesStore = defineStore('mes', () => {
 
   function clockIn(operator) {
     if (!operator) return
-    clockedInOperators.value[operator.id] = new Date().toISOString()
     activeOperator.value = operator
   }
 
   function clockOut(operator) {
     if (!operator) return
-    delete clockedInOperators.value[operator.id]
-    delete clockedInOperators.value[Number(operator.id)]
     if (activeOperator.value?.id === operator.id) {
-      const remaining = Object.keys(clockedInOperators.value)
-      activeOperator.value = remaining.length
-        ? operators.value.find(o => Number(o.id) === Number(remaining[0])) ?? null
-        : null
+      activeOperator.value = null
     }
   }
 

@@ -4,6 +4,9 @@
        If any child component throws an unhandled error the operator sees
        a clear recovery screen instead of a blank white crash. -->
   <div id="mes-app">
+    <!-- Global Network Status Banner -->
+    <NetworkBanner />
+
     <Transition name="crash-fade" mode="out-in">
       <!-- ── Crash Recovery Screen ──────────────────────────────────── -->
       <div v-if="hasCrashed" class="crash-screen" role="alert" aria-live="assertive">
@@ -57,6 +60,7 @@ import { useQcStore } from '@/store/qcStore.js'
 import { useDowntimeStore } from '@/store/downtimeStore.js'
 import { useInventoryStore } from '@/store/inventoryStore.js'
 import { syncManager } from '@/services/syncManager.js'
+import NetworkBanner from '@/components/ui/NetworkBanner.vue'
 
 const router      = useRouter()
 const hasCrashed  = ref(false)

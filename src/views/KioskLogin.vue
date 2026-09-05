@@ -11,6 +11,12 @@
         <p class="header-sub">Select your operator profile and enter PIN to clock in/out</p>
       </div>
 
+      <!-- Live Network Status Pill -->
+      <div class="header-network-pill" :class="syncState.isOnline ? 'net--online' : 'net--offline'">
+        <span class="material-symbols-rounded net-icon">{{ syncState.isOnline ? 'wifi' : 'wifi_off' }}</span>
+        <span>{{ syncState.isOnline ? (syncState.isSyncing ? 'Syncing...' : 'Live Connected') : 'No Internet (Offline)' }}</span>
+      </div>
+
       <!-- Live Headcount Badge -->
       <div class="header-headcount">
         <span class="gate-label">Floor Status</span>
@@ -196,7 +202,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useMesStore } from '@/store/mesStore.js'
 import { useAttendanceStore } from '@/store/attendanceStore.js'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
-import { syncManager } from '@/services/syncManager.js'
+import { syncState, syncManager } from '@/services/syncManager.js'
 import OperatorAvatar from '@/components/ui/OperatorAvatar.vue'
 
 const router = useRouter()
@@ -205,8 +211,14 @@ const mesStore = store
 const attendanceStore = useAttendanceStore()
 const sysAuth = useSystemAuthStore()
 
-// Operator filtering (Kept exactly as requested: o.role === 'Operator')
-const employeeOperators = computed(() => store.operators.filter(function(o){ return o.role === 'Operator' }))
+// Filter all active floor operators (exclude system admin / manager / customer accounts)
+const employeeOperators = computed(() => {
+  const excludedRoles = ['admin', 'System Admin', 'manager', 'Supervisor', 'customer']
+  return (store.operators || []).filter(o => {
+    if (!o.name || o.is_active === false) return false
+    return !excludedRoles.includes(o.role)
+  })
+})
 
 const searchQuery = ref('')
 const filteredEmployeeOperators = computed(() => {
@@ -265,10 +277,12 @@ onMounted(async () => {
   await store.fetchInitialData()
   await attendanceStore.fetchAttendance()
 
-  // Auto-refresh attendance status every 30s
+  // Live polling for guaranteed multi-device synchronization every 10s
   pollInterval = setInterval(async () => {
-    await attendanceStore.fetchAttendance()
-  }, 30000)
+    if (navigator.onLine) {
+      await attendanceStore.fetchAttendance()
+    }
+  }, 10000)
 })
 
 onUnmounted(() => {
@@ -371,25 +385,11 @@ async function handleClockOut() {
   if (!op) return
   
   mesStore.clockOut(op)
-  const now = new Date().toISOString()
-  
-  // Update local attendance store
-  const lastLog = attendanceStore.clockInLog.find(l => Number(l.operatorId) === Number(op.id) && !l.clockOut)
-  if (lastLog) lastLog.clockOut = now
-
-  const payload = { clock_out: now }
-  const match = { operator_id: op.id, clock_out: null }
-
   try {
-    if (navigator.onLine) {
-      await supabase.from('mes_attendance').update(payload).match(match)
-    } else {
-      syncManager.enqueue({ action: 'update', table: 'mes_attendance', payload, match })
-    }
+    await attendanceStore.recordClockOut(op.id, true)
     showToast(`${op.name} clocked out successfully!`)
   } catch (err) {
     console.error('Clock-out error:', err)
-    syncManager.enqueue({ action: 'update', table: 'mes_attendance', payload, match })
     showToast(`${op.name} clocked out (queued offline)`)
   }
 
@@ -483,8 +483,38 @@ function clearOverrideNum() {
 .header-title { font-size: 1.4rem; font-weight: 800; color: #f1f5f9; margin: 0; }
 .header-sub   { font-size: .8rem;  color: #64748b; margin-top: .2rem; }
 
-.header-headcount {
+.header-network-pill {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  transition: all 0.3s ease;
+}
+.net--online {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.net--offline {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  animation: pulse-border 1.5s infinite;
+}
+.net-icon {
+  font-size: 1rem !important;
+}
+@keyframes pulse-border {
+  0%, 100% { border-color: rgba(239, 68, 68, 0.4); }
+  50% { border-color: rgba(239, 68, 68, 0.9); }
+}
+
+.header-headcount {
   text-align: right;
   background: rgba(99, 102, 241, 0.1);
   padding: 0.5rem 1rem;

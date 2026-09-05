@@ -1,8 +1,5 @@
 <template>
   <div class="flex h-screen w-screen overflow-hidden bg-slate-900 text-slate-100 font-sans">
-    <!-- Global Network Status Banner -->
-    <NetworkBanner />
-
     <!-- ─── Mobile App Bar ────────────────────────────────────────────── -->
     <div class="md:hidden fixed top-0 left-0 right-0 h-16 bg-slate-800 border-b border-indigo-500/30 flex items-center justify-between px-4 z-40">
       <div class="flex items-center gap-3">
@@ -256,7 +253,6 @@ import { routes } from '@/router/index.js'
 import { useMesStore }        from '@/store/mesStore.js'
 import { useSystemAuthStore } from '@/store/systemAuthStore.js'
 import { syncState }          from '@/services/syncManager.js'
-import NetworkBanner          from '@/components/ui/NetworkBanner.vue'
 import OperatorAvatar         from '@/components/ui/OperatorAvatar.vue'
 
 const router   = useRouter()

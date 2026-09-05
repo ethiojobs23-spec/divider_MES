@@ -137,29 +137,37 @@ export const useAttendanceStore = defineStore('attendance', () => {
     try {
       const opId = Number(operatorId)
       const nowIso = new Date().toISOString()
-      const localDate = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`
 
+      // 1. Optimistically update local mirror
       const activeEntry = clockInLog.value.find(l => 
-        Number(l.operatorId) === opId && 
-        !l.clockOut &&
-        (l.shiftDate === localDate || (l.timestamp && l.timestamp.startsWith(localDate)))
+        Number(l.operatorId) === opId && !l.clockOut
       )
 
       if (activeEntry) {
         activeEntry.clockOut = nowIso
-        if (activeEntry.id && navigator.onLine) {
+      }
+
+      // 2. Persist to Supabase
+      if (navigator.onLine) {
+        if (activeEntry && activeEntry.id) {
           await supabase.from('mes_attendance').update({ clock_out: nowIso }).eq('id', activeEntry.id)
-        } else if (activeEntry.id) {
-          syncManager.enqueue({ action: 'update', table: 'mes_attendance', payload: { id: activeEntry.id, clock_out: nowIso } })
+        } else {
+          await supabase.from('mes_attendance')
+            .update({ clock_out: nowIso })
+            .eq('operator_id', opId)
+            .is('clock_out', null)
         }
-      } else if (navigator.onLine) {
-        await supabase.from('mes_attendance')
-          .update({ clock_out: nowIso })
-          .eq('operator_id', opId)
-          .is('clock_out', null)
+      } else {
+        if (activeEntry && activeEntry.id) {
+          syncManager.enqueue({ action: 'update', table: 'mes_attendance', payload: { clock_out: nowIso }, match: { id: activeEntry.id } })
+        } else {
+          syncManager.enqueue({ action: 'update', table: 'mes_attendance', payload: { clock_out: nowIso }, match: { operator_id: opId } })
+        }
       }
     } catch (err) {
       console.error('[AttendanceStore] Error recording clock out:', err)
+      const nowIso = new Date().toISOString()
+      syncManager.enqueue({ action: 'update', table: 'mes_attendance', payload: { clock_out: nowIso }, match: { operator_id: Number(operatorId) } })
     }
   }
 
@@ -224,7 +232,7 @@ export const useAttendanceStore = defineStore('attendance', () => {
           const opId = row.operator_id != null ? Number(row.operator_id) : null
           const existing = clockInLog.value.find(l => 
             l.id === row.id || 
-            (Number(l.operatorId) === opId && l.shiftDate === row.shift_date)
+            (Number(l.operatorId) === opId && !l.clockOut)
           )
           if (existing) {
             existing.id = row.id
@@ -263,7 +271,7 @@ export const useAttendanceStore = defineStore('attendance', () => {
 }, {
   persist: {
     key: 'divider-attendance-store',
-    paths: ['clockingWindows']
+    paths: ['clockingWindows', 'clockInLog']
   },
 })
 
