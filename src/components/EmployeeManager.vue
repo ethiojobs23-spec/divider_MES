@@ -24,11 +24,14 @@
           <span class="pin-val">{{ emp.pin_code }}</span>
         </div>
         <div class="emp-actions">
-          <button class="btn-action edit" @click="openEditModal(emp)">
+          <button class="btn-action edit" @click="openEditModal(emp)" title="Edit employee">
             <span class="material-symbols-rounded">edit</span>
           </button>
-          <button class="btn-action toggle" :class="emp.is_active ? 'deactivate' : 'activate'" @click="toggleActive(emp)">
+          <button class="btn-action toggle" :class="emp.is_active ? 'deactivate' : 'activate'" @click="toggleActive(emp)" :title="emp.is_active ? 'Hide employee' : 'Activate employee'">
             <span class="material-symbols-rounded">{{ emp.is_active ? 'person_off' : 'how_to_reg' }}</span>
+          </button>
+          <button class="btn-action delete-btn" @click="confirmDelete(emp)" title="Delete employee permanently">
+            <span class="material-symbols-rounded">delete</span>
           </button>
         </div>
       </div>
@@ -99,6 +102,26 @@
           <button class="btn-cancel" @click="showModal = false">Cancel</button>
           <button class="btn-save" @click="saveEmployee" :disabled="isSaving">
             {{ isSaving ? 'Saving...' : 'Save Employee' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteModal" class="modal-overlay" @click.self="showDeleteModal = false">
+      <div class="modal-content" style="max-width: 380px; text-align: center;">
+        <div style="display: flex; justify-content: center; margin-bottom: 1rem;">
+          <span class="material-symbols-rounded" style="font-size: 2.5rem; color: #ef4444; background: rgba(239,68,68,0.12); padding: 0.75rem; border-radius: 50%;">delete_forever</span>
+        </div>
+        <h3 style="margin: 0 0 0.5rem;">Delete Employee?</h3>
+        <p style="color: #94a3b8; font-size: 0.88rem; margin-bottom: 1.5rem;">
+          This will permanently delete <strong style="color:#f1f5f9;">{{ deleteTarget?.name }}</strong>. This action cannot be undone.
+        </p>
+        <div class="modal-actions" style="justify-content: center;">
+          <button class="btn-cancel" @click="showDeleteModal = false">Cancel</button>
+          <button class="btn-delete-confirm" @click="deleteEmployee" :disabled="isDeleting">
+            <span class="material-symbols-rounded" style="font-size: 1rem;">delete</span>
+            {{ isDeleting ? 'Deleting...' : 'Delete' }}
           </button>
         </div>
       </div>
@@ -226,6 +249,35 @@ async function toggleActive(emp) {
     alert('Failed to update status')
   }
 }
+
+// ─── Delete Employee ─────────────────────────────────────────────────────────
+const showDeleteModal = ref(false)
+const deleteTarget = ref(null)
+const isDeleting = ref(false)
+
+function confirmDelete(emp) {
+  deleteTarget.value = emp
+  showDeleteModal.value = true
+}
+
+async function deleteEmployee() {
+  if (!deleteTarget.value) return
+  isDeleting.value = true
+  try {
+    // Remove related ledger entries first
+    await supabase.from('mes_financial_ledger').delete().eq('operator_id', deleteTarget.value.id)
+    // Delete the operator
+    const { error } = await supabase.from('mes_operators').delete().eq('id', deleteTarget.value.id)
+    if (error) throw error
+    await mesStore.fetchInitialData()
+    showDeleteModal.value = false
+    deleteTarget.value = null
+  } catch (err) {
+    alert('Failed to delete employee: ' + err.message)
+  } finally {
+    isDeleting.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -272,6 +324,16 @@ async function toggleActive(emp) {
 .edit { background: rgba(255,255,255,0.1); color: #cbd5e1; }
 .deactivate { background: rgba(239,68,68,0.15); color: #f87171; }
 .activate { background: rgba(16,185,129,0.15); color: #34d399; }
+.delete-btn { background: rgba(239,68,68,0.12); color: #f87171; transition: background 0.18s; }
+.delete-btn:hover { background: rgba(239,68,68,0.28); color: #ef4444; }
+
+.btn-delete-confirm {
+  background: #ef4444; color: #fff; padding: 0.75rem 1.5rem; border-radius: 0.5rem;
+  font-weight: 700; cursor: pointer; border: none; display: flex; align-items: center; gap: 0.4rem;
+  transition: background 0.18s;
+}
+.btn-delete-confirm:hover { background: #dc2626; }
+.btn-delete-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* Modal */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; }

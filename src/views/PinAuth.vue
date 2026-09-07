@@ -57,7 +57,7 @@
       {{ attemptsLeft }} attempt{{ attemptsLeft !== 1 ? 's' : '' }} remaining
     </div>
     <div v-if="locked" class="locked-warning">
-      <span class="material-symbols-rounded">block</span>
+      <span class="material-symbols-rounded">block</span> 
       PIN locked for {{ lockdownRemaining }}s. Contact supervisor.
     </div>
 
