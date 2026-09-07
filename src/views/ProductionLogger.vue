@@ -385,7 +385,7 @@ const availableSizes = computed(() => opConfig.value.sizes?.length > 0 ? opConfi
 
 // Visibility
 const hasTypes = computed(() => activeCategory.value !== 'TIME' && activeCategory.value !== 'C' && activeCategory.value !== 'PLUG')
-const hasSizes = computed(() => activeCategory.value !== 'TIME' && activeCategory.value !== 'MFG' && activeCategory.value !== 'PLUG' && !isCustomWoodPlacement.value)
+const hasSizes = computed(() => activeCategory.value === 'C' && !isCustomWoodPlacement.value)
 const needsPlacement = computed(() => activeCategory.value === 'C')
 
 // Restore / update state when operator changes
@@ -494,8 +494,8 @@ const currentRate = computed(() => {
     const size = selections.size
     const pl = selections.placement
     
-    if (cat === 'MFG') {
-      rate = store.pieceRates?.['MFG']?.[type] ?? 0
+    if (cat === 'MFG' || cat === 'PP' || cat === 'PL') {
+      rate = store.pieceRates?.[cat]?.[type] ?? 0
     } else if (cat === 'PLUG') {
       const val = store.pieceRates?.['PLUG']
       rate = typeof val === 'number' ? val : (val?.rate ?? val?.default ?? 0.50)
@@ -519,8 +519,6 @@ const currentRate = computed(() => {
       } else {
         rate = cRates?.[size]?.[pl] ?? 0
       }
-    } else if (cat === 'PP' || cat === 'PL') {
-      rate = store.pieceRates?.[cat]?.[type]?.[size] ?? 0
     }
   }
   

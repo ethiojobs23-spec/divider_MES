@@ -42,22 +42,22 @@ export const defaultPieceRates = {
     'Other': 2.00
   },
   PP: {
-    '50': { '9cm': 0.75, '7cm': 0.60 },
-    '40': { '9cm': 0.70, '7cm': 0.55 },
-    '30': { '9cm': 0.65, '7cm': 0.50 },
-    '16': { '9cm': 0.60, '7cm': 0.45 },
-    '12': { '9cm': 0.55, '7cm': 0.40 },
-    '45': { '9cm': 0.70, '7cm': 0.55 },
-    'Other': { '9cm': 0.60, '7cm': 0.45 }
+    '50': 0.75,
+    '40': 0.70,
+    '30': 0.65,
+    '16': 0.60,
+    '12': 0.55,
+    '45': 0.70,
+    'Other': 0.60
   },
   PL: {
-    '50': { '9cm': 0.85, '7cm': 0.70 },
-    '40': { '9cm': 0.80, '7cm': 0.65 },
-    '30': { '9cm': 0.75, '7cm': 0.60 },
-    '16': { '9cm': 0.70, '7cm': 0.55 },
-    '12': { '9cm': 0.65, '7cm': 0.50 },
-    '45': { '9cm': 0.80, '7cm': 0.65 },
-    'Other': { '9cm': 0.70, '7cm': 0.55 }
+    '50': 0.85,
+    '40': 0.80,
+    '30': 0.75,
+    '16': 0.70,
+    '12': 0.65,
+    '45': 0.80,
+    'Other': 0.70
   },
   C: {
     'null': {
@@ -701,8 +701,7 @@ export const useMesStore = defineStore('mes', () => {
     }
 
     if (category === 'PP' || category === 'PL') {
-      if (!pieceRates.value[category][type]) pieceRates.value[category][type] = {}
-      pieceRates.value[category][type][size] = numVal
+      pieceRates.value[category][type] = numVal
       return
     }
 
@@ -1111,6 +1110,67 @@ export const useMesStore = defineStore('mes', () => {
     return { categories: ['MFG'], divider_types: [], placements: [], sizes: [], hourly_rate: null }
   }
 
+  function normalizePieceRates(raw) {
+    if (!raw) return { ...defaultPieceRates }
+    const result = { ...defaultPieceRates }
+    // 1. MFG
+    if (raw.MFG && typeof raw.MFG === 'object') {
+      for (const [type, val] of Object.entries(raw.MFG)) {
+        if (typeof val === 'number' && !isNaN(val)) result.MFG[type] = val
+      }
+    }
+    // 2. PP (Flatten to remove sizes)
+    if (raw.PP && typeof raw.PP === 'object') {
+      for (const [type, val] of Object.entries(raw.PP)) {
+        if (typeof val === 'number' && !isNaN(val)) {
+          result.PP[type] = val
+        } else if (val && typeof val === 'object') {
+          const num = val['9cm'] ?? Object.values(val)[0]
+          if (typeof num === 'number' && !isNaN(num)) result.PP[type] = num
+        }
+      }
+    }
+    // 3. PL (Flatten to remove sizes)
+    if (raw.PL && typeof raw.PL === 'object') {
+      for (const [type, val] of Object.entries(raw.PL)) {
+        if (typeof val === 'number' && !isNaN(val)) {
+          result.PL[type] = val
+        } else if (val && typeof val === 'object') {
+          const num = val['9cm'] ?? Object.values(val)[0]
+          if (typeof num === 'number' && !isNaN(num)) result.PL[type] = num
+        }
+      }
+    }
+    // 4. C (Wood)
+    if (raw.C && typeof raw.C === 'object') {
+      for (const [type, sizeObj] of Object.entries(raw.C)) {
+        if (sizeObj && typeof sizeObj === 'object') {
+          result.C[type] = { ...result.C[type] }
+          for (const [size, placeObj] of Object.entries(sizeObj)) {
+            if (placeObj && typeof placeObj === 'object') {
+              result.C[type][size] = { ...result.C[type][size] }
+              for (const [place, val] of Object.entries(placeObj)) {
+                if (typeof val === 'number' && !isNaN(val)) {
+                  result.C[type][size][place] = val
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    // 5. PLUG
+    if (raw.PLUG !== undefined) {
+      if (typeof raw.PLUG === 'number') {
+        result.PLUG = { rate: raw.PLUG }
+      } else if (typeof raw.PLUG === 'object') {
+        result.PLUG = { ...result.PLUG, ...raw.PLUG }
+      }
+    }
+    
+    return result
+  }
+
   function calculateEntryEarnings(entry, operatorId) {
     const opConfig = getOperatorWorkConfig(operatorId)
     const cat = entry.workCategory || 'MFG'
@@ -1137,9 +1197,9 @@ export const useMesStore = defineStore('mes', () => {
     
     let rate = 0
     const rates = pieceRates.value || {}
-    if (cat === 'MFG') {
-      const val = rates?.MFG?.[entry.dividerType]
-      rate = typeof val === 'number' ? val : (val?.['9cm']?.['ብተና'] || 0)
+    if (cat === 'MFG' || cat === 'PP' || cat === 'PL') {
+      const val = rates?.[cat]?.[entry.dividerType]
+      rate = typeof val === 'number' ? val : (val?.['9cm']?.['ብተና'] || val?.['9cm'] || 0)
     } else if (cat === 'C') {
       const cRates = rates?.C?.['null'] || rates?.C?.['50'] || {}
       const sizeKey = entry.size || '9cm'
@@ -1156,8 +1216,6 @@ export const useMesStore = defineStore('mes', () => {
              cRates?.['7cm']?.['other'] ??
              cRates?.['7cm']?.['የተለየ'] ??
              0
-    } else if (cat === 'PP' || cat === 'PL') {
-      rate = rates?.[cat]?.[entry.dividerType]?.[entry.size] ?? 0
     }
     
     return (typeof rate === 'number' && !isNaN(rate)) ? rate : 0

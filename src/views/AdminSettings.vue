@@ -99,8 +99,8 @@
         <!-- Rate Matrix for selected type -->
         <div class="rate-grid">
           
-          <!-- If category ONLY uses Types (MFG) -->
-          <template v-if="activeRateCat === 'MFG'">
+          <!-- If category ONLY uses Types (MFG, PP, PL) -->
+          <template v-if="activeRateCat === 'MFG' || activeRateCat === 'PP' || activeRateCat === 'PL'">
             <div class="rate-row" style="background: rgba(255,255,255,0.02); padding: 1.5rem; border-radius: 0.75rem; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 1rem;">
               <div class="rate-meta">
                 <span class="placement-badge" style="background: rgba(99,102,241,.15); color: #818cf8;">Flat Rate</span>
@@ -143,7 +143,7 @@
             </div>
           </template>
 
-          <!-- Categories with Sizes (C, PP, PL) -->
+          <!-- Categories with Sizes (C) -->
           <template v-else>
             <div
               v-for="size in sizes"
@@ -177,30 +177,6 @@
                         <span class="step-val">{{ getRate(activeRateCat, null, size, placement).toFixed(2) }}</span>
                       </div>
                       <button class="step-btn step-btn--plus" @click="adjustRate(activeRateCat, null, size, placement, +0.25)">
-                        <span class="material-symbols-rounded">add</span>
-                      </button>
-                    </div>
-                  </div>
-                </template>
-
-                <!-- If category does NOT use placements (PP, PL) -->
-                <template v-else>
-                  <div class="rate-row">
-                    <div class="rate-meta">
-                      <span class="placement-badge" style="background: rgba(16,185,129,.15); color: #10b981;">No Placement Used</span>
-                      <span class="rate-key">Type {{ selectedType === 'Other' ? (store.systemConfig?.otherDividerType?.label || 'Custom') : selectedType }} &bull; {{ size }}</span>
-                    </div>
-
-                    <!-- Stepper -->
-                    <div class="stepper">
-                      <button class="step-btn step-btn--minus" @click="adjustRate(activeRateCat, selectedType, size, null, -0.25)">
-                        <span class="material-symbols-rounded">remove</span>
-                      </button>
-                      <div class="step-display">
-                        <span class="step-currency">ETB</span>
-                        <span class="step-val">{{ getRate(activeRateCat, selectedType, size, null).toFixed(2) }}</span>
-                      </div>
-                      <button class="step-btn step-btn--plus" @click="adjustRate(activeRateCat, selectedType, size, null, +0.25)">
                         <span class="material-symbols-rounded">add</span>
                       </button>
                     </div>
@@ -658,16 +634,14 @@ const allPlacementsForRates = computed(() => {
 
   function getRate(category, type, size, placement) {
     let rate = 0
-    if (category === 'MFG') {
-      const val = store.pieceRates?.['MFG']?.[type]
-      rate = typeof val === 'number' ? val : (val?.['9cm']?.['ብተና'] || 0)
+    if (category === 'MFG' || category === 'PP' || category === 'PL') {
+      const val = store.pieceRates?.[category]?.[type]
+      rate = typeof val === 'number' ? val : (val?.['9cm']?.['ብተና'] || val?.['9cm'] || 0)
     } else if (category === 'PLUG') {
       const val = store.pieceRates?.['PLUG']
       rate = typeof val === 'number' ? val : (val?.rate ?? val?.default ?? 0.50)
     } else if (category === 'C') {
       rate = store.pieceRates?.['C']?.['null']?.[size]?.[placement] ?? store.pieceRates?.['C']?.['50']?.[size]?.[placement]
-    } else if (category === 'PP' || category === 'PL') {
-      rate = store.pieceRates?.[category]?.[type]?.[size]
     } else {
       rate = store.pieceRates?.[category]?.[type]?.[size]?.[placement]
     }
