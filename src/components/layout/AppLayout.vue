@@ -212,7 +212,7 @@
     </aside>
 
     <!-- ─── Main Content ──────────────────────────────────────────── -->
-    <main class="flex-1 bg-slate-900 overflow-hidden flex flex-col pt-16 md:pt-0 relative">
+    <main class="flex-1 bg-slate-900 overflow-y-auto md:overflow-hidden flex flex-col pt-16 md:pt-0 relative">
       <!-- Historical / Future Week Warning Alert Strip -->
       <div 
         v-if="!mesStore.weekStatus?.isCurrent"

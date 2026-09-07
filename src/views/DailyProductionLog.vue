@@ -697,4 +697,33 @@ function showToast(msg) {
 }
 .toast-enter-active, .toast-leave-active { transition: all .2s ease; }
 .toast-enter-from, .toast-leave-to       { opacity: 0; transform: translate(-50%, 1rem); }
+
+@media (max-width: 768px) {
+  .dpl-wrapper {
+    overflow-y: auto;
+    height: auto;
+    min-height: 100%;
+    padding-bottom: 5rem;
+  }
+  .dpl-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  .toggle-row {
+    flex-wrap: wrap;
+  }
+  .grid-container {
+    padding: 0.75rem;
+  }
+  .numpad-panel {
+    border-left: none;
+    border-top: 1px solid rgba(99,102,241,.2);
+    width: 100%;
+  }
+  .numpad-inner {
+    padding: 1rem;
+  }
+}
 </style>

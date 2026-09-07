@@ -861,5 +861,20 @@ const totalWeeklyInstallments = computed(() => {
 }
 .toast-enter-active, .toast-leave-active { transition: all 0.2s ease; }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 1rem); }
+
+@media (max-width: 768px) {
+  .cash-main {
+    padding: 1rem 0.75rem;
+    padding-bottom: 5rem;
+  }
+  .settings-top-nav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  .tab-panel {
+    padding: 1rem 0.75rem;
+  }
+}
 </style>
 

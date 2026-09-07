@@ -748,4 +748,36 @@ async function executeAction() {
   background: #1e293b; border: 1px solid rgba(255,255,255,0.1);
   border-radius: 1.25rem; padding: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6);
 }
+
+@media (max-width: 768px) {
+  .sa-root {
+    padding: 1rem 0.75rem;
+    padding-bottom: 5rem;
+    gap: 1rem;
+  }
+  .sa-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  .header-right {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .operator-cards {
+    grid-template-columns: 1fr;
+  }
+  .card-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  .action-btns {
+    width: 100%;
+  }
+  .btn-approve, .btn-reject {
+    flex: 1;
+    justify-content: center;
+  }
+}
 </style>

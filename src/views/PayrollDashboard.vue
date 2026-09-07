@@ -80,69 +80,23 @@
         </div>
       </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 md:px-8 pb-4">
-      <!-- ── Physical Cash Requirements ─────────────────────────────────── -->
-      <div class="cash-denom-card" v-if="cashDenominations.totalCash > 0" style="margin: 0; height: 100%;">
-        <div class="cash-denom-header">
-          <div class="cash-denom-title">
-            <span class="material-symbols-rounded" style="color:#fbbf24;font-size:1.2rem">payments</span>
-            Physical Cash Requirements
-            <span class="cash-week-badge">{{ currentWeek }}</span>
-          </div>
-          <div class="cash-denom-meta">
-            <span class="cash-total-label">Total to Withdraw:</span>
-            <span class="cash-total-value">{{ cashDenominations.totalCash.toFixed(2) }} ETB</span>
-            <button class="btn-bank-slip" @click="printBankSlip">
-              <span class="material-symbols-rounded" style="font-size:1rem">print</span>
-              Print Bank Slip
-            </button>
-          </div>
-        </div>
-        <div class="denom-table-wrap w-full overflow-x-auto">
-          <table class="denom-table w-full min-w-[600px]">
-            <thead>
-              <tr>
-                <th>Note</th>
-                <th>Count</th>
-                <th>Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="row in cashDenominations.breakdown"
-                :key="row.denom"
-                class="denom-row"
-                :class="row.count > 0 ? 'denom-row--active' : 'denom-row--zero'"
-              >
-                <td class="denom-note"><span class="note-chip">{{ row.denom }} ETB</span></td>
-                <td class="denom-count">× {{ row.count }}</td>
-                <td class="denom-subtotal">{{ (row.denom * row.count).toFixed(2) }} ETB</td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="approved-workers-note">
-            <span class="material-symbols-rounded" style="font-size:.9rem;color:#34d399">group</span>
-            {{ cashDenominations.approvedCount }} approved payout{{ cashDenominations.approvedCount !== 1 ? 's' : '' }} this week
-          </div>
-        </div>
-      </div>
-
-      <!-- ── Digital Disbursements ──────────────────────────────────────── -->
-      <div class="chart-card digital-disbursements-card" v-if="digitalDisbursementsCount > 0" style="margin: 0; height: 100%;">
-        <div class="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
+    <!-- ── Digital Disbursements (Full-width responsive card) ── -->
+    <div v-if="digitalDisbursementsCount > 0" class="px-4 sm:px-6 md:px-8 pb-4">
+      <div class="chart-card digital-disbursements-card" style="margin: 0;">
+        <div class="flex justify-between items-center mb-3 border-b border-white/5 pb-2.5">
           <div class="flex items-center gap-2">
             <span class="material-symbols-rounded text-blue-400 text-xl">account_balance</span>
-            <span class="text-lg font-bold text-white">Digital Disbursements</span>
+            <span class="text-base sm:text-lg font-bold text-white">Digital Disbursements</span>
           </div>
           <span class="bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full text-xs font-bold">{{ currentWeek }}</span>
         </div>
-        <div class="flex flex-col flex-1 justify-center">
-          <div class="text-center mb-6">
-            <p class="text-slate-300 font-medium text-sm">{{ digitalSummaryText }}</p>
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="text-center sm:text-left">
+            <p class="text-slate-300 font-medium text-xs sm:text-sm">{{ digitalSummaryText }}</p>
           </div>
-          <div class="mt-auto">
-            <button class="bg-blue-600 hover:bg-blue-500 text-white font-black py-4 px-6 rounded-xl flex items-center justify-center gap-3 w-full shadow-lg shadow-blue-600/30 transition-all active:scale-95 uppercase tracking-widest text-sm" @click="generateDigitalPayrollCSV">
-              <span class="material-symbols-rounded">download</span>
+          <div class="w-full sm:w-auto shrink-0">
+            <button class="bg-blue-600 hover:bg-blue-500 text-white font-black py-3 px-5 rounded-xl flex items-center justify-center gap-2.5 w-full sm:w-auto shadow-lg shadow-blue-600/30 transition-all active:scale-95 uppercase tracking-widest text-xs sm:text-sm cursor-pointer" @click="generateDigitalPayrollCSV">
+              <span class="material-symbols-rounded text-base">download</span>
               EXPORT CBE/TELEBIRR CSV
             </button>
           </div>
@@ -1048,95 +1002,7 @@ function exportHistoryCSV() {
   document.body.removeChild(link)
 }
 
-// ── Cash Denomination Calculator ─────────────────────────────────────────────
-// Ethiopian Birr physical note denominations (greedy algorithm — largest first)
-const DENOMINATIONS = [200, 100, 50, 10, 5, 1]
 
-/**
- * Returns an object { denom: count } for breaking down an ETB amount
- * into the minimum number of physical notes/coins using a greedy approach.
- */
-function denominateAmount(amountEtb) {
-  // Round to nearest whole birr (no physical fractional notes)
-  let remaining = Math.round(amountEtb)
-  const counts = {}
-  for (const denom of DENOMINATIONS) {
-    counts[denom] = Math.floor(remaining / denom)
-    remaining = remaining % denom
-  }
-  return counts
-}
-
-const cashDenominations = computed(() => {
-  const approvedWorkers = payrollStore.weeklyPayrollSummary.filter(
-    w => w.payoutStatus.status === 'approved' && w.netPayout > 0 && (!w.paymentMethod || w.paymentMethod === 'Cash')
-  )
-
-  if (approvedWorkers.length === 0) {
-    return {
-      totalCash: 0,
-      approvedCount: 0,
-      breakdown: DENOMINATIONS.map(d => ({ denom: d, count: 0 })),
-    }
-  }
-
-  const totalCash = approvedWorkers.reduce((sum, w) => sum + w.netPayout, 0)
-
-  // Accumulate denomination counts across every approved worker's payout
-  const totalCounts = Object.fromEntries(DENOMINATIONS.map(d => [d, 0]))
-  for (const worker of approvedWorkers) {
-    const workerCounts = denominateAmount(worker.netPayout)
-    for (const denom of DENOMINATIONS) {
-      totalCounts[denom] += workerCounts[denom] || 0
-    }
-  }
-
-  return {
-    totalCash,
-    approvedCount: approvedWorkers.length,
-    breakdown: DENOMINATIONS.map(d => ({ denom: d, count: totalCounts[d] })),
-  }
-})
-
-function printBankSlip() {
-  const { totalCash, approvedCount, breakdown } = cashDenominations.value
-  const week = currentWeek.value
-
-  const rows = breakdown
-    .filter(r => r.count > 0)
-    .map(r =>
-      `  ${String(r.denom).padStart(3)} ETB notes : ${String(r.count).padStart(5)}   =  ${(r.denom * r.count).toFixed(2)} ETB`
-    ).join('\n')
-
-  const slip = [
-    '╔═══════════════════════════════════════════════╗',
-    '║         DIVIDER MES — BANK CASH SLIP          ║',
-    '╚═══════════════════════════════════════════════╝',
-    `  Production Week : ${week}`,
-    `  Approved Payees : ${approvedCount} worker${approvedCount !== 1 ? 's' : ''}`,
-    `  Total Cash      : ${totalCash.toFixed(2)} ETB`,
-    '─────────────────────────────────────────────────',
-    '  DENOMINATION BREAKDOWN',
-    '─────────────────────────────────────────────────',
-    rows,
-    '─────────────────────────────────────────────────',
-    `  Printed by      : Divider MES Admin`,
-    `  Date / Time     : ${new Date().toLocaleString()}`,
-    '  Authorized by   : ___________________________',
-    '',
-  ].join('\n')
-
-  const win = window.open('', '_blank', 'width=520,height=640')
-  if (!win) return
-  win.document.write(
-    '<html><head><title>Bank Cash Slip – ' + week + '</title></head>' +
-    '<body style="margin:0;background:#fff">' +
-    '<pre style="font-family:Courier New,monospace;font-size:13px;' +
-    'padding:2rem;color:#000;white-space:pre">' + slip + '</pre></body></html>'
-  )
-  win.document.close()
-  win.print()
-}
 
 // ── Digital CSV Export ─────────────────────────────────────────────────────
 const digitalWorkers = computed(() => {
@@ -1788,145 +1654,6 @@ function executeHold(reason) {
   font-weight: 600;
 }
 
-/* ══ Cash Denomination Card ═════════════════════════════════════════════════ */
-.cash-denom-card {
-  background: linear-gradient(135deg, #1e293b 60%, rgba(251,191,36,0.05));
-  border-bottom: 1px solid rgba(251,191,36,0.18);
-  padding: 0.8rem 1.5rem;
-  flex-shrink: 0;
-}
-
-.cash-denom-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.65rem;
-}
-
-.cash-denom-title {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.78rem;
-  font-weight: 800;
-  color: #e2e8f0;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-}
-
-.cash-week-badge {
-  background: rgba(251,191,36,0.12);
-  border: 1px solid rgba(251,191,36,0.28);
-  color: #fbbf24;
-  font-size: 0.6rem;
-  font-weight: 700;
-  padding: 0.12rem 0.45rem;
-  border-radius: 999px;
-  letter-spacing: 0.06em;
-}
-
-.cash-denom-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.cash-total-label {
-  font-size: 0.68rem;
-  color: #64748b;
-  font-weight: 600;
-}
-
-.cash-total-value {
-  font-size: 1rem;
-  font-weight: 900;
-  color: #fbbf24;
-  font-variant-numeric: tabular-nums;
-}
-
-.btn-bank-slip {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  background: rgba(251,191,36,0.1);
-  border: 1px solid rgba(251,191,36,0.3);
-  border-radius: 0.45rem;
-  color: #fbbf24;
-  font-size: 0.68rem;
-  font-weight: 800;
-  padding: 0.35rem 0.75rem;
-  cursor: pointer;
-  letter-spacing: 0.05em;
-  transition: background 0.14s;
-  font-family: inherit;
-}
-.btn-bank-slip:hover  { background: rgba(251,191,36,0.2); }
-.btn-bank-slip:active { transform: scale(0.95); }
-
-.denom-table-wrap {
-  display: flex;
-  align-items: flex-start;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.denom-table {
-  border-collapse: collapse;
-  font-size: 0.75rem;
-}
-
-.denom-table th {
-  text-align: left;
-  padding: 0.25rem 0.75rem;
-  color: #475569;
-  font-size: 0.6rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
-.denom-row td      { padding: 0.25rem 0.75rem; }
-.denom-row--zero   { opacity: 0.2; }
-
-.denom-note   { width: 100px; }
-
-.note-chip {
-  background: #0f172a;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 0.3rem;
-  padding: 0.12rem 0.4rem;
-  font-weight: 800;
-  color: #e2e8f0;
-  font-variant-numeric: tabular-nums;
-  font-size: 0.75rem;
-}
-
-.denom-count {
-  color: #94a3b8;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  width: 55px;
-}
-
-.denom-subtotal {
-  color: #fbbf24;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-.approved-workers-note {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.65rem;
-  color: #475569;
-  align-self: flex-end;
-  padding-bottom: 0.2rem;
-}
 
 /* ══ Bonus Row — card + keypad side-by-side ══════════════════════════════════ */
 .bonus-row {
@@ -1942,7 +1669,7 @@ function executeHold(reason) {
   flex: 1;
   min-width: 0;
 }
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .bonus-row { flex-direction: column; }
 }
 
@@ -1957,6 +1684,11 @@ function executeHold(reason) {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+}
+@media (max-width: 768px) {
+  .bonus-keypad {
+    width: 100%;
+  }
 }
 
 .keypad-display {
@@ -1991,7 +1723,7 @@ function executeHold(reason) {
 }
 
 .kp-btn {
-  height: 2.6rem;
+  height: 2.75rem;
   border-radius: 0.55rem;
   border: 1px solid rgba(255,255,255,0.07);
   background: #0f172a;
@@ -2005,6 +1737,7 @@ function executeHold(reason) {
   transition: background 0.1s, transform 0.07s, border-color 0.1s;
   -webkit-tap-highlight-color: transparent;
   font-family: inherit;
+  touch-action: manipulation;
 }
 .kp-btn:hover  { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.14); }
 .kp-btn:active { transform: scale(0.93); background: rgba(255,255,255,0.1); }
@@ -2050,18 +1783,58 @@ function executeHold(reason) {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
-    padding-bottom: 4rem;
+    padding-bottom: 5rem;
   }
   .view-panel {
     overflow: visible;
     height: auto;
+    padding: 0.85rem 0.75rem;
+    gap: 0.75rem;
+  }
+  .employee-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .operator-list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.6rem;
+    gap: 0.5rem;
+    max-height: none;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 0.85rem;
+  }
+  .op-card {
+    min-width: 175px;
+    flex-shrink: 0;
+  }
+  .profile-area {
+    padding-right: 0;
+    overflow: visible;
+    width: 100%;
+  }
+  .detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin-bottom: 1.25rem;
+  }
+  .status-stamp {
+    font-size: 1rem;
+    padding: 0.35rem 0.75rem;
+  }
+  .net-payout .net-amount {
+    font-size: 2.25rem;
+  }
+  .btn-massive, .kp-btn {
+    touch-action: manipulation;
+  }
+  .btn-massive {
     padding: 1rem;
-  }
-  .btn-massive, .kp-btn, .btn-bank-slip {
-    touch-action: pan-y;
-  }
-  .cash-denom-card {
-    padding: 0.8rem 1rem;
+    font-size: 1rem;
   }
   .action-buttons {
     flex-direction: column;
