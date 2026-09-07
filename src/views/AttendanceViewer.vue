@@ -42,9 +42,11 @@
             <tr>
               <th>Operator</th>
               <th>Shift Date</th>
-              <th>Clock In</th>
-              <th>Clock Out</th>
-              <th>Status</th>
+              <th>Morning In</th>
+              <th>Lunch Out</th>
+              <th>Lunch In</th>
+              <th>Shift Out</th>
+              <th>Total Hours</th>
             </tr>
           </thead>
           <tbody>
@@ -64,21 +66,24 @@
               <td>{{ log.shiftDate }}</td>
               <td>
                 <div style="display:flex; flex-direction:column; gap:0.25rem;">
-                  <span>{{ formatTime(log.clockIn) }}</span>
-                  <span v-if="log.lateMins > 0" style="font-size:0.75rem; color:#ef4444; font-weight:700;">
-                    LATE BY {{ Math.floor(log.lateMins / 60) > 0 ? Math.floor(log.lateMins / 60) + 'h ' : '' }}{{ log.lateMins % 60 }}m
+                  <span>{{ formatTime(log.morningIn) }}</span>
+                  <span v-if="log.lateMins > 0" style="font-size:0.7rem; color:#ef4444; font-weight:700;">
+                    LATE: {{ Math.floor(log.lateMins / 60) > 0 ? Math.floor(log.lateMins / 60) + 'h ' : '' }}{{ log.lateMins % 60 }}m
                   </span>
+                  <span v-else-if="log.status === 'on_time'" style="font-size:0.7rem; color:#34d399; font-weight:700;">ON TIME</span>
                 </div>
               </td>
-              <td>{{ formatTime(log.clockOut) }}</td>
+              <td style="color:#a5b4fc">{{ formatTime(log.lunchOut) }}</td>
+              <td style="color:#a5b4fc">{{ formatTime(log.lunchIn) }}</td>
+              <td>{{ formatTime(log.shiftOut) }}</td>
               <td>
-                <span class="status-badge" :class="log.status">
-                  {{ (log.status || 'unknown').toUpperCase() }}
+                <span style="background: rgba(59,130,246,0.15); color: #60a5fa; padding: 0.35rem 0.6rem; border-radius: 0.5rem; font-weight: 800; font-size: 0.85rem;">
+                  {{ log.exactHours }}h
                 </span>
               </td>
             </tr>
             <tr v-if="formattedLogs.length === 0">
-              <td colspan="5" class="empty-text">No attendance records found for this week.</td>
+              <td colspan="7" class="empty-text">No attendance records found for this week.</td>
             </tr>
           </tbody>
         </table>
@@ -171,37 +176,84 @@ const formattedLogs = computed(() => {
   const morningWindow = attStore.clockingWindows.find(w => w.id === 'morning_in')
   const morningEndMin = morningWindow ? parseTimeToMins(morningWindow.end) : 480
 
-  // Sort by latest shift date and clock in
-  const sorted = [...weekLogs.value].sort((a, b) => {
-    return new Date(b.clock_in || b.timestamp).getTime() - new Date(a.clock_in || a.timestamp).getTime()
+  const grouped = {}
+  
+  weekLogs.value.forEach(log => {
+    const opId = log.operator_id || log.operatorId
+    const date = log.shift_date || log.shiftDate
+    const key = `${opId}-${date}`
+    if (!grouped[key]) {
+      grouped[key] = {
+        opId,
+        date,
+        logs: []
+      }
+    }
+    grouped[key].logs.push(log)
   })
 
-  return sorted.map(log => {
-    const opId = log.operator_id || log.operatorId
-    const operator = mesStore.operators.find(op => op.id === opId) || {
+  const results = Object.values(grouped).map(group => {
+    // Sort logs chronologically for the day
+    group.logs.sort((a, b) => new Date(a.clock_in || a.timestamp).getTime() - new Date(b.clock_in || b.timestamp).getTime())
+    
+    const firstLog = group.logs[0]
+    const lastLog = group.logs[group.logs.length - 1]
+    
+    const morningIn = firstLog.clock_in || firstLog.timestamp
+    let lunchOut = null
+    let lunchIn = null
+    const shiftOut = lastLog.clock_out || lastLog.clockOut
+
+    if (group.logs.length >= 2) {
+      lunchOut = firstLog.clock_out || firstLog.clockOut
+      lunchIn = group.logs[1].clock_in || group.logs[1].timestamp
+    }
+
+    // Calculate exact hours
+    let exactMins = 0
+    group.logs.forEach(l => {
+      const inTime = l.clock_in || l.timestamp
+      const outTime = l.clock_out || l.clockOut
+      if (inTime && outTime) {
+        const diff = (new Date(outTime).getTime() - new Date(inTime).getTime()) / 60000
+        if (diff > 0 && diff < 1440) exactMins += diff
+      }
+    })
+    const exactHours = (exactMins / 60).toFixed(2)
+
+    const operator = mesStore.operators.find(op => op.id === group.opId) || {
       name: 'Unknown', avatar: '', color: 'bg-slate-500'
     }
     
     let lateMins = 0
-    const clockIn = log.clock_in || log.timestamp
-    const clockInTime = new Date(clockIn)
+    const clockInTime = new Date(morningIn)
     const clockedInMins = clockInTime.getHours() * 60 + clockInTime.getMinutes()
     if (clockedInMins > morningEndMin) {
        lateMins = clockedInMins - morningEndMin
     }
     
-    const performance = operatorScores.value[opId] || { stars: 5 }
+    const performance = operatorScores.value[group.opId] || { stars: 5 }
     
     return {
-      id: `${opId}-${clockIn}`,
+      id: `${group.opId}-${group.date}`,
       operator,
-      shiftDate: log.shift_date || log.shiftDate,
-      clockIn: clockIn,
-      clockOut: log.clock_out || log.clockOut,
-      status: log.status,
+      shiftDate: group.date,
+      morningIn,
+      lunchOut,
+      lunchIn,
+      shiftOut,
+      exactHours,
+      status: firstLog.status,
       lateMins,
       stars: performance.stars
     }
+  })
+
+  // Sort results by date descending, then operator name
+  return results.sort((a, b) => {
+    const dateDiff = new Date(b.shiftDate).getTime() - new Date(a.shiftDate).getTime()
+    if (dateDiff !== 0) return dateDiff
+    return a.operator.name.localeCompare(b.operator.name)
   })
 })
 

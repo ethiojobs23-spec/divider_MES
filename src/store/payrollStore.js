@@ -397,12 +397,31 @@ export const usePayrollStore = defineStore('payroll', () => {
     return toDecimal2(gross)
   }
 
+  function getExactHoursWorked(workerId, week) {
+    const attendanceStore = useAttendanceStore()
+    const entries = attendanceStore.clockInLog.filter(
+      e => Number(e.operatorId) === Number(workerId) && e.week === week
+    )
+    let totalMinutes = 0
+    for (const entry of entries) {
+      if (entry.timestamp && entry.clockOut) {
+        const start = new Date(entry.timestamp).getTime()
+        const end = new Date(entry.clockOut).getTime()
+        const diffMins = (end - start) / 60000
+        if (diffMins > 0 && diffMins < 1440) { // Max 24h sanity check
+          totalMinutes += diffMins
+        }
+      }
+    }
+    return totalMinutes / 60
+  }
+
   function getHourlyEarnings(workerId, week) {
     const profile = getWorkerProfile(workerId)
     if (!profile.isHourly) return 0
     const rate = Math.min(HOURLY_MAX, Math.max(HOURLY_MIN, profile.hourlyRate))
-    const daysAttended = getDaysAttended(workerId, week)
-    return toDecimal2(daysAttended * 8 * rate)
+    const exactHours = getExactHoursWorked(workerId, week)
+    return toDecimal2(exactHours * rate)
   }
 
   function getShiftBreakdown(workerId, week) {
