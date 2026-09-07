@@ -94,18 +94,6 @@
         <span class="material-symbols-rounded card-arrow">arrow_forward</span>
       </button>
 
-      <!-- 4. Production Block Matrix -->
-      <button class="module-card card--blue" @click="go('/block-matrix')">
-        <div class="card-glow" />
-        <span class="material-symbols-rounded card-icon">grid_view</span>
-        <div class="card-body">
-          <p class="card-eyebrow">PRODUCTION</p>
-          <h2 class="card-title">Block Matrix</h2>
-          <p class="card-sub">Aggregated Block Output</p>
-        </div>
-        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
-      </button>
-
       <!-- 5. Downtime Tracker -->
       <button class="module-card card--slate" @click="go('/downtime')">
         <div class="card-glow" />
