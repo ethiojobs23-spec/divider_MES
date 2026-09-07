@@ -45,6 +45,18 @@
         <span class="material-symbols-rounded card-arrow">arrow_forward</span>
       </button>
 
+      <!-- Attendance Log -->
+      <button class="module-card card--emerald" @click="go('/attendance-log')">
+        <div class="card-glow" />
+        <span class="material-symbols-rounded card-icon">recent_patient</span>
+        <div class="card-body">
+          <p class="card-eyebrow">ATTENDANCE</p>
+          <h2 class="card-title">Attendance Log</h2>
+          <p class="card-sub">View Clock-In Records</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
+
       <!-- 2. Production Logger -->
       <button class="module-card card--blue" @click="go('/production')">
         <div class="card-glow" />
@@ -83,7 +95,7 @@
       </button>
 
       <!-- 4. Production Block Matrix -->
-      <button v-if="false" class="module-card card--blue" @click="go('/block-matrix')">
+      <button class="module-card card--blue" @click="go('/block-matrix')">
         <div class="card-glow" />
         <span class="material-symbols-rounded card-icon">grid_view</span>
         <div class="card-body">
@@ -190,6 +202,18 @@
         <span class="material-symbols-rounded card-arrow">arrow_forward</span>
       </button>
       
+      <!-- Supervisor Profile -->
+      <button class="module-card card--slate" @click="go('/supervisor-profile')">
+        <div class="card-glow" />
+        <span class="material-symbols-rounded card-icon">badge</span>
+        <div class="card-body">
+          <p class="card-eyebrow">ADMIN</p>
+          <h2 class="card-title">My Profile</h2>
+          <p class="card-sub">Manage Your Account</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
+
       <!-- 12. Employee Profiles -->
       <button class="module-card card--slate" @click="go('/profile')">
         <div class="card-glow" />
@@ -236,6 +260,18 @@
           <p class="card-eyebrow">PAYROLL & PAYMENT</p>
           <h2 class="card-title">Approval</h2>
           <p class="card-sub">Review & Authorize Weekly Payouts</p>
+        </div>
+        <span class="material-symbols-rounded card-arrow">arrow_forward</span>
+      </button>
+
+      <!-- Payout Settings -->
+      <button class="module-card card--purple" @click="go('/payout-settings')">
+        <div class="card-glow" />
+        <span class="material-symbols-rounded card-icon">settings_account_box</span>
+        <div class="card-body">
+          <p class="card-eyebrow">PAYROLL & PAYMENT</p>
+          <h2 class="card-title">Payout Settings</h2>
+          <p class="card-sub">Configure Payment Methods</p>
         </div>
         <span class="material-symbols-rounded card-arrow">arrow_forward</span>
       </button>
